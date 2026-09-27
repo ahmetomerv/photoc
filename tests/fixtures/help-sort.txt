@@ -1,9 +1,14 @@
-Usage: photoc [global options] sort <path>...
+Usage: photoc [global options] sort <directory> --by date [--recursive]
        photoc sort --help
 
-Organize photos into folders
+Preview date-based JPEG sorting
 
-Status: not implemented
+Status: dry-run only; no files or directories are changed
 
-Example (planned):
-  photoc sort ~/Pictures
+Example:
+  photoc sort ~/Pictures --by date
+  photoc sort ~/Pictures --by date --recursive
+
+Options:
+  --by date          Required; group by EXIF capture date (YYYY/MM/DD)
+  --recursive        Include nested directories

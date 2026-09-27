@@ -39,6 +39,7 @@ add_executable(photoc
     src/core/parse.c
     src/commands/exif.c
     src/commands/rename.c
+    src/commands/sort.c
     src/commands/stats.c
     src/commands/stub.c
 )
@@ -132,13 +133,28 @@ if(BUILD_TESTING)
         add_cli_test("cli_${case}" "${case}")
     endforeach()
 
-    foreach(command IN ITEMS compress duplicates sort focus scrub)
+    foreach(command IN ITEMS compress duplicates focus scrub)
         add_cli_test("command_${command}" stub "${command}")
         add_cli_test("command_${command}_help" command_help "${command}")
     endforeach()
     add_cli_test(command_exif_help command_help exif)
     add_cli_test(command_stats_help command_help stats)
     add_cli_test(command_rename_help command_help rename)
+    add_cli_test(command_sort_help command_help sort)
+
+    foreach(case IN ITEMS flat recursive missing_date collision duplicate
+                          case_duplicate parent_conflict invalid_jpeg unchanged
+                          empty missing_directory missing_by missing_value
+                          duplicate_by unknown_by json unknown_option)
+        add_test(
+            NAME "sort_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_sort_cli.cmake"
+        )
+    endforeach()
 
     foreach(case IN ITEMS flat recursive missing_date missing_camera collision
                           file_collision duplicate case_duplicate

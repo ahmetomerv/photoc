@@ -25,6 +25,10 @@ int photoc_fs_filename(const char *path, char **filename);
 int photoc_fs_extension(const char *path, char **extension);
 bool photoc_fs_is_jpeg(const char *path);
 
+/* Compares paths bytewise after folding ASCII A-Z. Useful for detecting
+   portable destination-name collisions; does not inspect the filesystem. */
+int photoc_fs_compare_casefold(const char *left, const char *right);
+
 /* Lexical join of a nonempty base and a nonempty relative child.
    Absolute children are rejected. This does not enforce path containment.
    The output pointer must not own memory on entry; *joined must be freed by

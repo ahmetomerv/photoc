@@ -223,6 +223,21 @@ bool photoc_fs_is_jpeg(const char *path)
     return false;
 }
 
+int photoc_fs_compare_casefold(const char *left, const char *right)
+{
+    while (*left != '\0' && *right != '\0') {
+        unsigned char a = (unsigned char)ascii_lower(*left++);
+        unsigned char b = (unsigned char)ascii_lower(*right++);
+        if (a != b) {
+            return a < b ? -1 : 1;
+        }
+    }
+    if (*left == *right) {
+        return 0;
+    }
+    return *left == '\0' ? -1 : 1;
+}
+
 int photoc_fs_join(const char *base, const char *child, char **joined)
 {
     if (joined == NULL) {

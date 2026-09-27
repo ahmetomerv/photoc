@@ -1,7 +1,7 @@
 # photoc
 
 `photoc` is a command-line toolkit for photographers, written in C. It can
-inspect JPEG metadata, summarize JPEG collections, and rename JPEG files.
+inspect JPEG metadata, summarize JPEG collections, rename JPEGs, and preview sorting.
 Other planned commands are placeholders.
 
 ## Build and test
@@ -40,6 +40,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc stats ~/Pictures --json
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}"
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}" --apply
+./build/photoc sort ~/Pictures --by date --recursive
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -72,7 +73,16 @@ unchanged, blocked, applied, and rolled-back counts. Exit status is 1 for
 blocked or failed operations. A missing date does not fall back to file
 timestamps. Use `photoc rename --help` for examples.
 
-The planned `compress`, `duplicates`, `sort`, `focus`, and `scrub` commands
+`sort <directory> --by date [--recursive]` previews moving JPEGs into
+`YYYY/MM/DD/` folders using valid EXIF capture dates. It preserves filenames,
+prints paths relative to the supplied directory, and never creates folders or
+moves files. It reports missing dates, invalid JPEGs, existing destinations,
+and duplicate planned destinations as skipped; a skipped JPEG gives exit status
+1. Existing files or symlinks in the destination date path are also reported.
+Use `--recursive` to scan nested directories. The plan is sorted by source path
+for predictable output.
+
+The planned `compress`, `duplicates`, `focus`, and `scrub` commands
 still report that they are not implemented.
 
 With `exif --json`, details are grouped under `file`, `image`, `camera`,

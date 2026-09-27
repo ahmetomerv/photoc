@@ -15,6 +15,7 @@ typedef struct {
     const char *command;
     const char *first_argument;
     const char *format;
+    const char *sort_by;
     size_t argument_count;
 } photoc_cli_options;
 
@@ -25,7 +26,7 @@ typedef enum {
     PHOTOC_PARSE_DUPLICATE_OPTION
 } photoc_parse_status;
 
-/* command, first_argument, format, and error_arg borrow strings from argv. */
+/* command, first_argument, format, sort_by, and error_arg borrow argv strings. */
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,
                                       const char **error_arg);

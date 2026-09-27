@@ -227,31 +227,11 @@ static void recheck_entries(rename_plan *plan)
     }
 }
 
-static unsigned char ascii_lower(unsigned char byte)
-{
-    return byte >= 'A' && byte <= 'Z' ? (unsigned char)(byte - 'A' + 'a') : byte;
-}
-
-static int compare_folded_paths(const char *a, const char *b)
-{
-    while (*a != '\0' && *b != '\0') {
-        unsigned char left = ascii_lower((unsigned char)*a++);
-        unsigned char right = ascii_lower((unsigned char)*b++);
-        if (left != right) {
-            return left < right ? -1 : 1;
-        }
-    }
-    if (*a == *b) {
-        return 0;
-    }
-    return *a == '\0' ? -1 : 1;
-}
-
 static int compare_destination(const void *left, const void *right)
 {
     const rename_entry *const *a = left;
     const rename_entry *const *b = right;
-    int folded = compare_folded_paths((*a)->destination, (*b)->destination);
+    int folded = photoc_fs_compare_casefold((*a)->destination, (*b)->destination);
     return folded == 0 ? strcmp((*a)->destination, (*b)->destination) : folded;
 }
 
@@ -276,8 +256,8 @@ static int mark_duplicate_destinations(rename_plan *plan)
     }
     qsort(sorted, count, sizeof(*sorted), compare_destination);
     for (size_t i = 1; i < count; ++i) {
-        if (compare_folded_paths(sorted[i - 1]->destination,
-                                 sorted[i]->destination) == 0) {
+        if (photoc_fs_compare_casefold(sorted[i - 1]->destination,
+                                       sorted[i]->destination) == 0) {
             sorted[i - 1]->duplicate_destination = true;
             sorted[i]->duplicate_destination = true;
         }

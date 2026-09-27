@@ -22,7 +22,7 @@ static const photoc_command commands[] = {
     {"duplicates", "Find duplicate photos", "<path>...", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
     {"rename", "Preview or apply JPEG renames", "<directory> --format <template> [--recursive] [--apply]", "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\""},
-    {"sort", "Organize photos into folders", "<path>...", "photoc sort ~/Pictures"},
+    {"sort", "Preview date-based JPEG sorting", "<directory> --by date [--recursive]", "photoc sort ~/Pictures --by date"},
     {"focus", "Assess image focus", "<photo>...", "photoc focus photo.jpg"},
     {"scrub", "Remove selected metadata", "<photo>...", "photoc scrub photo.jpg"}
 };
@@ -56,7 +56,7 @@ static void print_global_help(void)
     puts("  -q, --quiet      Request reduced output");
     puts("      --json       Request JSON output where supported");
     puts("");
-    puts("Exif and stats inspect JPEG files; rename previews changes unless --apply is set.");
+    puts("Exif and stats inspect JPEG files; rename and sort preview changes by default.");
     puts("Other commands are planned.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
@@ -73,13 +73,16 @@ static void print_command_help(const photoc_command *command)
         puts("Status: available for JPEG files");
     } else if (strcmp(command->name, "rename") == 0) {
         puts("Status: dry-run by default; --apply changes files after preflight");
+    } else if (strcmp(command->name, "sort") == 0) {
+        puts("Status: dry-run only; no files or directories are changed");
     } else {
         puts("Status: not implemented");
     }
     puts("");
     bool implemented = strcmp(command->name, "exif") == 0 ||
                        strcmp(command->name, "stats") == 0 ||
-                       strcmp(command->name, "rename") == 0;
+                       strcmp(command->name, "rename") == 0 ||
+                       strcmp(command->name, "sort") == 0;
     puts(implemented ? "Example:" : "Example (planned):");
     printf("  %s\n", command->example);
     if (strcmp(command->name, "exif") == 0) {
@@ -95,6 +98,12 @@ static void print_command_help(const photoc_command *command)
         puts("  --format <template>  Required filename template");
         puts("  --recursive        Include nested directories");
         puts("  --apply            Rename files after the whole plan passes preflight");
+    } else if (strcmp(command->name, "sort") == 0) {
+        puts("  photoc sort ~/Pictures --by date --recursive");
+        puts("");
+        puts("Options:");
+        puts("  --by date          Required; group by EXIF capture date (YYYY/MM/DD)");
+        puts("  --recursive        Include nested directories");
     }
 }
 
@@ -198,6 +207,25 @@ int photoc_run(int argc, char *argv[])
         }
         return photoc_command_rename(options.first_argument, options.format,
                                      options.recursive, options.apply);
+    }
+
+    if (strcmp(command->name, "sort") == 0) {
+        if (options.argument_count != 1 || options.sort_by == NULL) {
+            fputs("photoc sort: expected one directory and --by date\n"
+                  "Usage: photoc sort <directory> --by date [--recursive]\n",
+                  stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (strcmp(options.sort_by, "date") != 0) {
+            fprintf(stderr, "photoc sort: unsupported sort key '%s'; use 'date'\n",
+                    options.sort_by);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (options.json) {
+            fputs("photoc sort: --json is not supported\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        return photoc_command_sort(options.first_argument, options.recursive);
     }
 
     return photoc_command_unimplemented(command->name);
