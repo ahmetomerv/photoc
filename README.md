@@ -34,6 +34,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc --version
 ./build/photoc exif --help
 ./build/photoc exif photo.jpg
+./build/photoc exif photo.jpg --json
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -41,7 +42,11 @@ for one JPEG. Unavailable EXIF fields are labeled `Unavailable`. The planned
 `compress`, `duplicates`, `stats`, `rename`, `sort`, `focus`, and `scrub`
 commands still report that they are not implemented.
 
-Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter `exif` output yet. JSON output is not supported by `exif` yet; requesting it returns a usage error.
+With `--json`, the same details are grouped under `file`, `image`, `camera`,
+`exposure`, `date`, and `location`. Missing values are `null`; `has_gps` is a
+boolean, and sizes, dimensions, exposure values, and coordinates are numbers.
+
+Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter `exif` output yet.
 
 Exit status is `0` for success, `1` for file or metadata errors, `2` for usage
 errors, and `3` for unimplemented commands. Normal output uses stdout;
@@ -50,6 +55,9 @@ diagnostics use stderr.
 ## Shared filesystem utilities
 
 [`include/photoc/fs.h`](include/photoc/fs.h) defines the filesystem API used by future commands. It covers path inspection, filename and extension extraction, safe path joining, and callback-based directory walks. [`include/photoc/photo.h`](include/photoc/photo.h) defines the shared `Photo` metadata model. Both headers document ownership and unavailable values.
+
+[`include/photoc/json.h`](include/photoc/json.h) provides a small string writer
+for JSON output without another dependency.
 
 `photo_load_metadata` loads JPEG dimensions, file size, and available EXIF fields
 into a `Photo`. It reports distinct results for unsupported extensions, invalid

@@ -76,6 +76,9 @@ static void print_command_help(const photoc_command *command)
     puts(strcmp(command->name, "exif") == 0 ? "Example:" :
                                                "Example (planned):");
     printf("  %s\n", command->example);
+    if (strcmp(command->name, "exif") == 0) {
+        puts("  photoc exif photo.jpg --json");
+    }
 }
 
 int photoc_run(int argc, char *argv[])
@@ -143,11 +146,7 @@ int photoc_run(int argc, char *argv[])
                   "Usage: photoc exif <file>\n", stderr);
             return PHOTOC_EXIT_USAGE;
         }
-        if (options.json) {
-            fputs("photoc exif: --json is not supported yet\n", stderr);
-            return PHOTOC_EXIT_USAGE;
-        }
-        return photoc_command_exif(options.first_argument);
+        return photoc_command_exif(options.first_argument, options.json);
     }
 
     return photoc_command_unimplemented(command->name);

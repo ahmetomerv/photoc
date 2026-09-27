@@ -21,6 +21,7 @@ endfunction()
 
 add_library(photoc_core STATIC
     src/core/fs.c
+    src/core/json.c
     src/core/metadata.c
     src/core/photo.c
 )
@@ -78,6 +79,11 @@ if(BUILD_TESTING)
     target_link_libraries(test_exif_link PRIVATE photoc_core)
     add_test(NAME exif_library_link COMMAND test_exif_link)
 
+    add_executable(test_json tests/test_json.c)
+    photoc_configure_c_target(test_json)
+    target_link_libraries(test_json PRIVATE photoc_core)
+    add_test(NAME json_writer COMMAND test_json)
+
     function(add_cli_test name case)
         set(extra_args)
         if(ARGC GREATER 2)
@@ -109,7 +115,7 @@ if(BUILD_TESTING)
     add_cli_test(command_exif_help command_help exif)
 
     foreach(case IN ITEMS with_exif with_gps no_exif invalid unsupported missing
-                          no_argument extra_argument json unknown_option)
+                          no_argument extra_argument unknown_option)
         add_test(
             NAME "exif_${case}"
             COMMAND "${CMAKE_COMMAND}"
@@ -117,6 +123,18 @@ if(BUILD_TESTING)
                 "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
                 "-DCASE=${case}"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_exif_cli.cmake"
+        )
+    endforeach()
+
+    foreach(case IN ITEMS with_exif with_gps no_exif escaped_path
+                          before_command invalid unsupported)
+        add_test(
+            NAME "exif_json_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_exif_json.cmake"
         )
     endforeach()
 
