@@ -74,6 +74,18 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
                    strcmp(arg, "--in-place") == 0) {
             options->in_place = true;
         } else if (!options_ended && options->command != NULL &&
+                   strcmp(options->command, "compress") == 0 &&
+                   strcmp(arg, "--quality") == 0) {
+            if (options->quality != NULL) {
+                *error_arg = arg;
+                return PHOTOC_PARSE_DUPLICATE_OPTION;
+            }
+            if (i + 1 >= argc || strncmp(argv[i + 1], "--", 2) == 0) {
+                *error_arg = arg;
+                return PHOTOC_PARSE_MISSING_VALUE;
+            }
+            options->quality = argv[++i];
+        } else if (!options_ended && options->command != NULL &&
                    strcmp(options->command, "sort") == 0 &&
                    strcmp(arg, "--by") == 0) {
             if (options->sort_by != NULL) {

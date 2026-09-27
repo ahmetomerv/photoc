@@ -670,6 +670,101 @@ photoc_jpeg_edit_result photoc_jpeg_replace_with_exif(
     return write_with_exif(source_path, source_path, exif, true);
 }
 
+photoc_jpeg_edit_result photoc_jpeg_write_encoded(
+    const char *destination_path, const photoc_jpeg_buffer *encoded,
+    const photoc_jpeg_exif *exif)
+{
+    if (destination_path == NULL || destination_path[0] == '\0' ||
+        destination_path[strlen(destination_path) - 1] == '/' ||
+        encoded == NULL || encoded->data == NULL || encoded->size == 0 ||
+        (exif != NULL && (exif->data == NULL || exif->memory == NULL))) {
+        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
+    }
+    bool exists;
+    if (photoc_fs_exists(destination_path, &exists) != 0) {
+        return PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
+    if (exists) {
+        errno = EEXIST;
+        return PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
+    static const char suffix[] = ".photoc-XXXXXX";
+    size_t length = strlen(destination_path);
+    if (length > SIZE_MAX - sizeof(suffix)) {
+        return PHOTOC_JPEG_EDIT_NO_MEMORY;
+    }
+    char *temporary = malloc(length + sizeof(suffix));
+    if (temporary == NULL) {
+        return PHOTOC_JPEG_EDIT_NO_MEMORY;
+    }
+    memcpy(temporary, destination_path, length);
+    memcpy(temporary + length, suffix, sizeof(suffix));
+
+    photoc_jpeg_edit_result result = PHOTOC_JPEG_EDIT_OK;
+    int saved_errno = 0;
+    int descriptor = mkstemp(temporary);
+    if (descriptor < 0) {
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        saved_errno = errno;
+        goto cleanup;
+    }
+    FILE *file = fdopen(descriptor, "wb");
+    if (file == NULL) {
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        saved_errno = errno;
+        close(descriptor);
+        goto cleanup;
+    }
+    errno = 0;
+    if (fwrite(encoded->data, 1, encoded->size, file) != encoded->size ||
+        fflush(file) != 0 || fsync(fileno(file)) != 0) {
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        saved_errno = errno == 0 ? EIO : errno;
+    }
+    if (fclose(file) != 0 && result == PHOTOC_JPEG_EDIT_OK) {
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        saved_errno = errno;
+    }
+    if (result != PHOTOC_JPEG_EDIT_OK) {
+        goto cleanup;
+    }
+
+    FILE *verify = fopen(temporary, "rb");
+    if (verify == NULL) {
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        saved_errno = errno;
+        goto cleanup;
+    }
+    photoc_jpeg_info info;
+    result = inspect_file(verify, &info);
+    if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
+        saved_errno = errno;
+    }
+    if (fclose(verify) != 0 && result == PHOTOC_JPEG_EDIT_OK) {
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        saved_errno = errno;
+    }
+    if (result != PHOTOC_JPEG_EDIT_OK) {
+        goto cleanup;
+    }
+    if (exif != NULL) {
+        result = photoc_jpeg_write_with_exif(temporary, destination_path, exif);
+    } else if (photoc_fs_rename_noreplace(temporary, destination_path) != 0) {
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
+    if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
+        saved_errno = errno;
+    }
+
+cleanup:
+    unlink(temporary);
+    free(temporary);
+    if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
+        errno = saved_errno;
+    }
+    return result;
+}
+
 const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result)
 {
     switch (result) {

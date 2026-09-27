@@ -35,6 +35,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ```sh
 ./build/photoc --help
 ./build/photoc --version
+./build/photoc compress photo.jpg --quality 80
 ./build/photoc exif --help
 ./build/photoc exif photo.jpg
 ./build/photoc exif photo.jpg --json
@@ -54,6 +55,14 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
 for one JPEG. Unavailable EXIF fields are labeled `Unavailable`.
+
+`compress <file> [--quality <1-100>]` re-encodes one JPEG at quality 80 by
+default. It creates `photo.compressed.jpg` beside `photo.jpg` and never changes
+or replaces the original or an existing output. The report shows both file
+sizes, bytes saved, and percentage saved; savings are negative if the new file
+is larger. JPEG EXIF fields, including GPS, are copied where libexif can
+represent them. Other metadata segments such as ICC or XMP are not copied.
+Re-encoding is lossy, so keep the original when image quality matters.
 
 `stats <directory> [--recursive]` reports parsed photo count, total storage,
 average file size, earliest and latest valid EXIF capture timestamps, and the
@@ -143,8 +152,7 @@ and the temporary file is removed. The final
 rename is atomic on a local filesystem; as with other portable POSIX tools,
 concurrent replacement of the same path cannot be prevented completely.
 
-The planned `compress` and `focus` commands still report that they are not
-implemented.
+The planned `focus` command still reports that it is not implemented.
 
 With `exif --json`, details are grouped under `file`, `image`, `camera`,
 `exposure`, `date`, and `location`. Missing values are `null`; `has_gps` is a
@@ -175,10 +183,10 @@ and leave the digest buffer unchanged. The implementation is portable C17 and
 adds no external dependency.
 
 [`include/photoc/image.h`](include/photoc/image.h) provides JPEG dimensions,
-RGB decoding, and quality-configurable JPEG encoding for future commands.
+RGB decoding, and quality-configurable JPEG encoding for `photoc compress`.
 Decoded pixels and encoded bytes have separate cleanup helpers; encoding returns
 bytes in memory and does not write a file or preserve source EXIF/ICC metadata.
-`compress` is still a placeholder.
+The command uses the shared JPEG writer to attach EXIF to the new file.
 
 The image module uses [libjpeg-turbo's TurboJPEG C API](https://libjpeg-turbo.org/Documentation/Documentation).
 CMake finds the system library through `libturbojpeg.pc`; it is not vendored.
@@ -233,6 +241,10 @@ EXIF, compares all bytes outside the replaced EXIF segment with the source,
 then uses a no-overwrite rename. It copies compressed image data verbatim, with
 no decoding or recompression. Failure paths attempt to remove the temporary
 file.
+
+`photoc_jpeg_write_encoded` publishes a JPEG buffer through a verified
+temporary file and optionally inserts an EXIF copy. It never replaces an
+existing destination.
 
 For explicit in-place scrubbing, `photoc_jpeg_replace_with_exif` uses the same
 temporary-file verification, restores the original mode bits and group, checks

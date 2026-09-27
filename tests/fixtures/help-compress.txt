@@ -1,9 +1,16 @@
-Usage: photoc [global options] compress <photo>...
+Usage: photoc [global options] compress <file> [--quality <1-100>]
        photoc compress --help
 
-Compress image files
+Re-encode a JPEG at a chosen quality
 
-Status: not implemented
+Status: available for JPEG files; writes .compressed copies
 
-Example (planned):
+Example:
+  photoc compress photo.jpg --quality 80
   photoc compress photo.jpg
+
+Options:
+  --quality <1-100>  JPEG quality (default: 80)
+
+Output: photo.compressed.jpg; existing files are never replaced.
+EXIF is preserved where possible, including GPS coordinates.

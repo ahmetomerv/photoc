@@ -18,7 +18,7 @@ typedef struct {
 } photoc_command;
 
 static const photoc_command commands[] = {
-    {"compress", "Compress image files", "<photo>...", "photoc compress photo.jpg"},
+    {"compress", "Re-encode a JPEG at a chosen quality", "<file> [--quality <1-100>]", "photoc compress photo.jpg --quality 80"},
     {"exif", "Inspect JPEG metadata", "<file>", "photoc exif photo.jpg"},
     {"duplicates", "Find exact duplicate files", "<directory> [--recursive] [--json]", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
@@ -58,7 +58,7 @@ static void print_global_help(void)
     puts("      --json       Request JSON output where supported");
     puts("");
     puts("Exif and stats inspect JPEG files; duplicates compares file bytes.");
-    puts("Rename and sort preview by default; scrub writes copies unless --in-place is used.");
+    puts("Rename and sort preview by default; compress and scrub write copies.");
     puts("Other commands are planned.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
@@ -80,13 +80,16 @@ static void print_command_help(const photoc_command *command)
         puts("Status: dry-run by default; --apply changes files after preflight");
     } else if (strcmp(command->name, "sort") == 0) {
         puts("Status: dry-run by default; --apply moves files after preflight");
+    } else if (strcmp(command->name, "compress") == 0) {
+        puts("Status: available for JPEG files; writes .compressed copies");
     } else if (strcmp(command->name, "scrub") == 0) {
         puts("Status: writes .scrubbed copies by default; --in-place replaces originals");
     } else {
         puts("Status: not implemented");
     }
     puts("");
-    bool implemented = strcmp(command->name, "exif") == 0 ||
+    bool implemented = strcmp(command->name, "compress") == 0 ||
+                       strcmp(command->name, "exif") == 0 ||
                        strcmp(command->name, "duplicates") == 0 ||
                        strcmp(command->name, "stats") == 0 ||
                        strcmp(command->name, "rename") == 0 ||
@@ -94,7 +97,15 @@ static void print_command_help(const photoc_command *command)
                        strcmp(command->name, "scrub") == 0;
     puts(implemented ? "Example:" : "Example (planned):");
     printf("  %s\n", command->example);
-    if (strcmp(command->name, "duplicates") == 0) {
+    if (strcmp(command->name, "compress") == 0) {
+        puts("  photoc compress photo.jpg");
+        puts("");
+        puts("Options:");
+        puts("  --quality <1-100>  JPEG quality (default: 80)");
+        puts("");
+        puts("Output: photo.compressed.jpg; existing files are never replaced.");
+        puts("EXIF is preserved where possible, including GPS coordinates.");
+    } else if (strcmp(command->name, "duplicates") == 0) {
         puts("  photoc duplicates ~/Pictures --recursive");
         puts("  photoc duplicates ~/Pictures --json");
         puts("");
@@ -205,6 +216,41 @@ int photoc_run(int argc, char *argv[])
               "Usage: photoc [global options] <command> [args]\n"
               "Try 'photoc --help' for available commands.\n", stderr);
         return PHOTOC_EXIT_USAGE;
+    }
+
+    if (strcmp(command->name, "compress") == 0) {
+        if (options.argument_count != 1) {
+            fputs("photoc compress: expected exactly one JPEG file\n"
+                  "Usage: photoc compress <file> [--quality <1-100>]\n",
+                  stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (options.json) {
+            fputs("photoc compress: --json is not supported\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        int quality = 80;
+        if (options.quality != NULL) {
+            const char *value = options.quality;
+            quality = 0;
+            if (*value == '\0') {
+                quality = -1;
+            }
+            for (const char *digit = value; *digit != '\0'; ++digit) {
+                if (*digit < '0' || *digit > '9' || quality < 0 ||
+                    quality > (100 - (*digit - '0')) / 10) {
+                    quality = -1;
+                    break;
+                }
+                quality = quality * 10 + (*digit - '0');
+            }
+            if (quality < 1 || quality > 100) {
+                fprintf(stderr, "photoc compress: invalid quality '%s'; use 1-100\n",
+                        value);
+                return PHOTOC_EXIT_USAGE;
+            }
+        }
+        return photoc_command_compress(options.first_argument, quality);
     }
 
     if (strcmp(command->name, "exif") == 0) {

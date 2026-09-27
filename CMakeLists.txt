@@ -44,6 +44,7 @@ add_executable(photoc
     src/main.c
     src/core/cli.c
     src/core/parse.c
+    src/commands/compress.c
     src/commands/duplicates.c
     src/commands/exif.c
     src/commands/rename.c
@@ -173,7 +174,7 @@ if(BUILD_TESTING)
         add_cli_test("cli_${case}" "${case}")
     endforeach()
 
-    foreach(command IN ITEMS compress focus)
+    foreach(command IN ITEMS focus)
         add_cli_test("command_${command}" stub "${command}")
         add_cli_test("command_${command}_help" command_help "${command}")
     endforeach()
@@ -183,6 +184,22 @@ if(BUILD_TESTING)
     add_cli_test(command_rename_help command_help rename)
     add_cli_test(command_sort_help command_help sort)
     add_cli_test(command_scrub_help command_help scrub)
+    add_cli_test(command_compress_help command_help compress)
+
+    foreach(case IN ITEMS default quality quality_one quality_hundred quality_effect
+                          no_exif extension collision invalid
+                          unsupported missing directory no_argument extra_argument
+                          quality_missing quality_zero quality_high quality_negative
+                          quality_decimal quality_text quality_duplicate json)
+        add_test(
+            NAME "compress_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_compress_cli.cmake"
+        )
+    endforeach()
 
     foreach(case IN ITEMS duplicates same_size_nonduplicates no_duplicates
                           multiple_groups

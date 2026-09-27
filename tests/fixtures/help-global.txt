@@ -4,7 +4,7 @@ Usage: photoc [global options] <command> [args]
        photoc <command> --help
 
 Commands:
-  compress     Compress image files
+  compress     Re-encode a JPEG at a chosen quality
   exif         Inspect JPEG metadata
   duplicates   Find exact duplicate files
   stats        Summarize JPEG collections
@@ -21,6 +21,6 @@ Global options:
       --json       Request JSON output where supported
 
 Exif and stats inspect JPEG files; duplicates compares file bytes.
-Rename and sort preview by default; scrub writes copies unless --in-place is used.
+Rename and sort preview by default; compress and scrub write copies.
 Other commands are planned.
 Run 'photoc <command> --help' for usage and examples.

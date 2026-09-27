@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "photoc/image.h"
+
 typedef struct photoc_jpeg_exif photoc_jpeg_exif;
 
 typedef enum {
@@ -45,6 +47,14 @@ photoc_jpeg_edit_result photoc_jpeg_exif_remove_gps(photoc_jpeg_exif *exif);
    failure, errno describes the failed operation. The caller retains exif. */
 photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
     const char *source_path, const char *destination_path,
+    const photoc_jpeg_exif *exif);
+
+/* Save encoded JPEG bytes as a new file, optionally adding an EXIF copy.
+   The caller retains the buffer and EXIF object. A temporary file beside the
+   destination is synced and validated first; the destination is never
+   overwritten. Without EXIF, the temporary file becomes the output. */
+photoc_jpeg_edit_result photoc_jpeg_write_encoded(
+    const char *destination_path, const photoc_jpeg_buffer *encoded,
     const photoc_jpeg_exif *exif);
 
 /* Replace source_path with an edited JPEG only after writing, syncing, and
