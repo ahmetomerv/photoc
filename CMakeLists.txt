@@ -25,6 +25,7 @@ add_library(photoc_core STATIC
     src/core/fs.c
     src/core/hash.c
     src/core/image.c
+    src/core/image_analysis.c
     src/core/filename_template.c
     src/core/jpeg.c
     src/core/jpeg_write.c
@@ -145,6 +146,11 @@ if(BUILD_TESTING)
         PHOTOC_IMAGE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
     )
     add_test(NAME jpeg_image_roundtrip COMMAND test_image)
+
+    add_executable(test_image_analysis tests/test_image_analysis.c)
+    photoc_configure_c_target(test_image_analysis)
+    target_link_libraries(test_image_analysis PRIVATE photoc_core)
+    add_test(NAME image_analysis COMMAND test_image_analysis)
 
     add_executable(test_exif_link tests/test_exif_link.c)
     photoc_configure_c_target(test_exif_link)

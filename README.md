@@ -203,6 +203,13 @@ Decoded pixels and encoded bytes have separate cleanup helpers; encoding returns
 bytes in memory and does not write a file or preserve source EXIF/ICC metadata.
 The command uses the shared JPEG writer to attach EXIF to the new file.
 
+[`include/photoc/image_analysis.h`](include/photoc/image_analysis.h) provides
+grayscale conversion with optional pixel sampling, a 4-neighbor Laplacian, and
+population variance. The grayscale and Laplacian buffers have explicit cleanup
+helpers and a 16-million-pixel cap; the variance calculation allocates nothing.
+These shared functions do not change JPEG files or enable the planned `focus`
+command yet.
+
 The image module uses [libjpeg-turbo's TurboJPEG C API](https://libjpeg-turbo.org/Documentation/Documentation).
 CMake finds the system library through `libturbojpeg.pc`; it is not vendored.
 
