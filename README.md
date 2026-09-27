@@ -210,6 +210,15 @@ helpers and a 16-million-pixel cap; the variance calculation allocates nothing.
 These shared functions do not change JPEG files or enable the planned `focus`
 command yet.
 
+[`include/photoc/sharpness.h`](include/photoc/sharpness.h) computes variance of
+the grayscale Laplacian for a JPEG. It uses TurboJPEG's scaled decode, with a
+recommended analysis limit of 1024 pixels on either side and a cap of
+4 million pixels for the decoded RGB buffer. The compressed JPEG is still read into
+memory. Higher scores indicate more local edge variation, but texture, noise,
+JPEG artifacts, and sharpening can also raise the score. Compare images at the
+same analysis limit; the value is not an artistic-quality rating or an absolute
+sharp/blurred threshold. The `focus` command remains unimplemented.
+
 The image module uses [libjpeg-turbo's TurboJPEG C API](https://libjpeg-turbo.org/Documentation/Documentation).
 CMake finds the system library through `libturbojpeg.pc`; it is not vendored.
 

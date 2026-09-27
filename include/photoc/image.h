@@ -43,6 +43,15 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
 photoc_image_result photoc_image_decode_jpeg(const char *path,
                                               photoc_image *out);
 
+/* Decode at the largest TurboJPEG-supported scale whose width and height are
+   at most max_dimension. The decoded buffer is capped at 4 million pixels.
+   This avoids full-size RGB allocation for large JPEGs; compressed JPEG bytes
+   are still read into memory. Returns TOO_LARGE if no supported scale fits.
+   out follows the same ownership and cleanup rules as decode_jpeg. */
+photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
+                                                    uint32_t max_dimension,
+                                                    photoc_image *out);
+
 /* Encode RGB pixels as JPEG. quality is an integer from 1 to 100. out must
    be zero-initialized or cleaned first. On success out owns data; on error
    out remains empty. This function never writes a file. */

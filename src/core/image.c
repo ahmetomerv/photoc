@@ -129,8 +129,9 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
     return result;
 }
 
-photoc_image_result photoc_image_decode_jpeg(const char *path,
-                                              photoc_image *out)
+static photoc_image_result decode_jpeg(const char *path,
+                                        uint32_t max_dimension,
+                                        photoc_image *out)
 {
     if (path == NULL || path[0] == '\0' || out == NULL) {
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
@@ -150,6 +151,50 @@ photoc_image_result photoc_image_decode_jpeg(const char *path,
     int width = 0;
     int height = 0;
     result = read_header(handle, bytes, length, &width, &height);
+    if (result == PHOTOC_IMAGE_OK && max_dimension != 0) {
+        int count = 0;
+        tjscalingfactor *factors = tjGetScalingFactors(&count);
+        if (factors == NULL || count <= 0) {
+            result = PHOTOC_IMAGE_CODEC_ERROR;
+        } else {
+            uint64_t best_area = 0;
+            int scaled_width = 0;
+            int scaled_height = 0;
+            for (int i = 0; i < count; ++i) {
+                if (factors[i].num <= 0 || factors[i].denom <= 0 ||
+                    factors[i].num > factors[i].denom) {
+                    continue;
+                }
+                uint64_t candidate_width =
+                    ((uint64_t)width * (uint64_t)factors[i].num +
+                     (uint64_t)factors[i].denom - 1) /
+                    (uint64_t)factors[i].denom;
+                uint64_t candidate_height =
+                    ((uint64_t)height * (uint64_t)factors[i].num +
+                     (uint64_t)factors[i].denom - 1) /
+                    (uint64_t)factors[i].denom;
+                if (candidate_width > max_dimension ||
+                    candidate_height > max_dimension ||
+                    candidate_width > INT_MAX / 3 ||
+                    candidate_height > INT_MAX ||
+                    candidate_width * candidate_height > 4000000u) {
+                    continue;
+                }
+                uint64_t area = candidate_width * candidate_height;
+                if (area > best_area) {
+                    best_area = area;
+                    scaled_width = (int)candidate_width;
+                    scaled_height = (int)candidate_height;
+                }
+            }
+            if (best_area == 0) {
+                result = PHOTOC_IMAGE_TOO_LARGE;
+            } else {
+                width = scaled_width;
+                height = scaled_height;
+            }
+        }
+    }
     size_t stride = 0;
     size_t pixel_bytes = 0;
     if (result == PHOTOC_IMAGE_OK) {
@@ -182,6 +227,22 @@ photoc_image_result photoc_image_decode_jpeg(const char *path,
     *out = (photoc_image){(uint32_t)width, (uint32_t)height,
                           stride, pixel_bytes, pixels};
     return PHOTOC_IMAGE_OK;
+}
+
+photoc_image_result photoc_image_decode_jpeg(const char *path,
+                                              photoc_image *out)
+{
+    return decode_jpeg(path, 0, out);
+}
+
+photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
+                                                    uint32_t max_dimension,
+                                                    photoc_image *out)
+{
+    if (max_dimension == 0) {
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    }
+    return decode_jpeg(path, max_dimension, out);
 }
 
 photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,

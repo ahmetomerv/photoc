@@ -15,3 +15,8 @@ variants and error fixtures can be regenerated with
 The `session_*.jpg` variants provide capture times for CLI session plans.
 The GPS fixture and the EXIF-free base also verify safe JPEG metadata writing:
 non-GPS tags survive, and bytes outside EXIF remain identical.
+
+`sharp.jpg`, `blurred.jpg`, and `flat.jpg` are synthetic 256×256 images for
+comparative sharpness tests. `large_sharp.jpg` is 2048×2048 for scaled-decoding
+tests. Regenerate them with `python3 scripts/make-sharpness-fixtures.py` when
+`cjpeg` is installed; the test suite uses the checked-in JPEGs.

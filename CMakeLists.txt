@@ -35,6 +35,7 @@ add_library(photoc_core STATIC
     src/core/quality_search.c
     src/core/scan.c
     src/core/session.c
+    src/core/sharpness.c
     src/core/stats.c
     src/core/timestamp.c
 )
@@ -151,6 +152,14 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_image_analysis)
     target_link_libraries(test_image_analysis PRIVATE photoc_core)
     add_test(NAME image_analysis COMMAND test_image_analysis)
+
+    add_executable(test_sharpness tests/test_sharpness.c)
+    photoc_configure_c_target(test_sharpness)
+    target_link_libraries(test_sharpness PRIVATE photoc_core)
+    target_compile_definitions(test_sharpness PRIVATE
+        PHOTOC_SHARPNESS_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+    )
+    add_test(NAME jpeg_sharpness COMMAND test_sharpness)
 
     add_executable(test_exif_link tests/test_exif_link.c)
     photoc_configure_c_target(test_exif_link)
