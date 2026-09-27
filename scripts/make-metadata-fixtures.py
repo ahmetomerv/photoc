@@ -84,6 +84,9 @@ for name, gps, model, iso, aperture, focal, captured in (
     ("with_exif.jpg", False, "Model Z", 200, (28, 10), (50, 1), "2026:09:27 12:34:56"),
     ("with_gps.jpeg", True, "Model Z", 200, (28, 10), (50, 1), "2026:09:27 12:34:56"),
     ("with_alt_exif.jpg", False, "Model A", 100, (4, 1), (35, 1), "2024:01:02 03:04:05"),
+    ("session_1000.jpg", False, "Model S", 100, (4, 1), (35, 1), "2026:09:27 10:00:00"),
+    ("session_1030.jpg", False, "Model S", 100, (4, 1), (35, 1), "2026:09:27 10:30:00"),
+    ("session_1200.jpg", False, "Model S", 100, (4, 1), (35, 1), "2026:09:27 12:00:00"),
 ):
     payload = b"Exif\0\0" + make_tiff(gps, model, iso, aperture, focal, captured)
     segment = b"\xff\xe1" + struct.pack(">H", len(payload) + 2) + payload

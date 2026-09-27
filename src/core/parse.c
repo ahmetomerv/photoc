@@ -1,6 +1,34 @@
 #include "photoc/parse.h"
 
+#include <stdint.h>
 #include <string.h>
+
+bool photoc_parse_gap_minutes(const char *text, uint32_t *minutes)
+{
+    if (text == NULL || minutes == NULL || text[0] < '0' ||
+        text[0] > '9') {
+        return false;
+    }
+    uint32_t value = 0;
+    size_t i = 0;
+    while (text[i] >= '0' && text[i] <= '9') {
+        unsigned int digit = (unsigned int)(text[i] - '0');
+        if (value > (UINT32_MAX - digit) / 10u) {
+            return false;
+        }
+        value = value * 10u + digit;
+        ++i;
+    }
+    if (text[i] == 'm' && text[i + 1] == '\0') {
+        *minutes = value;
+        return true;
+    }
+    if (text[i] == 'h' && text[i + 1] == '\0' && value <= UINT32_MAX / 60u) {
+        *minutes = value * 60u;
+        return true;
+    }
+    return false;
+}
 
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,
@@ -47,6 +75,18 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
                 return PHOTOC_PARSE_MISSING_VALUE;
             }
             options->sort_by = argv[++i];
+        } else if (!options_ended && options->command != NULL &&
+                   strcmp(options->command, "sort") == 0 &&
+                   strcmp(arg, "--gap") == 0) {
+            if (options->gap != NULL) {
+                *error_arg = arg;
+                return PHOTOC_PARSE_DUPLICATE_OPTION;
+            }
+            if (i + 1 >= argc || argv[i + 1][0] == '-') {
+                *error_arg = arg;
+                return PHOTOC_PARSE_MISSING_VALUE;
+            }
+            options->gap = argv[++i];
         } else if (!options_ended && options->command != NULL &&
                    strcmp(options->command, "rename") == 0 &&
                    strcmp(arg, "--apply") == 0) {

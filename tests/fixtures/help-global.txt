@@ -9,7 +9,7 @@ Commands:
   duplicates   Find duplicate photos
   stats        Summarize JPEG collections
   rename       Preview or apply JPEG renames
-  sort         Preview date-based JPEG sorting
+  sort         Preview date or session sorting
   focus        Assess image focus
   scrub        Remove selected metadata
 
@@ -20,6 +20,6 @@ Global options:
   -q, --quiet      Request reduced output
       --json       Request JSON output where supported
 
-Exif and stats inspect JPEG files; rename and sort preview changes by default.
+Exif and stats inspect JPEG files; rename previews by default; sort is dry-run only.
 Other commands are planned.
 Run 'photoc <command> --help' for usage and examples.

@@ -41,6 +41,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}"
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}" --apply
 ./build/photoc sort ~/Pictures --by date --recursive
+./build/photoc sort ~/Pictures --by session --gap 30m
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -81,6 +82,15 @@ and duplicate planned destinations as skipped; a skipped JPEG gives exit status
 1. Existing files or symlinks in the destination date path are also reported.
 Use `--recursive` to scan nested directories. The plan is sorted by source path
 for predictable output.
+
+`sort <directory> --by session [--gap <duration>] [--recursive]` previews
+moving JPEGs into `session-001/`, `session-002/`, and so on. Session numbers
+follow EXIF capture-time order, with source path breaking timestamp ties.
+Consecutive photos remain together when their gap is no greater than the
+threshold. The default is 60 minutes; `--gap 30m` and `--gap 2h` set other
+thresholds. Missing or invalid dates are skipped. Session plans use the same
+collision checks and dry-run-only behavior as date plans. `--gap` is accepted
+only with `--by session`.
 
 The planned `compress`, `duplicates`, `focus`, and `scrub` commands
 still report that they are not implemented.
@@ -128,8 +138,7 @@ sorted by EXIF capture time. Consecutive photos stay in one session when their
 gap is at most the configured threshold (60 minutes by default). It writes
 stable, 1-based IDs to a caller-owned array; missing timestamps receive ID 0
 and break the session chain. Invalid or out-of-order timestamps return an error
-without changing the output. This is shared logic only; no CLI command uses it
-yet.
+without changing the output. The sort command uses it for session plans.
 
 [`include/photoc/filename_template.h`](include/photoc/filename_template.h)
 defines the filename-template API for future rename operations. It expands

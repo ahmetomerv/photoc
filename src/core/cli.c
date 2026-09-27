@@ -3,6 +3,7 @@
 #include "photoc/commands.h"
 #include "photoc/exit_codes.h"
 #include "photoc/parse.h"
+#include "photoc/session.h"
 #include "photoc/version.h"
 
 #include <stddef.h>
@@ -22,7 +23,7 @@ static const photoc_command commands[] = {
     {"duplicates", "Find duplicate photos", "<path>...", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
     {"rename", "Preview or apply JPEG renames", "<directory> --format <template> [--recursive] [--apply]", "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\""},
-    {"sort", "Preview date-based JPEG sorting", "<directory> --by date [--recursive]", "photoc sort ~/Pictures --by date"},
+    {"sort", "Preview date or session sorting", "<directory> --by date|session [--gap <duration>] [--recursive]", "photoc sort ~/Pictures --by date"},
     {"focus", "Assess image focus", "<photo>...", "photoc focus photo.jpg"},
     {"scrub", "Remove selected metadata", "<photo>...", "photoc scrub photo.jpg"}
 };
@@ -56,7 +57,7 @@ static void print_global_help(void)
     puts("  -q, --quiet      Request reduced output");
     puts("      --json       Request JSON output where supported");
     puts("");
-    puts("Exif and stats inspect JPEG files; rename and sort preview changes by default.");
+    puts("Exif and stats inspect JPEG files; rename previews by default; sort is dry-run only.");
     puts("Other commands are planned.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
@@ -99,10 +100,12 @@ static void print_command_help(const photoc_command *command)
         puts("  --recursive        Include nested directories");
         puts("  --apply            Rename files after the whole plan passes preflight");
     } else if (strcmp(command->name, "sort") == 0) {
-        puts("  photoc sort ~/Pictures --by date --recursive");
+        puts("  photoc sort ~/Pictures --by session --gap 30m");
+        puts("  photoc sort ~/Pictures --by session --gap 2h --recursive");
         puts("");
         puts("Options:");
-        puts("  --by date          Required; group by EXIF capture date (YYYY/MM/DD)");
+        puts("  --by date|session  Required; group by date or capture-time session");
+        puts("  --gap <duration>   Session gap (for example 30m or 2h; default 60m)");
         puts("  --recursive        Include nested directories");
     }
 }
@@ -211,21 +214,38 @@ int photoc_run(int argc, char *argv[])
 
     if (strcmp(command->name, "sort") == 0) {
         if (options.argument_count != 1 || options.sort_by == NULL) {
-            fputs("photoc sort: expected one directory and --by date\n"
-                  "Usage: photoc sort <directory> --by date [--recursive]\n",
+            fputs("photoc sort: expected one directory and --by date|session\n"
+                  "Usage: photoc sort <directory> --by date|session [--gap <duration>] [--recursive]\n",
                   stderr);
             return PHOTOC_EXIT_USAGE;
         }
-        if (strcmp(options.sort_by, "date") != 0) {
-            fprintf(stderr, "photoc sort: unsupported sort key '%s'; use 'date'\n",
+        photoc_sort_mode mode;
+        if (strcmp(options.sort_by, "date") == 0) {
+            mode = PHOTOC_SORT_BY_DATE;
+        } else if (strcmp(options.sort_by, "session") == 0) {
+            mode = PHOTOC_SORT_BY_SESSION;
+        } else {
+            fprintf(stderr, "photoc sort: unsupported sort key '%s'; use 'date' or 'session'\n",
                     options.sort_by);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (mode == PHOTOC_SORT_BY_DATE && options.gap != NULL) {
+            fputs("photoc sort: --gap is only valid with --by session\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        uint32_t gap_minutes = PHOTOC_SESSION_DEFAULT_GAP_MINUTES;
+        if (options.gap != NULL &&
+            !photoc_parse_gap_minutes(options.gap, &gap_minutes)) {
+            fprintf(stderr, "photoc sort: invalid gap '%s'; use minutes or hours such as 30m or 2h\n",
+                    options.gap);
             return PHOTOC_EXIT_USAGE;
         }
         if (options.json) {
             fputs("photoc sort: --json is not supported\n", stderr);
             return PHOTOC_EXIT_USAGE;
         }
-        return photoc_command_sort(options.first_argument, options.recursive);
+        return photoc_command_sort(options.first_argument, options.recursive,
+                                   mode, gap_minutes);
     }
 
     return photoc_command_unimplemented(command->name);

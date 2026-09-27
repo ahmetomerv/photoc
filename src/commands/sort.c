@@ -3,6 +3,7 @@
 #include "photoc/exit_codes.h"
 #include "photoc/fs.h"
 #include "photoc/photo.h"
+#include "photoc/session.h"
 #include "photoc/timestamp.h"
 
 #include <errno.h>
@@ -14,6 +15,7 @@
 typedef struct {
     char *source;
     char *destination;
+    char *capture_timestamp;
     photoc_metadata_result metadata_error;
     int system_errno;
     bool missing_date;
@@ -34,6 +36,7 @@ static void free_plan(sort_plan *plan)
     for (size_t i = 0; i < plan->count; ++i) {
         free(plan->entries[i].source);
         free(plan->entries[i].destination);
+        free(plan->entries[i].capture_timestamp);
     }
     free(plan->entries);
 }
@@ -95,18 +98,26 @@ static const char *relative_name(const char *root, const char *path)
     return relative;
 }
 
-/* A future move must not enter an existing file or symlink in the date tree. */
-static int check_parents(const char *root, const char *date_path,
+/* A future move must not enter an existing file or symlink in its folder. */
+static int check_parents(const char *root, const char *relative_folder,
                          bool *conflict)
 {
-    static const size_t lengths[] = {4, 7, 10};
     *conflict = false;
-    for (size_t i = 0; i < sizeof(lengths) / sizeof(lengths[0]); ++i) {
-        char part[11];
-        memcpy(part, date_path, lengths[i]);
-        part[lengths[i]] = '\0';
+    size_t length = strlen(relative_folder);
+    for (size_t i = 0; i <= length; ++i) {
+        if (relative_folder[i] != '/' && relative_folder[i] != '\0') {
+            continue;
+        }
+        char *part = malloc(i + 1);
+        if (part == NULL) {
+            return -1;
+        }
+        memcpy(part, relative_folder, i);
+        part[i] = '\0';
         char *path = NULL;
-        if (photoc_fs_join(root, part, &path) != 0) {
+        int join_result = photoc_fs_join(root, part, &path);
+        free(part);
+        if (join_result != 0) {
             return -1;
         }
         photoc_fs_type type;
@@ -125,7 +136,40 @@ static int check_parents(const char *root, const char *date_path,
     return 0;
 }
 
-static int prepare_entries(sort_plan *plan, const char *root)
+static int build_destination(sort_entry *entry, const char *root,
+                             const char *relative_folder)
+{
+    char *folder = NULL;
+    char *filename = NULL;
+    if (photoc_fs_join(root, relative_folder, &folder) != 0 ||
+        photoc_fs_filename(entry->source, &filename) != 0) {
+        free(folder);
+        free(filename);
+        return -1;
+    }
+    int join_result = photoc_fs_join(folder, filename, &entry->destination);
+    free(folder);
+    free(filename);
+    if (join_result != 0) {
+        return -1;
+    }
+    if (check_parents(root, relative_folder, &entry->parent_conflict) != 0) {
+        entry->system_errno = errno;
+        return 0;
+    }
+    if (entry->parent_conflict) {
+        return 0;
+    }
+    bool exists = false;
+    if (photoc_fs_exists(entry->destination, &exists) != 0) {
+        entry->system_errno = errno;
+    } else if (exists && strcmp(entry->source, entry->destination) != 0) {
+        entry->destination_exists = true;
+    }
+    return 0;
+}
+
+static int load_entries(sort_plan *plan)
 {
     for (size_t i = 0; i < plan->count; ++i) {
         sort_entry *entry = &plan->entries[i];
@@ -144,45 +188,108 @@ static int prepare_entries(sort_plan *plan, const char *root)
             photo_cleanup(&photo);
             continue;
         }
-        char date_path[11];
-        memcpy(date_path, photo.capture_timestamp, 4);
-        date_path[4] = '/';
-        memcpy(date_path + 5, photo.capture_timestamp + 5, 2);
-        date_path[7] = '/';
-        memcpy(date_path + 8, photo.capture_timestamp + 8, 2);
-        date_path[10] = '\0';
+        entry->capture_timestamp = photo.capture_timestamp;
+        photo.capture_timestamp = NULL;
         photo_cleanup(&photo);
+    }
+    return 0;
+}
 
-        char *folder = NULL;
-        char *filename = NULL;
-        if (photoc_fs_join(root, date_path, &folder) != 0 ||
-            photoc_fs_filename(entry->source, &filename) != 0) {
-            free(folder);
-            free(filename);
-            return -1;
-        }
-        int join_result = photoc_fs_join(folder, filename,
-                                         &entry->destination);
-        free(folder);
-        free(filename);
-        if (join_result != 0) {
-            return -1;
-        }
-        if (check_parents(root, date_path, &entry->parent_conflict) != 0) {
-            entry->system_errno = errno;
+static int prepare_date_destinations(sort_plan *plan, const char *root)
+{
+    for (size_t i = 0; i < plan->count; ++i) {
+        sort_entry *entry = &plan->entries[i];
+        if (entry->capture_timestamp == NULL) {
             continue;
         }
-        if (entry->parent_conflict) {
-            continue;
-        }
-        bool exists = false;
-        if (photoc_fs_exists(entry->destination, &exists) != 0) {
-            entry->system_errno = errno;
-        } else if (exists && strcmp(entry->source, entry->destination) != 0) {
-            entry->destination_exists = true;
+        char date_path[11];
+        memcpy(date_path, entry->capture_timestamp, 4);
+        date_path[4] = '/';
+        memcpy(date_path + 5, entry->capture_timestamp + 5, 2);
+        date_path[7] = '/';
+        memcpy(date_path + 8, entry->capture_timestamp + 8, 2);
+        date_path[10] = '\0';
+        if (build_destination(entry, root, date_path) != 0) {
+            return -1;
         }
     }
     return 0;
+}
+
+static int compare_capture(const void *left, const void *right)
+{
+    const sort_entry *const *a = left;
+    const sort_entry *const *b = right;
+    int comparison = strcmp((*a)->capture_timestamp,
+                            (*b)->capture_timestamp);
+    return comparison == 0 ? strcmp((*a)->source, (*b)->source) : comparison;
+}
+
+static int prepare_session_destinations(sort_plan *plan, const char *root,
+                                        uint32_t gap_minutes)
+{
+    size_t count = 0;
+    for (size_t i = 0; i < plan->count; ++i) {
+        if (plan->entries[i].capture_timestamp != NULL) {
+            ++count;
+        }
+    }
+    if (count == 0) {
+        return 0;
+    }
+    if (count > SIZE_MAX / sizeof(sort_entry *) ||
+        count > SIZE_MAX / sizeof(Photo) ||
+        count > SIZE_MAX / sizeof(size_t)) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    sort_entry **dated = malloc(count * sizeof(*dated));
+    Photo *photos = malloc(count * sizeof(*photos));
+    size_t *ids = malloc(count * sizeof(*ids));
+    if (dated == NULL || photos == NULL || ids == NULL) {
+        free(dated);
+        free(photos);
+        free(ids);
+        errno = ENOMEM;
+        return -1;
+    }
+    size_t position = 0;
+    for (size_t i = 0; i < plan->count; ++i) {
+        if (plan->entries[i].capture_timestamp != NULL) {
+            dated[position++] = &plan->entries[i];
+        }
+    }
+    qsort(dated, count, sizeof(*dated), compare_capture);
+    for (size_t i = 0; i < count; ++i) {
+        /* Borrow each entry's timestamp only for the session calculation. */
+        photos[i] = (Photo){.capture_timestamp = dated[i]->capture_timestamp};
+    }
+    photoc_session_result grouping = photoc_session_group(photos, count,
+                                                          gap_minutes, ids);
+    free(photos);
+    if (grouping != PHOTOC_SESSION_OK) {
+        free(dated);
+        free(ids);
+        errno = EINVAL;
+        return -1;
+    }
+    int result = 0;
+    for (size_t i = 0; i < count; ++i) {
+        char folder[sizeof(size_t) * 3 + 9];
+        int length = snprintf(folder, sizeof(folder), "session-%03zu", ids[i]);
+        if (length < 0 || (size_t)length >= sizeof(folder)) {
+            errno = EOVERFLOW;
+            result = -1;
+            break;
+        }
+        if (build_destination(dated[i], root, folder) != 0) {
+            result = -1;
+            break;
+        }
+    }
+    free(dated);
+    free(ids);
+    return result;
 }
 
 static int compare_destination(const void *left, const void *right)
@@ -225,7 +332,8 @@ static int mark_duplicates(sort_plan *plan)
     return 0;
 }
 
-int photoc_command_sort(const char *directory, bool recursive)
+int photoc_command_sort(const char *directory, bool recursive,
+                        photoc_sort_mode mode, uint32_t gap_minutes)
 {
     sort_plan plan = {0};
     int walk_result = recursive ?
@@ -241,7 +349,10 @@ int photoc_command_sort(const char *directory, bool recursive)
     if (plan.count > 1) {
         qsort(plan.entries, plan.count, sizeof(*plan.entries), compare_source);
     }
-    if (prepare_entries(&plan, directory) != 0 ||
+    if (load_entries(&plan) != 0 ||
+        (mode == PHOTOC_SORT_BY_DATE ?
+         prepare_date_destinations(&plan, directory) :
+         prepare_session_destinations(&plan, directory, gap_minutes)) != 0 ||
         mark_duplicates(&plan) != 0) {
         int saved_errno = errno;
         fprintf(stderr, "photoc sort: unable to prepare plan: %s\n",

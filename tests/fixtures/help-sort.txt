@@ -1,14 +1,16 @@
-Usage: photoc [global options] sort <directory> --by date [--recursive]
+Usage: photoc [global options] sort <directory> --by date|session [--gap <duration>] [--recursive]
        photoc sort --help
 
-Preview date-based JPEG sorting
+Preview date or session sorting
 
 Status: dry-run only; no files or directories are changed
 
 Example:
   photoc sort ~/Pictures --by date
-  photoc sort ~/Pictures --by date --recursive
+  photoc sort ~/Pictures --by session --gap 30m
+  photoc sort ~/Pictures --by session --gap 2h --recursive
 
 Options:
-  --by date          Required; group by EXIF capture date (YYYY/MM/DD)
+  --by date|session  Required; group by date or capture-time session
+  --gap <duration>   Session gap (for example 30m or 2h; default 60m)
   --recursive        Include nested directories

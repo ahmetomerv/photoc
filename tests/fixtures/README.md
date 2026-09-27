@@ -12,3 +12,4 @@ an alternate camera/EXIF combination for frequency tests,
 an invalid/truncated JPEG, and a PNG for unsupported-format tests. The JPEG
 variants and error fixtures can be regenerated with
 `python3 scripts/make-metadata-fixtures.py`; the no-EXIF base is checked in.
+The `session_*.jpg` variants provide capture times for CLI session plans.

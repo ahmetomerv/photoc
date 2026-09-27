@@ -79,6 +79,11 @@ if(BUILD_TESTING)
     target_link_libraries(test_session PRIVATE photoc_core)
     add_test(NAME photo_sessions COMMAND test_session)
 
+    add_executable(test_parse_gap tests/test_parse_gap.c src/core/parse.c)
+    photoc_configure_c_target(test_parse_gap)
+    target_include_directories(test_parse_gap PRIVATE include)
+    add_test(NAME gap_parser COMMAND test_parse_gap)
+
     add_executable(test_filename_template tests/test_filename_template.c)
     photoc_configure_c_target(test_filename_template)
     target_link_libraries(test_filename_template PRIVATE photoc_core)
@@ -159,6 +164,22 @@ if(BUILD_TESTING)
                 "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
                 "-DCASE=${case}"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_sort_cli.cmake"
+        )
+    endforeach()
+
+    foreach(case IN ITEMS default gap_30m gap_2h recursive missing_date
+                          collision duplicate parent_conflict unchanged
+                          invalid_jpeg empty gap_zero gap_with_date gap_missing
+                          gap_duplicate invalid_gap_no_unit
+                          invalid_gap_uppercase invalid_gap_decimal
+                          invalid_gap_overflow)
+        add_test(
+            NAME "sort_session_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_sort_session.cmake"
         )
     endforeach()
 

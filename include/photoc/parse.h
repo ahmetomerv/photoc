@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct {
     bool help;
@@ -16,6 +17,7 @@ typedef struct {
     const char *first_argument;
     const char *format;
     const char *sort_by;
+    const char *gap;
     size_t argument_count;
 } photoc_cli_options;
 
@@ -26,9 +28,14 @@ typedef enum {
     PHOTOC_PARSE_DUPLICATE_OPTION
 } photoc_parse_status;
 
-/* command, first_argument, format, sort_by, and error_arg borrow argv strings. */
+/* command, first_argument, format, sort_by, gap, and error_arg borrow argv strings. */
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,
                                       const char **error_arg);
+
+/* Accepts a decimal number followed by m or h (for example 30m or 2h).
+   Zero is allowed. Returns false and leaves minutes unchanged on malformed
+   input or when the converted value exceeds UINT32_MAX minutes. */
+bool photoc_parse_gap_minutes(const char *text, uint32_t *minutes);
 
 #endif
