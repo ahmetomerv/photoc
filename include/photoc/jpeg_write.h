@@ -2,6 +2,7 @@
 #define PHOTOC_JPEG_WRITE_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "photoc/image.h"
 
@@ -34,6 +35,11 @@ photoc_jpeg_edit_result photoc_jpeg_exif_copy(
 /* True when the EXIF GPS IFD has entries or its root pointer is present.
    The caller retains ownership of exif. */
 bool photoc_jpeg_exif_has_gps(const photoc_jpeg_exif *exif);
+
+/* Number of bytes added when attaching this EXIF to an encoded JPEG.
+   Returns zero for NULL EXIF. The caller retains ownership of exif. */
+photoc_jpeg_edit_result photoc_jpeg_exif_output_overhead(
+    const photoc_jpeg_exif *exif, uint64_t *bytes);
 
 /* Remove all GPS IFD entries and the GPS pointer from this in-memory copy.
    The source JPEG and any other EXIF document remain unchanged. */

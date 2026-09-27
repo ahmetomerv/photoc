@@ -31,6 +31,7 @@ add_library(photoc_core STATIC
     src/core/json.c
     src/core/metadata.c
     src/core/photo.c
+    src/core/quality_search.c
     src/core/scan.c
     src/core/session.c
     src/core/stats.c
@@ -97,6 +98,11 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_parse_gap)
     target_include_directories(test_parse_gap PRIVATE include)
     add_test(NAME gap_parser COMMAND test_parse_gap)
+
+    add_executable(test_quality_search tests/test_quality_search.c)
+    photoc_configure_c_target(test_quality_search)
+    target_link_libraries(test_quality_search PRIVATE photoc_core)
+    add_test(NAME quality_search COMMAND test_quality_search)
 
     add_executable(test_filename_template tests/test_filename_template.c)
     photoc_configure_c_target(test_filename_template)
@@ -212,6 +218,20 @@ if(BUILD_TESTING)
                 "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
                 "-DCASE=${case}"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_compress_directory.cmake"
+        )
+    endforeach()
+
+    foreach(case IN ITEMS reachable reachable_exif unreachable max_fits
+                          collision quality_conflict min_without_target
+                          invalid_target invalid_min missing_target
+                          duplicate_target directory)
+        add_test(
+            NAME "compress_target_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_compress_target.cmake"
         )
     endforeach()
 

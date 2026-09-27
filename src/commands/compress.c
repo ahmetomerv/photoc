@@ -4,6 +4,7 @@
 #include "photoc/fs.h"
 #include "photoc/image.h"
 #include "photoc/jpeg_write.h"
+#include "photoc/quality_search.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -21,6 +22,31 @@ typedef struct {
     const char *output_dir;
     const char *input_dir;
 } compress_walk;
+
+typedef struct {
+    const photoc_image *image;
+    uint64_t exif_overhead;
+    photoc_image_result error;
+} quality_probe_context;
+
+static int probe_quality(int quality, uint64_t *size, void *user_data)
+{
+    quality_probe_context *context = user_data;
+    photoc_jpeg_buffer encoded = {0};
+    context->error = photoc_image_encode_jpeg(context->image, quality, &encoded);
+    if (context->error != PHOTOC_IMAGE_OK) {
+        errno = EIO;
+        return -1;
+    }
+    if (encoded.size > UINT64_MAX - context->exif_overhead) {
+        photoc_jpeg_buffer_cleanup(&encoded);
+        errno = EOVERFLOW;
+        return -1;
+    }
+    *size = (uint64_t)encoded.size + context->exif_overhead;
+    photoc_jpeg_buffer_cleanup(&encoded);
+    return 0;
+}
 
 static bool same_directory_name(const char *left, const char *right)
 {
@@ -93,6 +119,19 @@ static int jpeg_error(const char *path, photoc_jpeg_edit_result result)
     return PHOTOC_EXIT_FAILURE;
 }
 
+static void report_target_miss(const char *path,
+                               const photoc_compress_options *options,
+                               const photoc_quality_choice *choice)
+{
+    if (choice->quality == options->min_quality) {
+        fprintf(stderr, "photoc compress: '%s': target cannot be reached without going below minimum quality %d (achieved %" PRIu64 " bytes)\n",
+                path, options->min_quality, choice->size);
+    } else {
+        fprintf(stderr, "photoc compress: '%s': target not met at quality %d (achieved %" PRIu64 " bytes)\n",
+                path, choice->quality, choice->size);
+    }
+}
+
 static int ensure_output_parent(const char *destination)
 {
     const char *slash = strrchr(destination, '/');
@@ -114,8 +153,10 @@ static int ensure_output_parent(const char *destination)
 }
 
 /* 0 processed, 1 skipped because the output exists, -1 failed. */
-static int compress_file(const char *path, const char *destination, int quality,
-                         uint64_t *original_size, uint64_t *compressed_size)
+static int compress_file(const char *path, const char *destination,
+                         const photoc_compress_options *options,
+                         uint64_t *original_size, uint64_t *compressed_size,
+                         photoc_quality_choice *choice)
 {
     if (photoc_fs_file_size(path, original_size) != 0) {
         fprintf(stderr, "photoc compress: '%s': %s\n", path, strerror(errno));
@@ -151,8 +192,35 @@ static int compress_file(const char *path, const char *destination, int quality,
         photoc_jpeg_exif_free(exif);
         return -1;
     }
+    choice->quality = options->quality;
+    choice->target_met = true;
+    if (options->target_bytes != 0) {
+        uint64_t overhead = 0;
+        photoc_jpeg_edit_result overhead_result =
+            photoc_jpeg_exif_output_overhead(exif, &overhead);
+        if (overhead_result != PHOTOC_JPEG_EDIT_OK) {
+            jpeg_error(path, overhead_result);
+            photoc_image_cleanup(&image);
+            photoc_jpeg_exif_free(exif);
+            return -1;
+        }
+        quality_probe_context context = {&image, overhead, PHOTOC_IMAGE_OK};
+        if (photoc_quality_search(options->target_bytes,
+                                  options->min_quality, probe_quality,
+                                  &context, choice) != 0) {
+            if (context.error != PHOTOC_IMAGE_OK) {
+                image_error(path, context.error);
+            } else {
+                fprintf(stderr, "photoc compress: '%s': quality search failed: %s\n",
+                        path, strerror(errno));
+            }
+            photoc_image_cleanup(&image);
+            photoc_jpeg_exif_free(exif);
+            return -1;
+        }
+    }
     photoc_jpeg_buffer encoded = {0};
-    image_result = photoc_image_encode_jpeg(&image, quality, &encoded);
+    image_result = photoc_image_encode_jpeg(&image, choice->quality, &encoded);
     photoc_image_cleanup(&image);
     if (image_result != PHOTOC_IMAGE_OK) {
         image_error(path, image_result);
@@ -176,6 +244,10 @@ static int compress_file(const char *path, const char *destination, int quality,
         fprintf(stderr, "photoc compress: '%s': cannot inspect output: %s\n",
                 destination, strerror(errno));
         return -1;
+    }
+    choice->size = *compressed_size;
+    if (options->target_bytes != 0) {
+        choice->target_met = *compressed_size <= options->target_bytes;
     }
     return 0;
 }
@@ -257,9 +329,11 @@ static int destination_for(const char *root, const char *source,
     return result;
 }
 
-int photoc_command_compress(const char *path, int quality, bool recursive,
-                            const char *output_dir)
+int photoc_command_compress(const char *path,
+                            const photoc_compress_options *options)
 {
+    bool recursive = options->recursive;
+    const char *output_dir = options->output_dir;
     photoc_fs_type type;
     if (photoc_fs_get_type(path, &type) != 0) {
         fprintf(stderr, "photoc compress: '%s': %s\n", path, strerror(errno));
@@ -294,11 +368,20 @@ int photoc_command_compress(const char *path, int quality, bool recursive,
         }
         uint64_t before = 0;
         uint64_t after = 0;
-        int result = compress_file(path, destination, quality, &before, &after);
+        photoc_quality_choice choice = {0};
+        int result = compress_file(path, destination, options, &before, &after,
+                                   &choice);
         if (result == 0) {
-            printf("Output: %s\nQuality: %d\n", destination, quality);
+            printf("Output: %s\nQuality: %d\n", destination, choice.quality);
             printf("Original size: %" PRIu64 " bytes\n", before);
             printf("Compressed size: %" PRIu64 " bytes\n", after);
+            if (options->target_bytes != 0) {
+                printf("Target size: %" PRIu64 " bytes\n", options->target_bytes);
+                printf("Target met: %s\n", choice.target_met ? "yes" : "no");
+                if (!choice.target_met) {
+                    report_target_miss(path, options, &choice);
+                }
+            }
             if (after <= before) {
                 printf("Bytes saved: %" PRIu64 " bytes\n", before - after);
             } else {
@@ -314,7 +397,8 @@ int photoc_command_compress(const char *path, int quality, bool recursive,
             fputs("photoc compress: unable to write output\n", stderr);
             return PHOTOC_EXIT_FAILURE;
         }
-        return result == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
+        return result == 0 && choice.target_met ? PHOTOC_EXIT_SUCCESS :
+               PHOTOC_EXIT_FAILURE;
     }
 
     compress_walk walk = {.output_dir = output_dir, .input_dir = path};
@@ -323,6 +407,7 @@ int photoc_command_compress(const char *path, int quality, bool recursive,
     size_t processed = 0;
     size_t skipped = walk.skipped;
     size_t failed = 0;
+    size_t targets_not_met = 0;
     uint64_t before_total = 0;
     uint64_t after_total = 0;
     if (walk_result != 0) {
@@ -343,13 +428,19 @@ int photoc_command_compress(const char *path, int quality, bool recursive,
             }
             uint64_t before = 0;
             uint64_t after = 0;
-            int result = compress_file(walk.paths[i], destination, quality,
-                                       &before, &after);
+            photoc_quality_choice choice = {0};
+            int result = compress_file(walk.paths[i], destination, options,
+                                       &before, &after, &choice);
             if (result == 0) {
                 ++processed;
                 before_total += before;
                 after_total += after;
-                printf("Compressed: %s -> %s\n", walk.paths[i], destination);
+                printf("Compressed: %s -> %s (quality %d, %" PRIu64 " bytes)\n",
+                       walk.paths[i], destination, choice.quality, after);
+                if (!choice.target_met) {
+                    ++targets_not_met;
+                    report_target_miss(walk.paths[i], options, &choice);
+                }
             } else if (result == 1) {
                 ++skipped;
                 printf("Skipped: %s (output exists: %s)\n", walk.paths[i],
@@ -367,6 +458,9 @@ int photoc_command_compress(const char *path, int quality, bool recursive,
 
     printf("Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n",
            processed, skipped, failed);
+    if (options->target_bytes != 0) {
+        printf("Targets not met: %zu\n", targets_not_met);
+    }
     printf("Bytes before: %" PRIu64 "\nBytes after: %" PRIu64 "\n",
            before_total, after_total);
     if (after_total <= before_total) {
@@ -378,5 +472,6 @@ int photoc_command_compress(const char *path, int quality, bool recursive,
         fputs("photoc compress: unable to write output\n", stderr);
         return PHOTOC_EXIT_FAILURE;
     }
-    return failed == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
+    return failed == 0 && targets_not_met == 0 ? PHOTOC_EXIT_SUCCESS :
+           PHOTOC_EXIT_FAILURE;
 }

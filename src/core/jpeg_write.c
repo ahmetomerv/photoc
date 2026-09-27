@@ -232,6 +232,26 @@ static photoc_jpeg_edit_result serialize_exif(const photoc_jpeg_exif *exif,
     return PHOTOC_JPEG_EDIT_OK;
 }
 
+photoc_jpeg_edit_result photoc_jpeg_exif_output_overhead(
+    const photoc_jpeg_exif *exif, uint64_t *bytes)
+{
+    if (bytes == NULL) {
+        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
+    }
+    if (exif == NULL) {
+        *bytes = 0;
+        return PHOTOC_JPEG_EDIT_OK;
+    }
+    unsigned char *serialized = NULL;
+    unsigned int length = 0;
+    photoc_jpeg_edit_result result = serialize_exif(exif, &serialized, &length);
+    if (result == PHOTOC_JPEG_EDIT_OK) {
+        *bytes = (uint64_t)length + 4;
+        exif_mem_free(exif->memory, serialized);
+    }
+    return result;
+}
+
 photoc_jpeg_edit_result photoc_jpeg_exif_copy(
     const photoc_jpeg_exif *source, photoc_jpeg_exif **out)
 {

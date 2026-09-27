@@ -21,6 +21,8 @@ typedef struct {
     const char *sort_by;
     const char *gap;
     const char *quality;
+    const char *target;
+    const char *min_quality;
     const char *output_dir;
     size_t argument_count;
 } photoc_cli_options;
@@ -32,7 +34,8 @@ typedef enum {
     PHOTOC_PARSE_DUPLICATE_OPTION
 } photoc_parse_status;
 
-/* command, first_argument, format, sort_by, gap, quality, output_dir, and error_arg
+/* command, first_argument, format, sort_by, gap, quality, target,
+   min_quality, output_dir, and error_arg
    borrow argv strings. */
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,
@@ -42,5 +45,9 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
    Zero is allowed. Returns false and leaves minutes unchanged on malformed
    input or when the converted value exceeds UINT32_MAX minutes. */
 bool photoc_parse_gap_minutes(const char *text, uint32_t *minutes);
+
+/* Positive integer bytes, optionally suffixed B, KB, MB, GB (decimal) or
+   KiB, MiB, GiB (binary). Leaves *bytes unchanged on invalid/overflow. */
+bool photoc_parse_size_bytes(const char *text, uint64_t *bytes);
 
 #endif

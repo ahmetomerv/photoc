@@ -18,7 +18,7 @@ typedef struct {
 } photoc_command;
 
 static const photoc_command commands[] = {
-    {"compress", "Re-encode JPEG files at a chosen quality", "<file|directory> [--quality <1-100>] [--recursive] [--output-dir <directory>]", "photoc compress photo.jpg --quality 80"},
+    {"compress", "Re-encode JPEGs by quality or target size", "<file|directory> [--quality <1-100> | --target <size> [--min-quality <1-100>]] [--recursive] [--output-dir <directory>]", "photoc compress photo.jpg --target 2MB"},
     {"exif", "Inspect JPEG metadata", "<file>", "photoc exif photo.jpg"},
     {"duplicates", "Find exact duplicate files", "<directory> [--recursive] [--json]", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
@@ -36,6 +36,26 @@ static const photoc_command *find_command(const char *name)
         }
     }
     return NULL;
+}
+
+static bool parse_quality_value(const char *value, int *quality)
+{
+    if (value == NULL || value[0] == '\0') {
+        return false;
+    }
+    int parsed = 0;
+    for (const char *digit = value; *digit != '\0'; ++digit) {
+        if (*digit < '0' || *digit > '9' ||
+            parsed > (100 - (*digit - '0')) / 10) {
+            return false;
+        }
+        parsed = parsed * 10 + (*digit - '0');
+    }
+    if (parsed < 1 || parsed > 100) {
+        return false;
+    }
+    *quality = parsed;
+    return true;
 }
 
 static void print_global_help(void)
@@ -99,14 +119,20 @@ static void print_command_help(const photoc_command *command)
     printf("  %s\n", command->example);
     if (strcmp(command->name, "compress") == 0) {
         puts("  photoc compress photo.jpg");
+        puts("  photoc compress photo.jpg --quality 80");
+        puts("  photoc compress photo.jpg --target 2MB --min-quality 30");
         puts("  photoc compress ~/Pictures --recursive --quality 75 --output-dir ~/Compressed");
         puts("");
         puts("Options:");
         puts("  --quality <1-100>  JPEG quality (default: 80)");
+        puts("  --target <size>    Maximum output size; searches quality 20-100 by default");
+        puts("  --min-quality <n>  Minimum quality for --target (default: 20)");
         puts("  --recursive        Include nested directories");
         puts("  --output-dir <dir>  Put copies in this directory; preserve relative paths");
         puts("");
         puts("Output: photo.compressed.jpg; existing outputs are skipped in directory mode.");
+        puts("Sizes use bytes, KB/MB/GB (decimal), or KiB/MiB/GiB (binary).");
+        puts("An unreachable target writes at minimum quality and returns failure.");
         puts("EXIF is preserved where possible, including GPS coordinates.");
     } else if (strcmp(command->name, "duplicates") == 0) {
         puts("  photoc duplicates ~/Pictures --recursive");
@@ -224,7 +250,7 @@ int photoc_run(int argc, char *argv[])
     if (strcmp(command->name, "compress") == 0) {
         if (options.argument_count != 1) {
             fputs("photoc compress: expected exactly one JPEG file or directory\n"
-                  "Usage: photoc compress <file|directory> [--quality <1-100>] [--recursive] [--output-dir <directory>]\n",
+                  "Usage: photoc compress <file|directory> [--quality <1-100> | --target <size> [--min-quality <1-100>]] [--recursive] [--output-dir <directory>]\n",
                   stderr);
             return PHOTOC_EXIT_USAGE;
         }
@@ -232,29 +258,39 @@ int photoc_run(int argc, char *argv[])
             fputs("photoc compress: --json is not supported\n", stderr);
             return PHOTOC_EXIT_USAGE;
         }
-        int quality = 80;
+        if (options.quality != NULL && options.target != NULL) {
+            fputs("photoc compress: --quality and --target cannot be combined\n",
+                  stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (options.min_quality != NULL && options.target == NULL) {
+            fputs("photoc compress: --min-quality requires --target\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        photoc_compress_options compress = {
+            .quality = 80, .min_quality = 20,
+            .recursive = options.recursive, .output_dir = options.output_dir
+        };
         if (options.quality != NULL) {
-            const char *value = options.quality;
-            quality = 0;
-            if (*value == '\0') {
-                quality = -1;
-            }
-            for (const char *digit = value; *digit != '\0'; ++digit) {
-                if (*digit < '0' || *digit > '9' || quality < 0 ||
-                    quality > (100 - (*digit - '0')) / 10) {
-                    quality = -1;
-                    break;
-                }
-                quality = quality * 10 + (*digit - '0');
-            }
-            if (quality < 1 || quality > 100) {
+            if (!parse_quality_value(options.quality, &compress.quality)) {
                 fprintf(stderr, "photoc compress: invalid quality '%s'; use 1-100\n",
-                        value);
+                        options.quality);
                 return PHOTOC_EXIT_USAGE;
             }
         }
-        return photoc_command_compress(options.first_argument, quality,
-                                       options.recursive, options.output_dir);
+        if (options.min_quality != NULL &&
+            !parse_quality_value(options.min_quality, &compress.min_quality)) {
+            fprintf(stderr, "photoc compress: invalid minimum quality '%s'; use 1-100\n",
+                    options.min_quality);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (options.target != NULL &&
+            !photoc_parse_size_bytes(options.target, &compress.target_bytes)) {
+            fprintf(stderr, "photoc compress: invalid target '%s'; use positive bytes or KB/MB/GB/KiB/MiB/GiB\n",
+                    options.target);
+            return PHOTOC_EXIT_USAGE;
+        }
+        return photoc_command_compress(options.first_argument, &compress);
     }
 
     if (strcmp(command->name, "exif") == 0) {

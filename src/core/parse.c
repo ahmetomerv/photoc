@@ -30,6 +30,46 @@ bool photoc_parse_gap_minutes(const char *text, uint32_t *minutes)
     return false;
 }
 
+bool photoc_parse_size_bytes(const char *text, uint64_t *bytes)
+{
+    if (text == NULL || bytes == NULL || text[0] < '0' || text[0] > '9') {
+        return false;
+    }
+    uint64_t value = 0;
+    size_t i = 0;
+    while (text[i] >= '0' && text[i] <= '9') {
+        unsigned int digit = (unsigned int)(text[i] - '0');
+        if (value > (UINT64_MAX - digit) / 10u) {
+            return false;
+        }
+        value = value * 10u + digit;
+        ++i;
+    }
+    uint64_t multiplier = 0;
+    if (text[i] == '\0' || strcmp(text + i, "B") == 0) {
+        multiplier = 1;
+    } else if (strcmp(text + i, "KB") == 0) {
+        multiplier = 1000;
+    } else if (strcmp(text + i, "MB") == 0) {
+        multiplier = 1000000;
+    } else if (strcmp(text + i, "GB") == 0) {
+        multiplier = UINT64_C(1000000000);
+    } else if (strcmp(text + i, "KiB") == 0) {
+        multiplier = 1024;
+    } else if (strcmp(text + i, "MiB") == 0) {
+        multiplier = UINT64_C(1048576);
+    } else if (strcmp(text + i, "GiB") == 0) {
+        multiplier = UINT64_C(1073741824);
+    } else {
+        return false;
+    }
+    if (value == 0 || value > UINT64_MAX / multiplier) {
+        return false;
+    }
+    *bytes = value * multiplier;
+    return true;
+}
+
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,
                                       const char **error_arg)
@@ -86,6 +126,21 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
                 return PHOTOC_PARSE_MISSING_VALUE;
             }
             options->quality = argv[++i];
+        } else if (!options_ended && options->command != NULL &&
+                   strcmp(options->command, "compress") == 0 &&
+                   (strcmp(arg, "--target") == 0 ||
+                    strcmp(arg, "--min-quality") == 0)) {
+            const char **slot = strcmp(arg, "--target") == 0 ?
+                                &options->target : &options->min_quality;
+            if (*slot != NULL) {
+                *error_arg = arg;
+                return PHOTOC_PARSE_DUPLICATE_OPTION;
+            }
+            if (i + 1 >= argc || argv[i + 1][0] == '-') {
+                *error_arg = arg;
+                return PHOTOC_PARSE_MISSING_VALUE;
+            }
+            *slot = argv[++i];
         } else if (!options_ended && options->command != NULL &&
                    strcmp(options->command, "compress") == 0 &&
                    strcmp(arg, "--output-dir") == 0) {

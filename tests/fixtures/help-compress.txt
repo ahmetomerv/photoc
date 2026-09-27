@@ -1,19 +1,25 @@
-Usage: photoc [global options] compress <file|directory> [--quality <1-100>] [--recursive] [--output-dir <directory>]
+Usage: photoc [global options] compress <file|directory> [--quality <1-100> | --target <size> [--min-quality <1-100>]] [--recursive] [--output-dir <directory>]
        photoc compress --help
 
-Re-encode JPEG files at a chosen quality
+Re-encode JPEGs by quality or target size
 
 Status: available for JPEG files; writes .compressed copies
 
 Example:
-  photoc compress photo.jpg --quality 80
+  photoc compress photo.jpg --target 2MB
   photoc compress photo.jpg
+  photoc compress photo.jpg --quality 80
+  photoc compress photo.jpg --target 2MB --min-quality 30
   photoc compress ~/Pictures --recursive --quality 75 --output-dir ~/Compressed
 
 Options:
   --quality <1-100>  JPEG quality (default: 80)
+  --target <size>    Maximum output size; searches quality 20-100 by default
+  --min-quality <n>  Minimum quality for --target (default: 20)
   --recursive        Include nested directories
   --output-dir <dir>  Put copies in this directory; preserve relative paths
 
 Output: photo.compressed.jpg; existing outputs are skipped in directory mode.
+Sizes use bytes, KB/MB/GB (decimal), or KiB/MiB/GiB (binary).
+An unreachable target writes at minimum quality and returns failure.
 EXIF is preserved where possible, including GPS coordinates.

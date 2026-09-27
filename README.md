@@ -36,6 +36,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc --help
 ./build/photoc --version
 ./build/photoc compress photo.jpg --quality 80
+./build/photoc compress photo.jpg --target 2MB --min-quality 30
 ./build/photoc exif --help
 ./build/photoc exif photo.jpg
 ./build/photoc exif photo.jpg --json
@@ -56,7 +57,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 `exif <file>` prints file, image, camera, exposure, date, and location details
 for one JPEG. Unavailable EXIF fields are labeled `Unavailable`.
 
-`compress <file|directory> [--quality <1-100>] [--recursive] [--output-dir <directory>]`
+`compress <file|directory> [--quality <1-100> | --target <size> [--min-quality <1-100>]] [--recursive] [--output-dir <directory>]`
 re-encodes JPEGs at quality 80 by default. It creates `photo.compressed.jpg`
 beside `photo.jpg`, or in the requested output directory. Directory scans are
 flat unless `--recursive` is given. A separate output directory preserves the
@@ -68,6 +69,15 @@ show both sizes, bytes saved, and percentage saved. Savings can be negative if
 the new files are larger. JPEG EXIF fields, including GPS, are copied where libexif can
 represent them. Other metadata segments such as ICC or XMP are not copied.
 Re-encoding is lossy, so keep the original when image quality matters.
+
+Use `--target <size>` instead of `--quality` to search for the highest quality
+whose output fits the requested size. Sizes are positive integer bytes, or
+`KB`/`MB`/`GB` (decimal) and `KiB`/`MiB`/`GiB` (binary); for example, `2MB`
+means 2,000,000 bytes. `--min-quality <1-100>` sets the floor (default 20).
+The reported quality and achieved size include copied EXIF. If the target is
+unreachable at the minimum quality, photoc writes that best-effort copy,
+reports the miss, and exits with status 1. This also works per JPEG in a
+directory scan.
 
 `stats <directory> [--recursive]` reports parsed photo count, total storage,
 average file size, earliest and latest valid EXIF capture timestamps, and the

@@ -10,8 +10,16 @@ typedef enum {
 } photoc_sort_mode;
 
 int photoc_command_unimplemented(const char *name);
-int photoc_command_compress(const char *path, int quality, bool recursive,
-                            const char *output_dir);
+typedef struct {
+    int quality;
+    uint64_t target_bytes; /* Zero selects fixed quality. */
+    int min_quality;
+    bool recursive;
+    const char *output_dir; /* Borrowed; NULL writes beside each source. */
+} photoc_compress_options;
+
+int photoc_command_compress(const char *path,
+                            const photoc_compress_options *options);
 int photoc_command_exif(const char *path, bool json);
 int photoc_command_duplicates(const char *directory, bool recursive, bool json);
 int photoc_command_stats(const char *directory, bool recursive, bool json);
