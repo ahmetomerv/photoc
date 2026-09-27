@@ -16,9 +16,12 @@ function(photoc_configure_c_target target)
     endif()
 endfunction()
 
-add_library(photoc_fs STATIC src/core/fs.c)
-photoc_configure_c_target(photoc_fs)
-target_include_directories(photoc_fs PUBLIC include)
+add_library(photoc_core STATIC
+    src/core/fs.c
+    src/core/photo.c
+)
+photoc_configure_c_target(photoc_core)
+target_include_directories(photoc_core PUBLIC include)
 
 add_executable(photoc
     src/main.c
@@ -27,7 +30,7 @@ add_executable(photoc
     src/commands/stub.c
 )
 photoc_configure_c_target(photoc)
-target_link_libraries(photoc PRIVATE photoc_fs)
+target_link_libraries(photoc PRIVATE photoc_core)
 
 configure_file(
     include/photoc/version.h.in
@@ -45,11 +48,16 @@ include(CTest)
 if(BUILD_TESTING)
     add_executable(test_fs tests/test_fs.c)
     photoc_configure_c_target(test_fs)
-    target_link_libraries(test_fs PRIVATE photoc_fs)
+    target_link_libraries(test_fs PRIVATE photoc_core)
     target_compile_definitions(test_fs PRIVATE
         PHOTOC_TEST_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/fs/sample.txt"
     )
     add_test(NAME filesystem COMMAND test_fs)
+
+    add_executable(test_photo tests/test_photo.c)
+    photoc_configure_c_target(test_photo)
+    target_link_libraries(test_photo PRIVATE photoc_core)
+    add_test(NAME photo_model COMMAND test_photo)
 
     function(add_cli_test name case)
         set(extra_args)

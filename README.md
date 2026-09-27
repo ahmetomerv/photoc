@@ -30,7 +30,7 @@ Missing or unknown commands, unknown options, and conflicting options exit with 
 
 ## Shared filesystem utilities
 
-[`include/photoc/fs.h`](include/photoc/fs.h) defines the filesystem API used by future commands. It covers path inspection, filename and extension extraction, safe path joining, and callback-based directory walks. The header documents error returns and ownership of allocated strings.
+[`include/photoc/fs.h`](include/photoc/fs.h) defines the filesystem API used by future commands. It covers path inspection, filename and extension extraction, safe path joining, and callback-based directory walks. [`include/photoc/photo.h`](include/photoc/photo.h) defines the shared `Photo` metadata model. Both headers document ownership and unavailable values.
 
 ## Contributing
 
