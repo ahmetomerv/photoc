@@ -58,7 +58,8 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
         } else if (!options_ended && strcmp(arg, "--json") == 0) {
             options->json = true;
         } else if (!options_ended && options->command != NULL &&
-                   (strcmp(options->command, "duplicates") == 0 ||
+                   (strcmp(options->command, "compress") == 0 ||
+                    strcmp(options->command, "duplicates") == 0 ||
                     strcmp(options->command, "stats") == 0 ||
                     strcmp(options->command, "rename") == 0 ||
                     strcmp(options->command, "sort") == 0 ||
@@ -85,6 +86,18 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
                 return PHOTOC_PARSE_MISSING_VALUE;
             }
             options->quality = argv[++i];
+        } else if (!options_ended && options->command != NULL &&
+                   strcmp(options->command, "compress") == 0 &&
+                   strcmp(arg, "--output-dir") == 0) {
+            if (options->output_dir != NULL) {
+                *error_arg = arg;
+                return PHOTOC_PARSE_DUPLICATE_OPTION;
+            }
+            if (i + 1 >= argc || argv[i + 1][0] == '-') {
+                *error_arg = arg;
+                return PHOTOC_PARSE_MISSING_VALUE;
+            }
+            options->output_dir = argv[++i];
         } else if (!options_ended && options->command != NULL &&
                    strcmp(options->command, "sort") == 0 &&
                    strcmp(arg, "--by") == 0) {

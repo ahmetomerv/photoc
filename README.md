@@ -56,11 +56,16 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 `exif <file>` prints file, image, camera, exposure, date, and location details
 for one JPEG. Unavailable EXIF fields are labeled `Unavailable`.
 
-`compress <file> [--quality <1-100>]` re-encodes one JPEG at quality 80 by
-default. It creates `photo.compressed.jpg` beside `photo.jpg` and never changes
-or replaces the original or an existing output. The report shows both file
-sizes, bytes saved, and percentage saved; savings are negative if the new file
-is larger. JPEG EXIF fields, including GPS, are copied where libexif can
+`compress <file|directory> [--quality <1-100>] [--recursive] [--output-dir <directory>]`
+re-encodes JPEGs at quality 80 by default. It creates `photo.compressed.jpg`
+beside `photo.jpg`, or in the requested output directory. Directory scans are
+flat unless `--recursive` is given. A separate output directory preserves the
+source's relative subdirectories and is created if needed. Existing outputs
+are skipped in directory mode; originals are never changed or replaced.
+Directory reports include processed, skipped, and failed counts, input and
+output byte totals for successful files, and total savings. Single-file reports
+show both sizes, bytes saved, and percentage saved. Savings can be negative if
+the new files are larger. JPEG EXIF fields, including GPS, are copied where libexif can
 represent them. Other metadata segments such as ICC or XMP are not copied.
 Re-encoding is lossy, so keep the original when image quality matters.
 

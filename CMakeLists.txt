@@ -190,7 +190,9 @@ if(BUILD_TESTING)
                           no_exif extension collision invalid
                           unsupported missing directory no_argument extra_argument
                           quality_missing quality_zero quality_high quality_negative
-                          quality_decimal quality_text quality_duplicate json)
+                          quality_decimal quality_text quality_duplicate json
+                          output_dir recursive_file output_dir_missing
+                          output_dir_duplicate output_dir_conflict)
         add_test(
             NAME "compress_${case}"
             COMMAND "${CMAKE_COMMAND}"
@@ -198,6 +200,18 @@ if(BUILD_TESTING)
                 "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
                 "-DCASE=${case}"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_compress_cli.cmake"
+        )
+    endforeach()
+
+    foreach(case IN ITEMS flat recursive output_dir output_dir_external
+                          output_dir_same collision invalid)
+        add_test(
+            NAME "compress_directory_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_compress_directory.cmake"
         )
     endforeach()
 

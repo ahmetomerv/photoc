@@ -18,7 +18,7 @@ typedef struct {
 } photoc_command;
 
 static const photoc_command commands[] = {
-    {"compress", "Re-encode a JPEG at a chosen quality", "<file> [--quality <1-100>]", "photoc compress photo.jpg --quality 80"},
+    {"compress", "Re-encode JPEG files at a chosen quality", "<file|directory> [--quality <1-100>] [--recursive] [--output-dir <directory>]", "photoc compress photo.jpg --quality 80"},
     {"exif", "Inspect JPEG metadata", "<file>", "photoc exif photo.jpg"},
     {"duplicates", "Find exact duplicate files", "<directory> [--recursive] [--json]", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
@@ -99,11 +99,14 @@ static void print_command_help(const photoc_command *command)
     printf("  %s\n", command->example);
     if (strcmp(command->name, "compress") == 0) {
         puts("  photoc compress photo.jpg");
+        puts("  photoc compress ~/Pictures --recursive --quality 75 --output-dir ~/Compressed");
         puts("");
         puts("Options:");
         puts("  --quality <1-100>  JPEG quality (default: 80)");
+        puts("  --recursive        Include nested directories");
+        puts("  --output-dir <dir>  Put copies in this directory; preserve relative paths");
         puts("");
-        puts("Output: photo.compressed.jpg; existing files are never replaced.");
+        puts("Output: photo.compressed.jpg; existing outputs are skipped in directory mode.");
         puts("EXIF is preserved where possible, including GPS coordinates.");
     } else if (strcmp(command->name, "duplicates") == 0) {
         puts("  photoc duplicates ~/Pictures --recursive");
@@ -220,8 +223,8 @@ int photoc_run(int argc, char *argv[])
 
     if (strcmp(command->name, "compress") == 0) {
         if (options.argument_count != 1) {
-            fputs("photoc compress: expected exactly one JPEG file\n"
-                  "Usage: photoc compress <file> [--quality <1-100>]\n",
+            fputs("photoc compress: expected exactly one JPEG file or directory\n"
+                  "Usage: photoc compress <file|directory> [--quality <1-100>] [--recursive] [--output-dir <directory>]\n",
                   stderr);
             return PHOTOC_EXIT_USAGE;
         }
@@ -250,7 +253,8 @@ int photoc_run(int argc, char *argv[])
                 return PHOTOC_EXIT_USAGE;
             }
         }
-        return photoc_command_compress(options.first_argument, quality);
+        return photoc_command_compress(options.first_argument, quality,
+                                       options.recursive, options.output_dir);
     }
 
     if (strcmp(command->name, "exif") == 0) {

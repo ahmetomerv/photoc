@@ -35,6 +35,10 @@ int photoc_fs_compare_casefold(const char *left, const char *right);
    the caller. */
 int photoc_fs_join(const char *base, const char *child, char **joined);
 
+/* Create a directory and missing parents, refusing symlink components.
+   Existing directories are accepted. Returns 0 or -1 with errno set. */
+int photoc_fs_mkdirs(const char *path);
+
 /* Atomically renames a path only when destination does not exist. Never
    falls back to ordinary rename(), which could overwrite a file. Returns
    -1 with errno (including EEXIST or an unsupported-filesystem error) when

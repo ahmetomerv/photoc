@@ -274,6 +274,51 @@ int photoc_fs_join(const char *base, const char *child, char **joined)
     return 0;
 }
 
+int photoc_fs_mkdirs(const char *path)
+{
+    if (!valid_path(path)) {
+        return -1;
+    }
+    size_t length = strlen(path);
+    char *copy = malloc(length + 1);
+    if (copy == NULL) {
+        return -1;
+    }
+    memcpy(copy, path, length + 1);
+
+    int result = 0;
+    int saved_errno = 0;
+    for (size_t i = 1; i <= length; ++i) {
+        if (copy[i] != '/' && copy[i] != '\0') {
+            continue;
+        }
+        char delimiter = copy[i];
+        copy[i] = '\0';
+        struct stat info;
+        if (lstat(copy, &info) != 0) {
+            if (errno != ENOENT ||
+                (mkdir(copy, 0777) != 0 && errno != EEXIST) ||
+                lstat(copy, &info) != 0) {
+                saved_errno = errno;
+                result = -1;
+            }
+        }
+        if (result == 0 && !S_ISDIR(info.st_mode)) {
+            saved_errno = ENOTDIR;
+            result = -1;
+        }
+        copy[i] = delimiter;
+        if (result != 0) {
+            break;
+        }
+    }
+    free(copy);
+    if (result != 0) {
+        errno = saved_errno;
+    }
+    return result;
+}
+
 int photoc_fs_rename_noreplace(const char *source, const char *destination)
 {
     if (!valid_path(source) || !valid_path(destination)) {
