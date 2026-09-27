@@ -38,6 +38,7 @@ add_executable(photoc
     src/core/cli.c
     src/core/parse.c
     src/commands/exif.c
+    src/commands/rename.c
     src/commands/stats.c
     src/commands/stub.c
 )
@@ -131,12 +132,29 @@ if(BUILD_TESTING)
         add_cli_test("cli_${case}" "${case}")
     endforeach()
 
-    foreach(command IN ITEMS compress duplicates rename sort focus scrub)
+    foreach(command IN ITEMS compress duplicates sort focus scrub)
         add_cli_test("command_${command}" stub "${command}")
         add_cli_test("command_${command}_help" command_help "${command}")
     endforeach()
     add_cli_test(command_exif_help command_help exif)
     add_cli_test(command_stats_help command_help stats)
+    add_cli_test(command_rename_help command_help rename)
+
+    foreach(case IN ITEMS flat recursive missing_date missing_camera collision
+                          file_collision duplicate case_duplicate
+                          separate_directories invalid_jpeg unchanged empty
+                          format_before_directory unknown_placeholder
+                          malformed_template missing_format missing_value
+                          duplicate_format missing_directory json unknown_option)
+        add_test(
+            NAME "rename_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_rename_cli.cmake"
+        )
+    endforeach()
 
     foreach(case IN ITEMS flat recursive empty single missing_exif missing no_argument
                           extra_argument unknown_option)

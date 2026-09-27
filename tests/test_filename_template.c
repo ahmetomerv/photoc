@@ -108,6 +108,16 @@ static void test_sanitization(Photo *photo)
 
 static void test_errors(Photo *photo)
 {
+    size_t validation_offset = 0;
+    CHECK(photoc_filename_template_validate("{date}_{camera}",
+          &validation_offset) == PHOTOC_TEMPLATE_OK);
+    CHECK(validation_offset == SIZE_MAX);
+    CHECK(photoc_filename_template_validate("x{unknown}",
+          &validation_offset) == PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER);
+    CHECK(validation_offset == 1);
+    CHECK(photoc_filename_template_validate("x{date", &validation_offset) ==
+          PHOTOC_TEMPLATE_INVALID_TEMPLATE);
+    CHECK(validation_offset == 1);
     expect_error("{unknown}", photo, PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER, 0);
     expect_error("prefix_{Camera}", photo, PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER,
                  7);

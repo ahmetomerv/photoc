@@ -1,8 +1,8 @@
 # photoc
 
 `photoc` is a command-line toolkit for photographers, written in C. It can
-inspect JPEG metadata and summarize JPEG collections. Other planned commands
-are placeholders.
+inspect JPEG metadata, summarize JPEG collections, and preview filename changes.
+Other planned commands are placeholders.
 
 ## Build and test
 
@@ -38,6 +38,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc exif photo.jpg --json
 ./build/photoc stats ~/Pictures --recursive
 ./build/photoc stats ~/Pictures --json
+./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}"
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -50,8 +51,19 @@ counts and percentages of all successfully parsed photos; missing EXIF values
 are omitted, so a distribution can total less than 100%. It scans one directory
 level by default. Unreadable or invalid JPEGs produce warnings on stderr while
 the scan continues. Counts are sorted by frequency, with deterministic ties.
-The planned `compress`, `duplicates`, `rename`, `sort`, `focus`, and `scrub`
-commands still report that they are not implemented.
+`rename <directory> --format <template> [--recursive]` prints planned JPEG
+renames as `old_name -> new_name`. It is **dry-run only** and never modifies
+files. Recursive output uses paths relative to the supplied directory. JPEGs
+are sorted by path before sequence numbers are assigned, starting at 0001;
+invalid JPEGs and entries missing required EXIF fields still consume a number.
+The original extension's casing is preserved when using `{ext}`. Existing
+destinations and duplicate planned destinations (including ASCII case-only
+differences) are skipped. Each skipped JPEG gets a reason on stderr, and the
+command exits with status 1 if any entry was skipped. A missing date does not
+fall back to file timestamps. Use `photoc rename --help` for examples.
+
+The planned `compress`, `duplicates`, `sort`, `focus`, and `scrub` commands
+still report that they are not implemented.
 
 With `exif --json`, details are grouped under `file`, `image`, `camera`,
 `exposure`, `date`, and `location`. Missing values are `null`; `has_gps` is a
@@ -99,7 +111,8 @@ defines the filename-template API for future rename operations. It expands
 `2026-09-27_EOS_R5_0007.JpEg` with sequence width 4. Dates use the captured
 EXIF time (`YYYY-MM-DD` or `YYYY-MM-DD_HH-MM-SS`); missing required metadata
 returns an error. The original filename stem and extension retain their
-letter case. Unsafe filename characters become underscores; no file is renamed.
+letter case. Unsafe filename characters become underscores. The rename preview
+uses this API without changing any files.
 
 ## EXIF dependency
 

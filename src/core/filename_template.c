@@ -66,6 +66,71 @@ static bool token_is(const char *token, size_t length, const char *name)
     return strlen(name) == length && memcmp(token, name, length) == 0;
 }
 
+static bool known_token(const char *token, size_t length)
+{
+    static const char *const names[] = {
+        "date", "datetime", "camera", "make", "iso", "aperture",
+        "focal", "sequence", "original", "ext"
+    };
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i) {
+        if (token_is(token, length, names[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+photoc_template_result photoc_filename_template_validate(
+    const char *pattern, size_t *error_offset)
+{
+    if (error_offset != NULL) {
+        *error_offset = SIZE_MAX;
+    }
+    if (pattern == NULL) {
+        return PHOTOC_TEMPLATE_INVALID_ARGUMENT;
+    }
+    if (pattern[0] == '\0') {
+        return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
+    }
+    if (strcmp(pattern, ".") == 0 || strcmp(pattern, "..") == 0) {
+        return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
+    }
+    for (size_t i = 0; pattern[i] != '\0';) {
+        if ((pattern[i] == '{' && pattern[i + 1] == '{') ||
+            (pattern[i] == '}' && pattern[i + 1] == '}')) {
+            i += 2;
+        } else if (pattern[i] == '{') {
+            size_t start = i++;
+            size_t token_start = i;
+            while (pattern[i] != '\0' && pattern[i] != '}' &&
+                   pattern[i] != '{') {
+                ++i;
+            }
+            if (error_offset != NULL) {
+                *error_offset = start;
+            }
+            if (pattern[i] != '}' || i == token_start) {
+                return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
+            }
+            if (!known_token(pattern + token_start, i - token_start)) {
+                return PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER;
+            }
+            if (error_offset != NULL) {
+                *error_offset = SIZE_MAX;
+            }
+            ++i;
+        } else if (pattern[i] == '}') {
+            if (error_offset != NULL) {
+                *error_offset = i;
+            }
+            return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
+        } else {
+            ++i;
+        }
+    }
+    return PHOTOC_TEMPLATE_OK;
+}
+
 static photoc_template_result format_number(char *buffer, size_t size,
                                              const char *format, double value)
 {
@@ -179,8 +244,10 @@ photoc_template_result photoc_filename_template_expand(
         photo->path[0] == '\0' || sequence_width > 20) {
         return PHOTOC_TEMPLATE_INVALID_ARGUMENT;
     }
-    if (pattern[0] == '\0') {
-        return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
+    photoc_template_result validation = photoc_filename_template_validate(
+        pattern, error_offset);
+    if (validation != PHOTOC_TEMPLATE_OK) {
+        return validation;
     }
 
     char *basename = NULL;

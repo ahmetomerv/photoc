@@ -16,6 +16,12 @@ typedef enum {
     PHOTOC_TEMPLATE_TOO_LONG
 } photoc_template_result;
 
+/* Checks placeholder names and brace syntax without requiring a Photo.
+   An invalid or unknown placeholder sets error_offset to its opening brace;
+   otherwise error_offset is SIZE_MAX. */
+photoc_template_result photoc_filename_template_validate(
+    const char *pattern, size_t *error_offset);
+
 /* Expands a single filename; no filesystem operation is performed.
    {date} is YYYY-MM-DD and {datetime} is YYYY-MM-DD_HH-MM-SS from the
    capture timestamp. {camera}/{make} use Photo's model/make; {iso},
