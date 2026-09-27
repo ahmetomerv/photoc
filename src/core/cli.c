@@ -20,7 +20,7 @@ static const photoc_command commands[] = {
     {"compress", "Compress image files", "<photo>...", "photoc compress photo.jpg"},
     {"exif", "Inspect JPEG metadata", "<file>", "photoc exif photo.jpg"},
     {"duplicates", "Find duplicate photos", "<path>...", "photoc duplicates ~/Pictures"},
-    {"stats", "Summarize JPEG collections", "<directory> [--recursive]", "photoc stats ~/Pictures"},
+    {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
     {"rename", "Rename photo files", "<photo>...", "photoc rename photo.jpg"},
     {"sort", "Organize photos into folders", "<path>...", "photoc sort ~/Pictures"},
     {"focus", "Assess image focus", "<photo>...", "photoc focus photo.jpg"},
@@ -82,6 +82,7 @@ static void print_command_help(const photoc_command *command)
         puts("  photoc exif photo.jpg --json");
     } else if (strcmp(command->name, "stats") == 0) {
         puts("  photoc stats ~/Pictures --recursive");
+        puts("  photoc stats ~/Pictures --json");
     }
 }
 
@@ -156,14 +157,11 @@ int photoc_run(int argc, char *argv[])
     if (strcmp(command->name, "stats") == 0) {
         if (options.argument_count != 1) {
             fputs("photoc stats: expected exactly one directory\n"
-                  "Usage: photoc stats <directory> [--recursive]\n", stderr);
+                  "Usage: photoc stats <directory> [--recursive] [--json]\n", stderr);
             return PHOTOC_EXIT_USAGE;
         }
-        if (options.json) {
-            fputs("photoc stats: --json is not supported yet\n", stderr);
-            return PHOTOC_EXIT_USAGE;
-        }
-        return photoc_command_stats(options.first_argument, options.recursive);
+        return photoc_command_stats(options.first_argument, options.recursive,
+                                    options.json);
     }
 
     return photoc_command_unimplemented(command->name);

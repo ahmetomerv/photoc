@@ -1,4 +1,4 @@
-Usage: photoc [global options] stats <directory> [--recursive]
+Usage: photoc [global options] stats <directory> [--recursive] [--json]
        photoc stats --help
 
 Summarize JPEG collections
@@ -8,3 +8,4 @@ Status: available for JPEG files
 Example:
   photoc stats ~/Pictures
   photoc stats ~/Pictures --recursive
+  photoc stats ~/Pictures --json

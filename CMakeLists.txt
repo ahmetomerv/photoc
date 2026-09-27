@@ -132,7 +132,7 @@ if(BUILD_TESTING)
     add_cli_test(command_stats_help command_help stats)
 
     foreach(case IN ITEMS flat recursive empty single missing_exif missing no_argument
-                          extra_argument json unknown_option)
+                          extra_argument unknown_option)
         add_test(
             NAME "stats_${case}"
             COMMAND "${CMAKE_COMMAND}"
@@ -140,6 +140,18 @@ if(BUILD_TESTING)
                 "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
                 "-DCASE=${case}"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_stats_cli.cmake"
+        )
+    endforeach()
+
+    foreach(case IN ITEMS flat recursive empty missing_exif escaped_directory
+                          before_command missing)
+        add_test(
+            NAME "stats_json_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_stats_json.cmake"
         )
     endforeach()
 

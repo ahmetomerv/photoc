@@ -37,6 +37,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc exif photo.jpg
 ./build/photoc exif photo.jpg --json
 ./build/photoc stats ~/Pictures --recursive
+./build/photoc stats ~/Pictures --json
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -52,11 +53,16 @@ the scan continues. Counts are sorted by frequency, with deterministic ties.
 The planned `compress`, `duplicates`, `rename`, `sort`, `focus`, and `scrub`
 commands still report that they are not implemented.
 
-With `--json`, the same details are grouped under `file`, `image`, `camera`,
+With `exif --json`, details are grouped under `file`, `image`, `camera`,
 `exposure`, `date`, and `location`. Missing values are `null`; `has_gps` is a
 boolean, and sizes, dimensions, exposure values, and coordinates are numbers.
+With `stats --json`, output has `scan`, `storage`, `capture_dates`, and
+`distributions` objects. Distributions contain sorted arrays of camera models,
+ISO values, apertures, and focal lengths, each with `value`, `count`, and
+`percentage_of_photos` fields. Numeric metadata stays numeric, unavailable
+dates and averages are `null`, and per-file warnings still go to stderr.
 
-Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter command output yet. JSON output is currently available for `exif` only.
+Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter command output yet. JSON output is available for `exif` and `stats`.
 
 Exit status is `0` for success, `1` for file or metadata errors, `2` for usage
 errors, and `3` for unimplemented commands. Normal output uses stdout;
