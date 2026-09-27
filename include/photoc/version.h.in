@@ -1,0 +1,6 @@
+#ifndef PHOTOC_VERSION_H
+#define PHOTOC_VERSION_H
+
+#define PHOTOC_VERSION "@PROJECT_VERSION@"
+
+#endif
