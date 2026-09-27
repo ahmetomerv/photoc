@@ -91,6 +91,16 @@ The scanner owns and frees each `Photo` after its callback returns.
 aggregation API used by `photoc stats`. It owns frequency labels, ignores
 unavailable values, and sorts frequency tables separately from CLI formatting.
 
+[`include/photoc/filename_template.h`](include/photoc/filename_template.h)
+defines the filename-template API for future rename operations. It expands
+`{date}`, `{datetime}`, `{camera}`, `{make}`, `{iso}`, `{aperture}`, `{focal}`,
+`{sequence}`, `{original}`, and `{ext}` using a `Photo`. For example,
+`{date}_{camera}_{sequence}.{ext}` can produce
+`2026-09-27_EOS_R5_0007.JpEg` with sequence width 4. Dates use the captured
+EXIF time (`YYYY-MM-DD` or `YYYY-MM-DD_HH-MM-SS`); missing required metadata
+returns an error. The original filename stem and extension retain their
+letter case. Unsafe filename characters become underscores; no file is renamed.
+
 ## EXIF dependency
 
 [`libexif`](https://libexif.github.io/) is a C library for reading, editing,

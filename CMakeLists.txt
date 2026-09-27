@@ -21,11 +21,13 @@ endfunction()
 
 add_library(photoc_core STATIC
     src/core/fs.c
+    src/core/filename_template.c
     src/core/json.c
     src/core/metadata.c
     src/core/photo.c
     src/core/scan.c
     src/core/stats.c
+    src/core/timestamp.c
 )
 photoc_configure_c_target(photoc_core)
 target_include_directories(photoc_core PUBLIC include)
@@ -68,6 +70,11 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_photo)
     target_link_libraries(test_photo PRIVATE photoc_core)
     add_test(NAME photo_model COMMAND test_photo)
+
+    add_executable(test_filename_template tests/test_filename_template.c)
+    photoc_configure_c_target(test_filename_template)
+    target_link_libraries(test_filename_template PRIVATE photoc_core)
+    add_test(NAME filename_template COMMAND test_filename_template)
 
     add_executable(test_scan tests/test_scan.c)
     photoc_configure_c_target(test_scan)
