@@ -21,6 +21,7 @@ endfunction()
 
 add_library(photoc_core STATIC
     src/core/fs.c
+    src/core/hash.c
     src/core/filename_template.c
     src/core/json.c
     src/core/metadata.c
@@ -68,6 +69,11 @@ if(BUILD_TESTING)
         PHOTOC_TEST_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/fs/sample.txt"
     )
     add_test(NAME filesystem COMMAND test_fs)
+
+    add_executable(test_hash tests/test_hash.c)
+    photoc_configure_c_target(test_hash)
+    target_link_libraries(test_hash PRIVATE photoc_core)
+    add_test(NAME file_hashing COMMAND test_hash)
 
     add_executable(test_photo tests/test_photo.c)
     photoc_configure_c_target(test_photo)

@@ -127,6 +127,12 @@ diagnostics use stderr.
 [`include/photoc/json.h`](include/photoc/json.h) provides a small string writer
 for JSON output without another dependency.
 
+[`include/photoc/hash.h`](include/photoc/hash.h) provides streaming SHA-256
+hashing of regular files and lowercase hex formatting. The digest and hex
+buffers belong to the caller. Hashing failures return `-1` with `errno` set,
+and leave the digest buffer unchanged. The implementation is portable C17 and
+adds no external dependency; it does not change command behavior.
+
 `photo_load_metadata` loads JPEG dimensions, file size, and available EXIF fields
 into a `Photo`. It reports distinct results for unsupported extensions, invalid
 JPEG data, filesystem errors, and allocation failures. Missing EXIF fields are

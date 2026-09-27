@@ -1,0 +1,21 @@
+#ifndef PHOTOC_HASH_H
+#define PHOTOC_HASH_H
+
+#define PHOTOC_SHA256_DIGEST_SIZE 32
+#define PHOTOC_SHA256_HEX_SIZE 65
+
+/* Hashes a regular file as raw bytes using SHA-256. A symlink at the final
+   path component and non-regular files are rejected. Returns 0 on success,
+   or -1 with errno set on invalid arguments, filesystem/read errors, or
+   files too large for SHA-256's 64-bit length field. out is caller-owned
+   and is unchanged on failure. */
+int photoc_hash_file_sha256(const char *path,
+                            unsigned char out[PHOTOC_SHA256_DIGEST_SIZE]);
+
+/* Writes lowercase hexadecimal and a terminating NUL to caller-owned out.
+   Returns 0 on success, or -1 with errno EINVAL for NULL pointers. */
+int photoc_hash_sha256_hex(
+    const unsigned char digest[PHOTOC_SHA256_DIGEST_SIZE],
+    char out[PHOTOC_SHA256_HEX_SIZE]);
+
+#endif
