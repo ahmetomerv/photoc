@@ -30,3 +30,6 @@
   `-DPHOTOC_SANITIZERS=ON` (AddressSanitizer and UndefinedBehaviorSanitizer)
   and run the same build and `ctest` commands there, or use
   `sh scripts/build-and-test-sanitizers.sh`.
+- Static analysis is `sh scripts/static-analysis.sh` (Clang analyzer, and
+  clang-tidy when installed). `cmake -DPHOTOC_CLANG_TIDY=ON` runs clang-tidy
+  during the build. See `CONTRIBUTING.md`.

@@ -1,5 +1,6 @@
 /build/
 /build-san/
+/build-analyze/
 /cmake-build-*/
 /out/
 *.o

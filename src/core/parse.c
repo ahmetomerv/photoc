@@ -248,6 +248,10 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
     } else if (strcmp(name, "--format") == 0) {
         slot = &options->format;
     }
+    if (slot == NULL) {
+        *error_arg = name;
+        return PHOTOC_PARSE_UNKNOWN_OPTION;
+    }
     return take_value(index, argc, argv, slot, name, error_arg);
 }
 

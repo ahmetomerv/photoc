@@ -88,11 +88,17 @@ static int copy_fixture(const char *name, const char *destination)
     }
 
     unsigned char buffer[4096];
-    size_t count;
     int result = 0;
-    while ((count = fread(buffer, 1, sizeof(buffer), source)) != 0) {
+    for (;;) {
+        size_t count = fread(buffer, 1, sizeof(buffer), source);
+        if (count == 0 || ferror(source)) {
+            break;
+        }
         if (fwrite(buffer, 1, count, target) != count) {
             result = -1;
+            break;
+        }
+        if (feof(source)) {
             break;
         }
     }

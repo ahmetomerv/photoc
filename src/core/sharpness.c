@@ -8,7 +8,9 @@ static photoc_image_result analysis_error(photoc_analysis_result result)
     case PHOTOC_ANALYSIS_TOO_LARGE: return PHOTOC_IMAGE_TOO_LARGE;
     case PHOTOC_ANALYSIS_NO_MEMORY: return PHOTOC_IMAGE_NO_MEMORY;
     case PHOTOC_ANALYSIS_OK: return PHOTOC_IMAGE_OK;
-    default: return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    case PHOTOC_ANALYSIS_INVALID_ARGUMENT:
+    default:
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
     }
 }
 

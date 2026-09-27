@@ -469,13 +469,16 @@ static photoc_jpeg_edit_result verify_temporary(
     }
     if (result == PHOTOC_JPEG_EDIT_OK) {
         unsigned char buffer[65533];
-        errno = 0;
-        if (fseeko(written, (off_t)(info.exif_offset + 4), SEEK_SET) != 0 ||
-            fread(buffer, 1, exif_length, written) != exif_length ||
-            memcmp(buffer, exif_bytes, exif_length) != 0) {
-            if (errno == 0) {
+        if (fseeko(written, (off_t)(info.exif_offset + 4), SEEK_SET) != 0) {
+            result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        } else if (fread(buffer, 1, exif_length, written) != exif_length) {
+            /* A short read at EOF does not set errno. */
+            if (!ferror(written)) {
                 errno = EIO;
             }
+            result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        } else if (memcmp(buffer, exif_bytes, exif_length) != 0) {
+            errno = EIO;
             result = PHOTOC_JPEG_EDIT_IO_ERROR;
         }
     }

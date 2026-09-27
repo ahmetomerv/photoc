@@ -31,9 +31,34 @@ function(photoc_configure_c_target target)
     if(MSVC)
         target_compile_options("${target}" PRIVATE /W4 /WX)
     elseif(CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
-        target_compile_options("${target}" PRIVATE -Wall -Wextra -Wpedantic -Werror)
+        target_compile_options("${target}" PRIVATE
+            -Wall -Wextra -Wpedantic -Werror
+            -Wformat-security
+            -Wshadow
+            -Wimplicit-fallthrough
+            -Wmissing-prototypes
+            -Wstrict-prototypes
+            -Wundef
+            -Wvla
+            -Wcast-align
+            -Wpointer-arith
+            -Wswitch-enum
+            -Wnull-dereference
+            -Wwrite-strings
+        )
     endif()
 endfunction()
+
+option(PHOTOC_CLANG_TIDY "Run clang-tidy while compiling" OFF)
+if(PHOTOC_CLANG_TIDY)
+    find_program(PHOTOC_CLANG_TIDY_PROGRAM NAMES clang-tidy REQUIRED)
+    set(CMAKE_C_CLANG_TIDY
+        "${PHOTOC_CLANG_TIDY_PROGRAM}"
+        "--warnings-as-errors=*"
+    )
+endif()
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_library(photoc_core STATIC
     src/core/duplicates.c

@@ -36,12 +36,38 @@ static void capture(int (*call)(void *), void *data, int *code, char *output,
 {
     char path[] = "photoc-error-capture-XXXXXX";
     int file = mkstemp(path);
+    if (file < 0) {
+        *code = -1;
+        output[0] = '\0';
+        return;
+    }
     int saved = dup(STDERR_FILENO);
+    if (saved < 0) {
+        close(file);
+        unlink(path);
+        *code = -1;
+        output[0] = '\0';
+        return;
+    }
     fflush(stderr);
-    dup2(file, STDERR_FILENO);
+    if (dup2(file, STDERR_FILENO) < 0) {
+        close(saved);
+        close(file);
+        unlink(path);
+        *code = -1;
+        output[0] = '\0';
+        return;
+    }
     *code = call(data);
     fflush(stderr);
-    dup2(saved, STDERR_FILENO);
+    if (dup2(saved, STDERR_FILENO) < 0) {
+        close(saved);
+        close(file);
+        unlink(path);
+        *code = -1;
+        output[0] = '\0';
+        return;
+    }
     close(saved);
     lseek(file, 0, SEEK_SET);
     ssize_t count = read(file, output, output_size - 1);
