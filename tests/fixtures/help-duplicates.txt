@@ -1,4 +1,4 @@
-Usage: photoc [global options] duplicates <directory> [--recursive]
+Usage: photoc [global options] duplicates <directory> [--recursive] [--json]
        photoc duplicates --help
 
 Find exact duplicate files
@@ -8,6 +8,8 @@ Status: available for regular files (read-only)
 Example:
   photoc duplicates ~/Pictures
   photoc duplicates ~/Pictures --recursive
+  photoc duplicates ~/Pictures --json
 
 Options:
   --recursive        Include nested directories
+  --json             Print structured JSON

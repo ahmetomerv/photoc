@@ -39,6 +39,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc stats ~/Pictures --recursive
 ./build/photoc stats ~/Pictures --json
 ./build/photoc duplicates ~/Pictures --recursive
+./build/photoc duplicates ~/Pictures --json
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}"
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}" --apply
 ./build/photoc sort ~/Pictures --by date --recursive
@@ -64,6 +65,10 @@ file in those groups; potential savings count all but one file per group. The
 savings estimate is based on file sizes and does not account for hard links or
 filesystem sharing. The command never deletes or changes files. Symlinks are
 ignored; unreadable files produce warnings and a non-zero exit status.
+Use `--json` for a structured report with `duplicate_group_count`,
+`duplicate_file_count`, `potential_savings_bytes`, and `groups`. Each group
+contains `file_size_bytes`, a lowercase `sha256` digest, and `paths`. JSON
+paths are escaped, and the command emits no human-readable text in JSON mode.
 
 `rename <directory> --format <template> [--recursive] [--apply]` is a dry run
 by default. It prints planned JPEG renames as `old_name -> new_name` and makes
@@ -124,7 +129,7 @@ ISO values, apertures, and focal lengths, each with `value`, `count`, and
 `percentage_of_photos` fields. Numeric metadata stays numeric, unavailable
 dates and averages are `null`, and per-file warnings still go to stderr.
 
-Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter command output yet. JSON output is available for `exif` and `stats`.
+Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter command output yet. JSON output is available for `exif`, `stats`, and `duplicates`.
 
 Exit status is `0` for success, `1` for file or metadata errors, `2` for usage
 errors, and `3` for unimplemented commands. Normal output uses stdout;

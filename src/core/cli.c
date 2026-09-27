@@ -20,7 +20,7 @@ typedef struct {
 static const photoc_command commands[] = {
     {"compress", "Compress image files", "<photo>...", "photoc compress photo.jpg"},
     {"exif", "Inspect JPEG metadata", "<file>", "photoc exif photo.jpg"},
-    {"duplicates", "Find exact duplicate files", "<directory> [--recursive]", "photoc duplicates ~/Pictures"},
+    {"duplicates", "Find exact duplicate files", "<directory> [--recursive] [--json]", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
     {"rename", "Preview or apply JPEG renames", "<directory> --format <template> [--recursive] [--apply]", "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\""},
     {"sort", "Preview or apply JPEG sorting", "<directory> --by date|session [--gap <duration>] [--recursive] [--apply]", "photoc sort ~/Pictures --by date"},
@@ -93,9 +93,11 @@ static void print_command_help(const photoc_command *command)
     printf("  %s\n", command->example);
     if (strcmp(command->name, "duplicates") == 0) {
         puts("  photoc duplicates ~/Pictures --recursive");
+        puts("  photoc duplicates ~/Pictures --json");
         puts("");
         puts("Options:");
         puts("  --recursive        Include nested directories");
+        puts("  --json             Print structured JSON");
     } else if (strcmp(command->name, "exif") == 0) {
         puts("  photoc exif photo.jpg --json");
     } else if (strcmp(command->name, "stats") == 0) {
@@ -202,15 +204,11 @@ int photoc_run(int argc, char *argv[])
     if (strcmp(command->name, "duplicates") == 0) {
         if (options.argument_count != 1) {
             fputs("photoc duplicates: expected exactly one directory\n"
-                  "Usage: photoc duplicates <directory> [--recursive]\n", stderr);
-            return PHOTOC_EXIT_USAGE;
-        }
-        if (options.json) {
-            fputs("photoc duplicates: --json is not supported\n", stderr);
+                  "Usage: photoc duplicates <directory> [--recursive] [--json]\n", stderr);
             return PHOTOC_EXIT_USAGE;
         }
         return photoc_command_duplicates(options.first_argument,
-                                          options.recursive);
+                                          options.recursive, options.json);
     }
 
     if (strcmp(command->name, "stats") == 0) {

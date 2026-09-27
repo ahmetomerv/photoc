@@ -5,8 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "photoc/hash.h"
+
 typedef struct {
     uint64_t file_size;
+    unsigned char sha256[PHOTOC_SHA256_DIGEST_SIZE]; /* Shared by all paths. */
     char **paths;
     size_t count;
 } photoc_duplicate_group;

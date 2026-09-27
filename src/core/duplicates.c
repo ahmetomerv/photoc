@@ -180,6 +180,8 @@ static int append_group(find_context *context, size_t start, size_t count)
     result->groups[result->group_count++] = (photoc_duplicate_group){
         .file_size = size, .paths = paths, .count = count
     };
+    memcpy(result->groups[result->group_count - 1].sha256,
+           context->files[start].digest, PHOTOC_SHA256_DIGEST_SIZE);
     result->duplicate_files += (uint64_t)count;
     result->potential_savings += (uint64_t)(count - 1) * size;
     return 0;

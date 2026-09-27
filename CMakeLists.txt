@@ -165,13 +165,24 @@ if(BUILD_TESTING)
     foreach(case IN ITEMS duplicates same_size_nonduplicates no_duplicates
                           multiple_groups
                           nested missing no_argument extra_argument
-                          unknown_option json)
+                          unknown_option)
         add_test(
             NAME "duplicates_${case}"
             COMMAND "${CMAKE_COMMAND}"
                 "-DPHOTOC=$<TARGET_FILE:photoc>"
                 "-DCASE=${case}"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_duplicates_cli.cmake"
+        )
+    endforeach()
+
+    foreach(case IN ITEMS duplicates no_duplicates empty multiple_groups
+                          recursive escaped_paths before_command missing)
+        add_test(
+            NAME "duplicates_json_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_duplicates_json.cmake"
         )
     endforeach()
 
