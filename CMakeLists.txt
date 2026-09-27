@@ -4,6 +4,7 @@ project(photoc VERSION 0.1.0 LANGUAGES C)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
+pkg_check_modules(TURBOJPEG REQUIRED IMPORTED_TARGET libturbojpeg)
 
 function(photoc_configure_c_target target)
     set_target_properties("${target}" PROPERTIES
@@ -23,6 +24,7 @@ add_library(photoc_core STATIC
     src/core/duplicates.c
     src/core/fs.c
     src/core/hash.c
+    src/core/image.c
     src/core/filename_template.c
     src/core/jpeg.c
     src/core/jpeg_write.c
@@ -36,7 +38,7 @@ add_library(photoc_core STATIC
 )
 photoc_configure_c_target(photoc_core)
 target_include_directories(photoc_core PUBLIC include)
-target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF)
+target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF PkgConfig::TURBOJPEG)
 
 add_executable(photoc
     src/main.c
@@ -128,6 +130,14 @@ if(BUILD_TESTING)
         PHOTOC_METADATA_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
     )
     add_test(NAME jpeg_safe_write COMMAND test_jpeg_write)
+
+    add_executable(test_image tests/test_image.c)
+    photoc_configure_c_target(test_image)
+    target_link_libraries(test_image PRIVATE photoc_core)
+    target_compile_definitions(test_image PRIVATE
+        PHOTOC_IMAGE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+    )
+    add_test(NAME jpeg_image_roundtrip COMMAND test_image)
 
     add_executable(test_exif_link tests/test_exif_link.c)
     photoc_configure_c_target(test_exif_link)

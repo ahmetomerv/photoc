@@ -8,17 +8,18 @@ Other planned commands are placeholders.
 ## Build and test
 
 Requires a C17 compiler, CMake 3.21 or newer, a `pkg-config` implementation,
-and the libexif development package:
+the libexif development package, and libjpeg-turbo's TurboJPEG development
+package:
 
 ```sh
 # macOS (Homebrew)
-brew install cmake pkgconf libexif
+brew install cmake pkgconf libexif jpeg-turbo
 
 # Debian/Ubuntu
-sudo apt install cmake pkg-config libexif-dev
+sudo apt install cmake pkg-config libexif-dev libturbojpeg0-dev
 
 # Fedora
-sudo dnf install cmake pkgconf-pkg-config libexif-devel
+sudo dnf install cmake pkgconf-pkg-config libexif-devel turbojpeg-devel
 ```
 
 ```sh
@@ -172,6 +173,15 @@ hashing of regular files and lowercase hex formatting. The digest and hex
 buffers belong to the caller. Hashing failures return `-1` with `errno` set,
 and leave the digest buffer unchanged. The implementation is portable C17 and
 adds no external dependency.
+
+[`include/photoc/image.h`](include/photoc/image.h) provides JPEG dimensions,
+RGB decoding, and quality-configurable JPEG encoding for future commands.
+Decoded pixels and encoded bytes have separate cleanup helpers; encoding returns
+bytes in memory and does not write a file or preserve source EXIF/ICC metadata.
+`compress` is still a placeholder.
+
+The image module uses [libjpeg-turbo's TurboJPEG C API](https://libjpeg-turbo.org/Documentation/Documentation).
+CMake finds the system library through `libturbojpeg.pc`; it is not vendored.
 
 [`include/photoc/duplicates.h`](include/photoc/duplicates.h) defines the
 read-only duplicate-finding API. The result owns its groups and paths; callers
