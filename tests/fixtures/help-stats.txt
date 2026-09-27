@@ -1,9 +1,10 @@
-Usage: photoc [global options] stats <path>...
+Usage: photoc [global options] stats <directory> [--recursive]
        photoc stats --help
 
-Summarize photo collections
+Summarize JPEG collections
 
-Status: not implemented
+Status: available for JPEG files
 
-Example (planned):
+Example:
   photoc stats ~/Pictures
+  photoc stats ~/Pictures --recursive

@@ -20,7 +20,7 @@ static const photoc_command commands[] = {
     {"compress", "Compress image files", "<photo>...", "photoc compress photo.jpg"},
     {"exif", "Inspect JPEG metadata", "<file>", "photoc exif photo.jpg"},
     {"duplicates", "Find duplicate photos", "<path>...", "photoc duplicates ~/Pictures"},
-    {"stats", "Summarize photo collections", "<path>...", "photoc stats ~/Pictures"},
+    {"stats", "Summarize JPEG collections", "<directory> [--recursive]", "photoc stats ~/Pictures"},
     {"rename", "Rename photo files", "<photo>...", "photoc rename photo.jpg"},
     {"sort", "Organize photos into folders", "<path>...", "photoc sort ~/Pictures"},
     {"focus", "Assess image focus", "<photo>...", "photoc focus photo.jpg"},
@@ -56,7 +56,7 @@ static void print_global_help(void)
     puts("  -q, --quiet      Request reduced output");
     puts("      --json       Request JSON output where supported");
     puts("");
-    puts("The exif command supports JPEG files; other commands are planned.");
+    puts("The exif and stats commands support JPEG files; other commands are planned.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
 
@@ -67,17 +67,21 @@ static void print_command_help(const photoc_command *command)
     printf("       photoc %s --help\n\n", command->name);
     puts(command->description);
     puts("");
-    if (strcmp(command->name, "exif") == 0) {
+    if (strcmp(command->name, "exif") == 0 ||
+        strcmp(command->name, "stats") == 0) {
         puts("Status: available for JPEG files");
     } else {
         puts("Status: not implemented");
     }
     puts("");
-    puts(strcmp(command->name, "exif") == 0 ? "Example:" :
-                                               "Example (planned):");
+    bool implemented = strcmp(command->name, "exif") == 0 ||
+                       strcmp(command->name, "stats") == 0;
+    puts(implemented ? "Example:" : "Example (planned):");
     printf("  %s\n", command->example);
     if (strcmp(command->name, "exif") == 0) {
         puts("  photoc exif photo.jpg --json");
+    } else if (strcmp(command->name, "stats") == 0) {
+        puts("  photoc stats ~/Pictures --recursive");
     }
 }
 
@@ -147,6 +151,19 @@ int photoc_run(int argc, char *argv[])
             return PHOTOC_EXIT_USAGE;
         }
         return photoc_command_exif(options.first_argument, options.json);
+    }
+
+    if (strcmp(command->name, "stats") == 0) {
+        if (options.argument_count != 1) {
+            fputs("photoc stats: expected exactly one directory\n"
+                  "Usage: photoc stats <directory> [--recursive]\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (options.json) {
+            fputs("photoc stats: --json is not supported yet\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        return photoc_command_stats(options.first_argument, options.recursive);
     }
 
     return photoc_command_unimplemented(command->name);

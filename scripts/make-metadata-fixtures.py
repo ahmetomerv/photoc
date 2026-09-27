@@ -29,7 +29,7 @@ def rational(*pairs):
     return 5, len(pairs), b"".join(struct.pack("<II", *pair) for pair in pairs)
 
 
-def make_tiff(with_gps):
+def make_tiff(with_gps, model, iso, aperture, focal_length):
     tiff = bytearray(b"II\x2a\x00\x00\x00\x00\x00")
 
     def add_ifd(tags):
@@ -49,10 +49,10 @@ def make_tiff(with_gps):
     pending = []
     exif_offset = add_ifd({
         0x829A: rational((1, 125)),
-        0x829D: rational((28, 10)),
-        0x8827: short(200),
+        0x829D: rational(aperture),
+        0x8827: short(iso),
         0x9003: ascii_value("2026:09:27 12:34:56"),
-        0x920A: rational((50, 1)),
+        0x920A: rational(focal_length),
     })
     gps_offset = None
     if with_gps:
@@ -64,7 +64,7 @@ def make_tiff(with_gps):
         })
     zero_tags = {
         0x010F: ascii_value("Fixture Camera Co."),
-        0x0110: ascii_value("Model Z"),
+        0x0110: ascii_value(model),
         0x8769: long(exif_offset),
     }
     if gps_offset is not None:
@@ -80,8 +80,12 @@ def make_tiff(with_gps):
     return bytes(tiff)
 
 
-for name, gps in (("with_exif.jpg", False), ("with_gps.jpeg", True)):
-    payload = b"Exif\0\0" + make_tiff(gps)
+for name, gps, model, iso, aperture, focal in (
+    ("with_exif.jpg", False, "Model Z", 200, (28, 10), (50, 1)),
+    ("with_gps.jpeg", True, "Model Z", 200, (28, 10), (50, 1)),
+    ("with_alt_exif.jpg", False, "Model A", 100, (4, 1), (35, 1)),
+):
+    payload = b"Exif\0\0" + make_tiff(gps, model, iso, aperture, focal)
     segment = b"\xff\xe1" + struct.pack(">H", len(payload) + 2) + payload
     (ROOT / name).write_bytes(BASE[:2] + segment + BASE[2:])
 

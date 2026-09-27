@@ -10,6 +10,7 @@ typedef struct {
     bool verbose;
     bool quiet;
     bool json;
+    bool recursive;
     const char *command;
     const char *first_argument;
     size_t argument_count;

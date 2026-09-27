@@ -1,7 +1,8 @@
 # photoc
 
 `photoc` is a command-line toolkit for photographers, written in C. It can
-inspect metadata in JPEG files; the other planned commands are placeholders.
+inspect JPEG metadata and summarize JPEG collections. Other planned commands
+are placeholders.
 
 ## Build and test
 
@@ -35,18 +36,25 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc exif --help
 ./build/photoc exif photo.jpg
 ./build/photoc exif photo.jpg --json
+./build/photoc stats ~/Pictures --recursive
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
-for one JPEG. Unavailable EXIF fields are labeled `Unavailable`. The planned
-`compress`, `duplicates`, `stats`, `rename`, `sort`, `focus`, and `scrub`
+for one JPEG. Unavailable EXIF fields are labeled `Unavailable`.
+
+`stats <directory> [--recursive]` reports parsed photo count, total bytes,
+scanner counts, and frequencies for camera model, ISO, aperture, and focal
+length. It scans one directory level by default. Unreadable or invalid JPEGs
+produce warnings on stderr while the scan continues; their metadata is omitted
+from the aggregate. Counts are sorted by frequency, with deterministic ties.
+The planned `compress`, `duplicates`, `rename`, `sort`, `focus`, and `scrub`
 commands still report that they are not implemented.
 
 With `--json`, the same details are grouped under `file`, `image`, `camera`,
 `exposure`, `date`, and `location`. Missing values are `null`; `has_gps` is a
 boolean, and sizes, dimensions, exposure values, and coordinates are numbers.
 
-Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter `exif` output yet.
+Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter command output yet. JSON output is currently available for `exif` only.
 
 Exit status is `0` for success, `1` for file or metadata errors, `2` for usage
 errors, and `3` for unimplemented commands. Normal output uses stdout;
@@ -69,8 +77,11 @@ scanner. It can walk one level or recurse, loads each JPEG into a temporary
 `Photo`, and calls the supplied photo callback. A warning callback receives
 per-file JPEG failures while scanning continues. Aggregate counts distinguish
 regular files visited, JPEGs found, photos parsed, skipped files, and errors.
-The scanner owns and frees each `Photo` after its callback returns. The planned
-`stats` command does not use this API yet.
+The scanner owns and frees each `Photo` after its callback returns.
+
+[`include/photoc/stats.h`](include/photoc/stats.h) defines the reusable
+aggregation API used by `photoc stats`. It owns frequency labels, ignores
+unavailable values, and sorts frequency tables separately from CLI formatting.
 
 ## EXIF dependency
 

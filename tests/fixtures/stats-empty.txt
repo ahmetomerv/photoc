@@ -1,0 +1,21 @@
+Photo statistics
+  Directory: @DIRECTORY@
+  Scan: flat
+  Total photos: 0
+  Total file size: 0 bytes
+  Files visited: 0
+  JPEG files found: 0
+  Skipped files: 0
+  Errors: 0
+
+Camera models
+  None
+
+ISO
+  None
+
+Apertures
+  None
+
+Focal lengths
+  None

@@ -7,7 +7,7 @@ Commands:
   compress     Compress image files
   exif         Inspect JPEG metadata
   duplicates   Find duplicate photos
-  stats        Summarize photo collections
+  stats        Summarize JPEG collections
   rename       Rename photo files
   sort         Organize photos into folders
   focus        Assess image focus
@@ -20,5 +20,5 @@ Global options:
   -q, --quiet      Request reduced output
       --json       Request JSON output where supported
 
-The exif command supports JPEG files; other commands are planned.
+The exif and stats commands support JPEG files; other commands are planned.
 Run 'photoc <command> --help' for usage and examples.

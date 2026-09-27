@@ -1,0 +1,25 @@
+Photo statistics
+  Directory: @DIRECTORY@
+  Scan: flat
+  Total photos: 4
+  Total file size: @TOTAL_SIZE@ bytes
+  Files visited: 7
+  JPEG files found: 5
+  Skipped files: 3
+  Errors: 1
+
+Camera models
+  Model Z: 2
+  Model A: 1
+
+ISO
+  200: 2
+  100: 1
+
+Apertures
+  f/2.8: 2
+  f/4: 1
+
+Focal lengths
+  50 mm: 2
+  35 mm: 1

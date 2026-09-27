@@ -25,6 +25,7 @@ add_library(photoc_core STATIC
     src/core/metadata.c
     src/core/photo.c
     src/core/scan.c
+    src/core/stats.c
 )
 photoc_configure_c_target(photoc_core)
 target_include_directories(photoc_core PUBLIC include)
@@ -35,6 +36,7 @@ add_executable(photoc
     src/core/cli.c
     src/core/parse.c
     src/commands/exif.c
+    src/commands/stats.c
     src/commands/stub.c
 )
 photoc_configure_c_target(photoc)
@@ -74,6 +76,11 @@ if(BUILD_TESTING)
         PHOTOC_SCAN_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
     )
     add_test(NAME photo_scanner COMMAND test_scan)
+
+    add_executable(test_stats tests/test_stats.c)
+    photoc_configure_c_target(test_stats)
+    target_link_libraries(test_stats PRIVATE photoc_core)
+    add_test(NAME stats_aggregation COMMAND test_stats)
 
     add_executable(test_metadata tests/test_metadata.c)
     photoc_configure_c_target(test_metadata)
@@ -117,11 +124,24 @@ if(BUILD_TESTING)
         add_cli_test("cli_${case}" "${case}")
     endforeach()
 
-    foreach(command IN ITEMS compress duplicates stats rename sort focus scrub)
+    foreach(command IN ITEMS compress duplicates rename sort focus scrub)
         add_cli_test("command_${command}" stub "${command}")
         add_cli_test("command_${command}_help" command_help "${command}")
     endforeach()
     add_cli_test(command_exif_help command_help exif)
+    add_cli_test(command_stats_help command_help stats)
+
+    foreach(case IN ITEMS flat recursive empty missing no_argument
+                          extra_argument json unknown_option)
+        add_test(
+            NAME "stats_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_stats_cli.cmake"
+        )
+    endforeach()
 
     foreach(case IN ITEMS with_exif with_gps no_exif invalid unsupported missing
                           no_argument extra_argument unknown_option)
