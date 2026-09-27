@@ -1,6 +1,6 @@
 #include "photoc/commands.h"
 
-#include "photoc/cli.h"
+#include "photoc/exit_codes.h"
 
 #include <stdio.h>
 

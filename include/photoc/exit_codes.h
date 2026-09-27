@@ -1,0 +1,10 @@
+#ifndef PHOTOC_EXIT_CODES_H
+#define PHOTOC_EXIT_CODES_H
+
+enum {
+    PHOTOC_EXIT_SUCCESS = 0,
+    PHOTOC_EXIT_USAGE = 2,
+    PHOTOC_EXIT_UNIMPLEMENTED = 3
+};
+
+#endif

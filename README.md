@@ -19,9 +19,14 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ```sh
 ./build/photoc --help
 ./build/photoc --version
+./build/photoc compress --help
 ```
 
-The planned commands are `compress`, `exif`, `duplicates`, `stats`, `rename`, `sort`, `focus`, and `scrub`. Each currently reports that it is not implemented and exits with status 3. Missing or unknown commands exit with status 2.
+The planned commands are `compress`, `exif`, `duplicates`, `stats`, `rename`, `sort`, `focus`, and `scrub`. Each has command help, but running it currently reports that it is not implemented and exits with status 3.
+
+Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose, quiet, and JSON output modes are accepted for future command output; they do not change the current placeholders. Verbose and quiet cannot be combined.
+
+Missing or unknown commands, unknown options, and conflicting options exit with status 2. Normal output uses stdout; diagnostics use stderr.
 
 ## Contributing
 
