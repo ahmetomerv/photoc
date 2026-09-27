@@ -1,0 +1,48 @@
+#ifndef PHOTOC_JPEG_WRITE_H
+#define PHOTOC_JPEG_WRITE_H
+
+typedef struct photoc_jpeg_exif photoc_jpeg_exif;
+
+typedef enum {
+    PHOTOC_JPEG_EDIT_OK = 0,
+    PHOTOC_JPEG_EDIT_INVALID_ARGUMENT,
+    PHOTOC_JPEG_EDIT_INVALID_JPEG,
+    PHOTOC_JPEG_EDIT_NO_EXIF,
+    PHOTOC_JPEG_EDIT_INVALID_EXIF,
+    PHOTOC_JPEG_EDIT_UNSAFE_LAYOUT,
+    PHOTOC_JPEG_EDIT_EXIF_TOO_LARGE,
+    PHOTOC_JPEG_EDIT_IO_ERROR,
+    PHOTOC_JPEG_EDIT_NO_MEMORY
+} photoc_jpeg_edit_result;
+
+/* Load an owned, editable copy of the EXIF from a JPEG. A JPEG without an
+   EXIF APP1 segment returns NO_EXIF. The output pointer must not already own
+   memory; on failure *out is NULL. Free with photoc_jpeg_exif_free. */
+photoc_jpeg_edit_result photoc_jpeg_exif_load_copy(
+    const char *source_path, photoc_jpeg_exif **out);
+
+/* Deep-copy an edited EXIF document. The output follows the same ownership
+   rules as load_copy. The source remains independent and unchanged. */
+photoc_jpeg_edit_result photoc_jpeg_exif_copy(
+    const photoc_jpeg_exif *source, photoc_jpeg_exif **out);
+
+/* Remove all GPS IFD entries and the GPS pointer from this in-memory copy.
+   The source JPEG and any other EXIF document remain unchanged. */
+photoc_jpeg_edit_result photoc_jpeg_exif_remove_gps(photoc_jpeg_exif *exif);
+
+/* Write a new JPEG to destination_path, replacing its EXIF APP1 segment (or
+   inserting one after SOI). All other JPEG bytes, including compressed scan
+   data, are copied verbatim. The source is never modified. A temporary file
+   in the destination directory is fully written and verified before an atomic
+   no-overwrite rename. An existing destination is never replaced. On an I/O
+   failure, errno describes the failed operation. The caller retains exif. */
+photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
+    const char *source_path, const char *destination_path,
+    const photoc_jpeg_exif *exif);
+
+void photoc_jpeg_exif_free(photoc_jpeg_exif *exif);
+
+/* Static diagnostic text; never free it. */
+const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result);
+
+#endif

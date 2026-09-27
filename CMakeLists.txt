@@ -24,6 +24,8 @@ add_library(photoc_core STATIC
     src/core/fs.c
     src/core/hash.c
     src/core/filename_template.c
+    src/core/jpeg.c
+    src/core/jpeg_write.c
     src/core/json.c
     src/core/metadata.c
     src/core/photo.c
@@ -117,6 +119,14 @@ if(BUILD_TESTING)
         PHOTOC_METADATA_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
     )
     add_test(NAME jpeg_metadata COMMAND test_metadata)
+
+    add_executable(test_jpeg_write tests/test_jpeg_write.c)
+    photoc_configure_c_target(test_jpeg_write)
+    target_link_libraries(test_jpeg_write PRIVATE photoc_core)
+    target_compile_definitions(test_jpeg_write PRIVATE
+        PHOTOC_METADATA_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+    )
+    add_test(NAME jpeg_safe_write COMMAND test_jpeg_write)
 
     add_executable(test_exif_link tests/test_exif_link.c)
     photoc_configure_c_target(test_exif_link)

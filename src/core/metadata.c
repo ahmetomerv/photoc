@@ -2,6 +2,7 @@
 
 #include "photoc/photo.h"
 #include "photoc/fs.h"
+#include "jpeg.h"
 
 #include <errno.h>
 #include <libexif/exif-data.h>
@@ -9,141 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-static int byte(FILE *file)
-{
-    return fgetc(file);
-}
-
-static int marker(FILE *file)
-{
-    int value = byte(file);
-    if (value != 0xff) {
-        return -1;
-    }
-    do {
-        value = byte(file);
-    } while (value == 0xff);
-    return value == 0x00 ? -1 : value;
-}
-
-static int scan_marker(FILE *file)
-{
-    int value;
-    while ((value = byte(file)) != EOF) {
-        if (value != 0xff) {
-            continue;
-        }
-        do {
-            value = byte(file);
-        } while (value == 0xff);
-        if (value == EOF) {
-            break;
-        }
-        if (value == 0x00 || (value >= 0xd0 && value <= 0xd7)) {
-            continue;
-        }
-        return value;
-    }
-    return -1;
-}
-
-static bool skip_bytes(FILE *file, unsigned int count)
-{
-    unsigned char buffer[1024];
-    while (count != 0) {
-        size_t chunk = count < sizeof(buffer) ? count : sizeof(buffer);
-        if (fread(buffer, 1, chunk, file) != chunk) {
-            return false;
-        }
-        count -= (unsigned int)chunk;
-    }
-    return true;
-}
-
-static bool is_frame_marker(int value)
-{
-    return (value >= 0xc0 && value <= 0xc3) ||
-           (value >= 0xc5 && value <= 0xc7) ||
-           (value >= 0xc9 && value <= 0xcb) ||
-           (value >= 0xcd && value <= 0xcf);
-}
-
-/* Parses enough JPEG structure to reject truncation and find the actual frame
-   dimensions. No image data is decoded. */
-static bool read_jpeg(FILE *file, Photo *photo)
-{
-    if (byte(file) != 0xff || byte(file) != 0xd8) {
-        return false;
-    }
-
-    bool has_frame = false;
-    bool has_scan = false;
-    int current = marker(file);
-    while (current >= 0) {
-        if (current == 0xd9) {
-            return has_frame && has_scan;
-        }
-        if (current == 0xd8 || (current >= 0xd0 && current <= 0xd7)) {
-            return false;
-        }
-        if (current == 0x01) {
-            current = marker(file);
-            continue;
-        }
-
-        int high = byte(file);
-        int low = byte(file);
-        if (high == EOF || low == EOF) {
-            return false;
-        }
-        unsigned int length = ((unsigned int)high << 8) | (unsigned int)low;
-        if (length < 2) {
-            return false;
-        }
-
-        if (is_frame_marker(current)) {
-            if (length < 11 || has_frame) {
-                return false;
-            }
-            int precision = byte(file);
-            int h1 = byte(file);
-            int h2 = byte(file);
-            int w1 = byte(file);
-            int w2 = byte(file);
-            int components = byte(file);
-            if (precision <= 0 || h1 == EOF || h2 == EOF || w1 == EOF ||
-                w2 == EOF || components <= 0 ||
-                length != 8u + 3u * (unsigned int)components) {
-                return false;
-            }
-            photo->height = (uint32_t)((h1 << 8) | h2);
-            photo->width = (uint32_t)((w1 << 8) | w2);
-            if (photo->height == 0 || photo->width == 0 ||
-                !skip_bytes(file, length - 8)) {
-                return false;
-            }
-            photo->has_width = true;
-            photo->has_height = true;
-            has_frame = true;
-        } else {
-            if (current == 0xda && (!has_frame || length < 6)) {
-                return false;
-            }
-            if (!skip_bytes(file, length - 2)) {
-                return false;
-            }
-        }
-
-        if (current == 0xda) {
-            has_scan = true;
-            current = scan_marker(file);
-        } else {
-            current = marker(file);
-        }
-    }
-    return false;
-}
 
 static ExifEntry *entry(ExifData *data, ExifIfd ifd, ExifTag tag)
 {
@@ -309,9 +175,15 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
     } else {
         loaded.file_size = size;
         loaded.has_file_size = true;
-        if (!read_jpeg(file, &loaded)) {
-            result = ferror(file) ? PHOTOC_METADATA_IO_ERROR :
-                                    PHOTOC_METADATA_INVALID_JPEG;
+        photoc_jpeg_info info;
+        if (photoc_jpeg_inspect(file, &info) != 0) {
+            result = errno == EINVAL ? PHOTOC_METADATA_INVALID_JPEG :
+                                       PHOTOC_METADATA_IO_ERROR;
+        } else {
+            loaded.width = info.width;
+            loaded.height = info.height;
+            loaded.has_width = true;
+            loaded.has_height = true;
         }
     }
     int saved_errno = errno;

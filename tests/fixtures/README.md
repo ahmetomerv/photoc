@@ -13,3 +13,5 @@ an invalid/truncated JPEG, and a PNG for unsupported-format tests. The JPEG
 variants and error fixtures can be regenerated with
 `python3 scripts/make-metadata-fixtures.py`; the no-EXIF base is checked in.
 The `session_*.jpg` variants provide capture times for CLI session plans.
+The GPS fixture and the EXIF-free base also verify safe JPEG metadata writing:
+non-GPS tags survive, and bytes outside EXIF remain identical.

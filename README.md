@@ -186,6 +186,26 @@ returns an error. The original filename stem and extension retain their
 letter case. Unsafe filename characters become underscores. The rename command
 uses this API for both previews and applied changes.
 
+## JPEG metadata writing API
+
+[`include/photoc/jpeg_write.h`](include/photoc/jpeg_write.h) exposes reusable
+functions to load an editable EXIF copy, deep-copy it, remove its GPS IFD, and
+write a new JPEG. No CLI command uses this API yet. The source stays untouched;
+the destination must not exist. The writer creates a mode-0600 temporary file
+beside the destination, flushes and syncs it, reopens and validates the JPEG and
+EXIF, compares all bytes outside the replaced EXIF segment with the source,
+then uses a no-overwrite rename. It copies compressed image data verbatim, with
+no decoding or recompression. Failure paths attempt to remove the temporary
+file.
+
+The writer preserves other JPEG segments byte-for-byte and retains non-GPS
+EXIF fields that libexif can represent. It rejects ambiguous files with
+multiple EXIF APP1 segments or EXIF after the first image scan. libexif has
+limited support for some MakerNotes, so unusual maker-specific EXIF may change
+when serialized. GPS stored outside the EXIF GPS IFD, such as in XMP or a
+MakerNote, is outside this API's scope. The original remains available for
+inspection or recovery.
+
 ## EXIF dependency
 
 [`libexif`](https://libexif.github.io/) is a C library for reading, editing,
