@@ -33,3 +33,5 @@
 - Static analysis is `sh scripts/static-analysis.sh` (Clang analyzer, and
   clang-tidy when installed). `cmake -DPHOTOC_CLANG_TIDY=ON` runs clang-tidy
   during the build. See `CONTRIBUTING.md`.
+- Optional scan benchmarks: `python3 scripts/benchmark.py` (see
+  `benchmarks/README.md`). Do not optimize from these numbers unless asked.

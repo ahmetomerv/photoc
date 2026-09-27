@@ -67,4 +67,7 @@ Thanks for helping build `photoc`.
    in `tests/fixtures/`. Prefer generated synthetic images over external photos;
    see [`tests/fixtures/README.md`](tests/fixtures/README.md). Regenerate binary
    fixtures with `python3 scripts/make-fixtures.py` when you change a generator.
-6. Describe what changed and how it was tested in your pull request.
+6. Optional: for scan-heavy changes, run `python3 scripts/benchmark.py` and note
+   any large shift versus [`benchmarks/README.md`](benchmarks/README.md). Do not
+   chase micro-optimizations without a measured regression.
+7. Describe what changed and how it was tested in your pull request.

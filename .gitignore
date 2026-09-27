@@ -3,6 +3,7 @@
 /build-analyze/
 /cmake-build-*/
 /out/
+/benchmarks/data/
 *.o
 *.obj
 *.dSYM/

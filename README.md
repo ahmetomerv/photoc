@@ -45,6 +45,19 @@ test. Undefined behavior fails the test immediately. On Linux, AddressSanitizer
 also reports leaks. macOS AddressSanitizer detects memory errors but does not
 include LeakSanitizer.
 
+## Benchmarks
+
+Lightweight timings for `photoc stats` and `photoc duplicates` against generated
+directories:
+
+```sh
+python3 scripts/benchmark.py
+python3 scripts/benchmark.py --count 5000
+```
+
+Reports elapsed time, files/sec, and peak child RSS. Baseline numbers and
+likely bottlenecks are in [`benchmarks/README.md`](benchmarks/README.md).
+
 ## CLI
 
 ```sh
