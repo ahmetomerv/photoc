@@ -183,6 +183,20 @@ if(BUILD_TESTING)
         )
     endforeach()
 
+    foreach(case IN ITEMS date_success date_recursive session_success
+                          session_recursive unchanged empty collision duplicate
+                          missing_date invalid_jpeg parent_file parent_symlink
+                          directory_failure runtime_rollback)
+        add_test(
+            NAME "sort_apply_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_sort_apply.cmake"
+        )
+    endforeach()
+
     foreach(case IN ITEMS flat recursive missing_date missing_camera collision
                           file_collision duplicate case_duplicate
                           separate_directories invalid_jpeg unchanged empty

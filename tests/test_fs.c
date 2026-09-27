@@ -6,6 +6,7 @@
 #include "photoc/fs.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -374,6 +375,46 @@ done:
     free(destination);
 }
 
+static void test_renameat_noreplace(const test_tree *tree)
+{
+    char *source = NULL;
+    char *existing = NULL;
+    char *destination = NULL;
+    int directory_fd = open(tree->root, O_RDONLY);
+    if (directory_fd < 0 ||
+        photoc_fs_join(tree->root, "renameat-source.jpg", &source) != 0 ||
+        photoc_fs_join(tree->root, "renameat-existing.jpg", &existing) != 0 ||
+        photoc_fs_join(tree->root, "renameat-destination.jpg", &destination) != 0 ||
+        write_file(source, "source-data") != 0 ||
+        write_file(existing, "existing-data") != 0) {
+        CHECK(false);
+        goto done;
+    }
+    errno = 0;
+    CHECK(photoc_fs_renameat_noreplace(directory_fd, "renameat-source.jpg",
+                                       directory_fd, "renameat-existing.jpg") == -1 &&
+          errno == EEXIST);
+    uint64_t size = 0;
+    CHECK(photoc_fs_file_size(source, &size) == 0 && size == 11);
+    CHECK(photoc_fs_file_size(existing, &size) == 0 && size == 13);
+    CHECK(photoc_fs_renameat_noreplace(directory_fd, "renameat-source.jpg",
+                                       directory_fd, "renameat-destination.jpg") == 0);
+    CHECK(photoc_fs_file_size(destination, &size) == 0 && size == 11);
+    errno = 0;
+    CHECK(photoc_fs_renameat_noreplace(directory_fd, "../invalid",
+                                       directory_fd, "another.jpg") == -1 &&
+          errno == EINVAL);
+
+done:
+    if (directory_fd >= 0) close(directory_fd);
+    if (source != NULL) unlink(source);
+    if (existing != NULL) unlink(existing);
+    if (destination != NULL) unlink(destination);
+    free(source);
+    free(existing);
+    free(destination);
+}
+
 int main(void)
 {
     test_path_strings();
@@ -383,6 +424,7 @@ int main(void)
         test_stat_paths(&tree);
         test_walks(&tree);
         test_rename_noreplace(&tree);
+        test_renameat_noreplace(&tree);
     } else {
         ++failures;
     }

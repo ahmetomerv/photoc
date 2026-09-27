@@ -42,6 +42,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}" --apply
 ./build/photoc sort ~/Pictures --by date --recursive
 ./build/photoc sort ~/Pictures --by session --gap 30m
+./build/photoc sort ~/Pictures --by date --apply
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -74,23 +75,32 @@ unchanged, blocked, applied, and rolled-back counts. Exit status is 1 for
 blocked or failed operations. A missing date does not fall back to file
 timestamps. Use `photoc rename --help` for examples.
 
-`sort <directory> --by date [--recursive]` previews moving JPEGs into
+`sort <directory> --by date [--recursive] [--apply]` groups JPEGs into
 `YYYY/MM/DD/` folders using valid EXIF capture dates. It preserves filenames,
-prints paths relative to the supplied directory, and never creates folders or
-moves files. It reports missing dates, invalid JPEGs, existing destinations,
-and duplicate planned destinations as skipped; a skipped JPEG gives exit status
-1. Existing files or symlinks in the destination date path are also reported.
-Use `--recursive` to scan nested directories. The plan is sorted by source path
-for predictable output.
+prints paths relative to the supplied directory, and previews changes by
+default. It reports missing dates, invalid JPEGs, existing destinations, and
+duplicate planned destinations as blocked; a blocked JPEG gives exit status 1.
+Existing files or symlinks in the destination date path are also reported.
+Use `--recursive` to scan nested directories. The plan is sorted by source
+path for predictable output.
 
-`sort <directory> --by session [--gap <duration>] [--recursive]` previews
+`sort <directory> --by session [--gap <duration>] [--recursive] [--apply]` plans
 moving JPEGs into `session-001/`, `session-002/`, and so on. Session numbers
 follow EXIF capture-time order, with source path breaking timestamp ties.
 Consecutive photos remain together when their gap is no greater than the
 threshold. The default is 60 minutes; `--gap 30m` and `--gap 2h` set other
-thresholds. Missing or invalid dates are skipped. Session plans use the same
-collision checks and dry-run-only behavior as date plans. `--gap` is accepted
-only with `--by session`.
+thresholds. Missing or invalid dates are blocked. Session plans use the same
+collision checks as date plans. `--gap` is accepted only with `--by session`.
+
+Add `--apply` to either sort mode to create destination directories and move
+the files. The whole plan is checked first; any blocked entry prevents every
+move. Destination directories are opened without following symlinks, and moves
+use an exclusive operation that will not overwrite a file created after
+preflight. If a later step fails, photoc attempts to move earlier files back
+and remove directories it created, reporting any restoration failure. The
+apply summary includes planned, unchanged, blocked, applied, and rolled-back
+counts. Concurrent filesystem changes can prevent full restoration; photoc
+will not overwrite a competing file to complete rollback.
 
 The planned `compress`, `duplicates`, `focus`, and `scrub` commands
 still report that they are not implemented.

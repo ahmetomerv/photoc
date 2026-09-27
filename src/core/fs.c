@@ -291,6 +291,30 @@ int photoc_fs_rename_noreplace(const char *source, const char *destination)
 #endif
 }
 
+int photoc_fs_renameat_noreplace(int source_directory, const char *source_name,
+                                 int destination_directory,
+                                 const char *destination_name)
+{
+    if (source_directory < 0 || destination_directory < 0 ||
+        !valid_path(source_name) || !valid_path(destination_name) ||
+        strchr(source_name, '/') != NULL ||
+        strchr(destination_name, '/') != NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+#if defined(__APPLE__)
+    return renameatx_np(source_directory, source_name,
+                        destination_directory, destination_name, RENAME_EXCL);
+#elif defined(__linux__)
+    return renameat2(source_directory, source_name,
+                     destination_directory, destination_name,
+                     RENAME_NOREPLACE);
+#else
+    errno = ENOTSUP;
+    return -1;
+#endif
+}
+
 static int walk_directory(const char *directory, bool recursive,
                           photoc_fs_visit_fn visit, void *user_data)
 {

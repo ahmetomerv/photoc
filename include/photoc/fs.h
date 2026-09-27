@@ -41,6 +41,12 @@ int photoc_fs_join(const char *base, const char *child, char **joined);
    the operation cannot be completed. Both paths must be nonempty. */
 int photoc_fs_rename_noreplace(const char *source, const char *destination);
 
+/* Descriptor-relative variant. Source and destination names must be nonempty
+   single path components; the caller owns the directory descriptors. */
+int photoc_fs_renameat_noreplace(int source_directory, const char *source_name,
+                                 int destination_directory,
+                                 const char *destination_name);
+
 /* The callback receives each child (not the root) in unspecified order.
    Its path is valid only during the callback; copy it to retain it.
    Returning false stops the walk. Walks return 0 when complete, 1 when

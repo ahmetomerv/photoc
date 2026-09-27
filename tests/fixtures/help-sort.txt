@@ -1,16 +1,18 @@
-Usage: photoc [global options] sort <directory> --by date|session [--gap <duration>] [--recursive]
+Usage: photoc [global options] sort <directory> --by date|session [--gap <duration>] [--recursive] [--apply]
        photoc sort --help
 
-Preview date or session sorting
+Preview or apply JPEG sorting
 
-Status: dry-run only; no files or directories are changed
+Status: dry-run by default; --apply moves files after preflight
 
 Example:
   photoc sort ~/Pictures --by date
   photoc sort ~/Pictures --by session --gap 30m
   photoc sort ~/Pictures --by session --gap 2h --recursive
+  photoc sort ~/Pictures --by date --apply
 
 Options:
   --by date|session  Required; group by date or capture-time session
   --gap <duration>   Session gap (for example 30m or 2h; default 60m)
   --recursive        Include nested directories
+  --apply            Move files after the whole plan passes preflight

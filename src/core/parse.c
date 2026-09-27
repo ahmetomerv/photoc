@@ -88,7 +88,8 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
             }
             options->gap = argv[++i];
         } else if (!options_ended && options->command != NULL &&
-                   strcmp(options->command, "rename") == 0 &&
+                   (strcmp(options->command, "rename") == 0 ||
+                    strcmp(options->command, "sort") == 0) &&
                    strcmp(arg, "--apply") == 0) {
             options->apply = true;
         } else if (!options_ended && options->command != NULL &&

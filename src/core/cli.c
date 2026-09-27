@@ -23,7 +23,7 @@ static const photoc_command commands[] = {
     {"duplicates", "Find duplicate photos", "<path>...", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
     {"rename", "Preview or apply JPEG renames", "<directory> --format <template> [--recursive] [--apply]", "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\""},
-    {"sort", "Preview date or session sorting", "<directory> --by date|session [--gap <duration>] [--recursive]", "photoc sort ~/Pictures --by date"},
+    {"sort", "Preview or apply JPEG sorting", "<directory> --by date|session [--gap <duration>] [--recursive] [--apply]", "photoc sort ~/Pictures --by date"},
     {"focus", "Assess image focus", "<photo>...", "photoc focus photo.jpg"},
     {"scrub", "Remove selected metadata", "<photo>...", "photoc scrub photo.jpg"}
 };
@@ -57,7 +57,7 @@ static void print_global_help(void)
     puts("  -q, --quiet      Request reduced output");
     puts("      --json       Request JSON output where supported");
     puts("");
-    puts("Exif and stats inspect JPEG files; rename previews by default; sort is dry-run only.");
+    puts("Exif and stats inspect JPEG files; rename and sort preview by default.");
     puts("Other commands are planned.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
@@ -75,7 +75,7 @@ static void print_command_help(const photoc_command *command)
     } else if (strcmp(command->name, "rename") == 0) {
         puts("Status: dry-run by default; --apply changes files after preflight");
     } else if (strcmp(command->name, "sort") == 0) {
-        puts("Status: dry-run only; no files or directories are changed");
+        puts("Status: dry-run by default; --apply moves files after preflight");
     } else {
         puts("Status: not implemented");
     }
@@ -102,11 +102,13 @@ static void print_command_help(const photoc_command *command)
     } else if (strcmp(command->name, "sort") == 0) {
         puts("  photoc sort ~/Pictures --by session --gap 30m");
         puts("  photoc sort ~/Pictures --by session --gap 2h --recursive");
+        puts("  photoc sort ~/Pictures --by date --apply");
         puts("");
         puts("Options:");
         puts("  --by date|session  Required; group by date or capture-time session");
         puts("  --gap <duration>   Session gap (for example 30m or 2h; default 60m)");
         puts("  --recursive        Include nested directories");
+        puts("  --apply            Move files after the whole plan passes preflight");
     }
 }
 
@@ -215,7 +217,7 @@ int photoc_run(int argc, char *argv[])
     if (strcmp(command->name, "sort") == 0) {
         if (options.argument_count != 1 || options.sort_by == NULL) {
             fputs("photoc sort: expected one directory and --by date|session\n"
-                  "Usage: photoc sort <directory> --by date|session [--gap <duration>] [--recursive]\n",
+                  "Usage: photoc sort <directory> --by date|session [--gap <duration>] [--recursive] [--apply]\n",
                   stderr);
             return PHOTOC_EXIT_USAGE;
         }
@@ -245,7 +247,7 @@ int photoc_run(int argc, char *argv[])
             return PHOTOC_EXIT_USAGE;
         }
         return photoc_command_sort(options.first_argument, options.recursive,
-                                   mode, gap_minutes);
+                                   mode, gap_minutes, options.apply);
     }
 
     return photoc_command_unimplemented(command->name);
