@@ -52,6 +52,10 @@ static int scrubbed_path(const char *path, char **destination)
         return -1;
     }
     const char *dot = strrchr(path, '.');
+    if (dot == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
     size_t prefix = (size_t)(dot - path);
     char *result = malloc(length + extra + 1);
     if (result == NULL) {

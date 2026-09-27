@@ -203,11 +203,32 @@ static char ascii_lower(char ch)
 
 const char *photoc_fs_relative(const char *root, const char *path)
 {
-    size_t length = strlen(root);
-    while (length > 1 && root[length - 1] == '/') {
-        --length;
+    if (root == NULL || path == NULL) {
+        return path;
     }
-    const char *relative = path + length;
+
+    size_t root_length = strlen(root);
+    while (root_length > 1 && root[root_length - 1] == '/') {
+        --root_length;
+    }
+    if (root_length == 0) {
+        return path;
+    }
+
+    size_t path_length = strlen(path);
+    if (path_length < root_length ||
+        memcmp(path, root, root_length) != 0) {
+        return path;
+    }
+    /* "/" is a prefix of every absolute path. Any other root must end at a
+       directory boundary so "/photos" does not match "/photos2". */
+    bool root_is_slash = root_length == 1 && root[0] == '/';
+    if (path_length > root_length && path[root_length] != '/' &&
+        !root_is_slash) {
+        return path;
+    }
+
+    const char *relative = path + root_length;
     while (*relative == '/') {
         ++relative;
     }

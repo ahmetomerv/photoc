@@ -25,3 +25,8 @@
   cmake --build build
   ctest --test-dir build --output-on-failure
   ```
+
+- For a memory-safety run, configure a separate tree with
+  `-DPHOTOC_SANITIZERS=ON` (AddressSanitizer and UndefinedBehaviorSanitizer)
+  and run the same build and `ctest` commands there, or use
+  `sh scripts/build-and-test-sanitizers.sh`.

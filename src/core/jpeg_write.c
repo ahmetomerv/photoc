@@ -98,7 +98,7 @@ static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
     exif_data_load_data(exif->data, bytes, length);
     bool has_entries = false;
     for (size_t i = 0; i < EXIF_IFD_COUNT; ++i) {
-        if (exif->data->ifd[i]->count != 0) {
+        if (exif->data->ifd[i] != NULL && exif->data->ifd[i]->count != 0) {
             has_entries = true;
             break;
         }
@@ -137,6 +137,9 @@ static photoc_jpeg_edit_result read_exif(FILE *file,
     }
     if (fseeko(file, (off_t)(info->exif_offset + 4), SEEK_SET) != 0) {
         return PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
+    if (info->exif_length < 4) {
+        return PHOTOC_JPEG_EDIT_INVALID_JPEG;
     }
     unsigned int length = (unsigned int)(info->exif_length - 4);
     unsigned char *bytes = malloc(length);
@@ -280,10 +283,16 @@ photoc_jpeg_edit_result photoc_jpeg_exif_remove_gps(photoc_jpeg_exif *exif)
         return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
     }
     ExifContent *gps = exif->data->ifd[EXIF_IFD_GPS];
+    if (gps == NULL) {
+        return PHOTOC_JPEG_EDIT_INVALID_EXIF;
+    }
     while (gps->count != 0) {
         exif_content_remove_entry(gps, gps->entries[0]);
     }
     ExifContent *root = exif->data->ifd[EXIF_IFD_0];
+    if (root == NULL) {
+        return PHOTOC_JPEG_EDIT_INVALID_EXIF;
+    }
     ExifEntry *pointer = exif_content_get_entry(
         root, EXIF_TAG_GPS_INFO_IFD_POINTER);
     if (pointer != NULL) {
@@ -297,9 +306,11 @@ bool photoc_jpeg_exif_has_gps(const photoc_jpeg_exif *exif)
     if (exif == NULL || exif->data == NULL) {
         return false;
     }
-    return exif->data->ifd[EXIF_IFD_GPS]->count != 0 ||
-           exif_content_get_entry(exif->data->ifd[EXIF_IFD_0],
-                                  EXIF_TAG_GPS_INFO_IFD_POINTER) != NULL;
+    ExifContent *gps = exif->data->ifd[EXIF_IFD_GPS];
+    ExifContent *root = exif->data->ifd[EXIF_IFD_0];
+    return (gps != NULL && gps->count != 0) ||
+           (root != NULL &&
+            exif_content_get_entry(root, EXIF_TAG_GPS_INFO_IFD_POINTER) != NULL);
 }
 
 static photoc_jpeg_edit_result destination_directory(const char *destination,
@@ -492,9 +503,12 @@ static photoc_jpeg_edit_result verify_temporary(
 
     photoc_jpeg_exif *reloaded = NULL;
     result = photoc_jpeg_exif_load_copy(temporary, &reloaded);
+    ExifContent *reloaded_gps = result == PHOTOC_JPEG_EDIT_OK ?
+        reloaded->data->ifd[EXIF_IFD_GPS] : NULL;
+    ExifContent *original_gps = exif->data->ifd[EXIF_IFD_GPS];
     if (result == PHOTOC_JPEG_EDIT_OK &&
-        reloaded->data->ifd[EXIF_IFD_GPS]->count !=
-        exif->data->ifd[EXIF_IFD_GPS]->count) {
+        (reloaded_gps == NULL || original_gps == NULL ||
+         reloaded_gps->count != original_gps->count)) {
         result = PHOTOC_JPEG_EDIT_INVALID_EXIF;
     }
     photoc_jpeg_exif_free(reloaded);

@@ -84,6 +84,10 @@ static int output_path(const char *source, char **out)
         return -1;
     }
     const char *dot = strrchr(source, '.');
+    if (dot == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
     size_t prefix = (size_t)(dot - source);
     char *name = malloc(length + extra + 1);
     if (name == NULL) {
@@ -305,10 +309,7 @@ static int destination_for(const char *root, const char *source,
 {
     const char *relative = source;
     if (root != NULL) {
-        relative += strlen(root);
-        while (*relative == '/') {
-            ++relative;
-        }
+        relative = photoc_fs_relative(root, source);
     } else if (output_dir != NULL) {
         const char *slash = strrchr(source, '/');
         relative = slash == NULL ? source : slash + 1;

@@ -72,6 +72,7 @@ static void free_plan(sort_plan *plan)
         free(plan->entries[i].capture_timestamp);
     }
     free(plan->entries);
+    *plan = (sort_plan){0};
 }
 
 static bool collect_jpeg(const char *path, photoc_fs_type type, void *user_data)

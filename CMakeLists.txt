@@ -2,6 +2,21 @@ cmake_minimum_required(VERSION 3.21)
 
 project(photoc VERSION 0.1.0 LANGUAGES C)
 
+option(PHOTOC_SANITIZERS
+    "Build with AddressSanitizer and UndefinedBehaviorSanitizer"
+    OFF)
+if(PHOTOC_SANITIZERS)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+        message(FATAL_ERROR "PHOTOC_SANITIZERS requires GCC or Clang")
+    endif()
+    add_compile_options(
+        -fsanitize=address,undefined
+        -fno-omit-frame-pointer
+        -fno-sanitize-recover=undefined
+    )
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
 pkg_check_modules(TURBOJPEG REQUIRED IMPORTED_TARGET libturbojpeg)

@@ -262,7 +262,12 @@ photoc_template_result photoc_filename_template_expand(
     }
     size_t original_length = strlen(basename);
     if (extension != NULL) {
-        original_length -= strlen(extension) + 1;
+        size_t extension_length = strlen(extension);
+        if (original_length < extension_length + 1) {
+            result = PHOTOC_TEMPLATE_INVALID_ARGUMENT;
+            goto done;
+        }
+        original_length -= extension_length + 1;
     }
 
     for (size_t i = 0; pattern[i] != '\0';) {

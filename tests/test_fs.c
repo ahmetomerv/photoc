@@ -184,6 +184,14 @@ static void test_path_strings(void)
     CHECK(strcmp(photoc_fs_relative("/", "/a.jpg"), "a.jpg") == 0);
     CHECK(strcmp(photoc_fs_relative("/photos///", "/photos///a.jpg"),
                  "a.jpg") == 0);
+    CHECK(strcmp(photoc_fs_relative("/photos", "/photos"), "") == 0);
+    CHECK(strcmp(photoc_fs_relative("/photos/nested", "/photos"),
+                 "/photos") == 0);
+    CHECK(strcmp(photoc_fs_relative("/photos", "/photos2/a.jpg"),
+                 "/photos2/a.jpg") == 0);
+    CHECK(strcmp(photoc_fs_relative(NULL, "/photos/a.jpg"),
+                 "/photos/a.jpg") == 0);
+    CHECK(photoc_fs_relative("/photos", NULL) == NULL);
 
     expect_join("/photos", "photo.jpg", "/photos/photo.jpg");
     expect_join("/photos/", "photo.jpg", "/photos/photo.jpg");

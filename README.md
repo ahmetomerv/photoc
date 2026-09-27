@@ -30,6 +30,21 @@ ctest --test-dir build --output-on-failure
 
 You can run the same steps with `sh scripts/build-and-test.sh`.
 
+GCC and Clang can also build with AddressSanitizer and
+UndefinedBehaviorSanitizer. Use a separate build directory so those
+instrumented binaries are not mixed with a normal build:
+
+```sh
+cmake -S . -B build-san -DPHOTOC_SANITIZERS=ON
+cmake --build build-san
+ctest --test-dir build-san --output-on-failure
+```
+
+`sh scripts/build-and-test-sanitizers.sh` runs that configure, build, and
+test. Undefined behavior fails the test immediately. On Linux, AddressSanitizer
+also reports leaks. macOS AddressSanitizer detects memory errors but does not
+include LeakSanitizer.
+
 ## CLI
 
 ```sh
