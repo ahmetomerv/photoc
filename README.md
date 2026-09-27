@@ -64,6 +64,14 @@ into a `Photo`. It reports distinct results for unsupported extensions, invalid
 JPEG data, filesystem errors, and allocation failures. Missing EXIF fields are
 left unavailable. Call `photo_cleanup` after a successful load.
 
+[`include/photoc/scan.h`](include/photoc/scan.h) defines a reusable directory
+scanner. It can walk one level or recurse, loads each JPEG into a temporary
+`Photo`, and calls the supplied photo callback. A warning callback receives
+per-file JPEG failures while scanning continues. Aggregate counts distinguish
+regular files visited, JPEGs found, photos parsed, skipped files, and errors.
+The scanner owns and frees each `Photo` after its callback returns. The planned
+`stats` command does not use this API yet.
+
 ## EXIF dependency
 
 [`libexif`](https://libexif.github.io/) is a C library for reading, editing,

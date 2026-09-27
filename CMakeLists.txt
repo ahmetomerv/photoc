@@ -24,6 +24,7 @@ add_library(photoc_core STATIC
     src/core/json.c
     src/core/metadata.c
     src/core/photo.c
+    src/core/scan.c
 )
 photoc_configure_c_target(photoc_core)
 target_include_directories(photoc_core PUBLIC include)
@@ -65,6 +66,14 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_photo)
     target_link_libraries(test_photo PRIVATE photoc_core)
     add_test(NAME photo_model COMMAND test_photo)
+
+    add_executable(test_scan tests/test_scan.c)
+    photoc_configure_c_target(test_scan)
+    target_link_libraries(test_scan PRIVATE photoc_core)
+    target_compile_definitions(test_scan PRIVATE
+        PHOTOC_SCAN_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+    )
+    add_test(NAME photo_scanner COMMAND test_scan)
 
     add_executable(test_metadata tests/test_metadata.c)
     photoc_configure_c_target(test_metadata)
