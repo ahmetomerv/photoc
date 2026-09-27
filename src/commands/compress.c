@@ -1,5 +1,6 @@
 #include "photoc/commands.h"
 
+#include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/fs.h"
 #include "photoc/image.h"
@@ -97,26 +98,14 @@ static int output_path(const char *source, char **out)
 
 static int image_error(const char *path, photoc_image_result result)
 {
-    int saved_errno = errno;
-    fprintf(stderr, "photoc compress: '%s': %s", path,
-            photoc_image_result_message(result));
-    if (result == PHOTOC_IMAGE_IO_ERROR) {
-        fprintf(stderr, ": %s", strerror(saved_errno));
-    }
-    fputc('\n', stderr);
-    return PHOTOC_EXIT_FAILURE;
+    return photoc_error_image("compress", PHOTOC_ERR_NOTE_NONE, path, result,
+                              errno);
 }
 
 static int jpeg_error(const char *path, photoc_jpeg_edit_result result)
 {
-    int saved_errno = errno;
-    fprintf(stderr, "photoc compress: '%s': %s", path,
-            photoc_jpeg_edit_result_message(result));
-    if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
-        fprintf(stderr, ": %s", strerror(saved_errno));
-    }
-    fputc('\n', stderr);
-    return PHOTOC_EXIT_FAILURE;
+    return photoc_error_jpeg_edit("compress", PHOTOC_ERR_NOTE_NONE, path,
+                                  result, errno);
 }
 
 static void report_target_miss(const char *path,
@@ -159,21 +148,23 @@ static int compress_file(const char *path, const char *destination,
                          photoc_quality_choice *choice)
 {
     if (photoc_fs_file_size(path, original_size) != 0) {
-        fprintf(stderr, "photoc compress: '%s': %s\n", path, strerror(errno));
+        photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                            path, "unable to read file size", errno);
         return -1;
     }
     bool exists = false;
     if (photoc_fs_exists(destination, &exists) != 0) {
-        fprintf(stderr, "photoc compress: '%s': %s\n", destination,
-                strerror(errno));
+        photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                            destination, "unable to inspect output", errno);
         return -1;
     }
     if (exists) {
         return 1;
     }
     if (ensure_output_parent(destination) != 0) {
-        fprintf(stderr, "photoc compress: cannot create destination for '%s': %s\n",
-                destination, strerror(errno));
+        photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                            destination, "cannot create destination directory",
+                            errno);
         return -1;
     }
 
@@ -211,8 +202,10 @@ static int compress_file(const char *path, const char *destination,
             if (context.error != PHOTOC_IMAGE_OK) {
                 image_error(path, context.error);
             } else {
-                fprintf(stderr, "photoc compress: '%s': quality search failed: %s\n",
-                        path, strerror(errno));
+                photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                    errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
+                                    PHOTOC_ERR_IO,
+                                    path, "quality search failed", errno);
             }
             photoc_image_cleanup(&image);
             photoc_jpeg_exif_free(exif);
@@ -241,8 +234,8 @@ static int compress_file(const char *path, const char *destination,
     }
 
     if (photoc_fs_file_size(destination, compressed_size) != 0) {
-        fprintf(stderr, "photoc compress: '%s': cannot inspect output: %s\n",
-                destination, strerror(errno));
+        photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                            destination, "cannot inspect output", errno);
         return -1;
     }
     choice->size = *compressed_size;
@@ -336,8 +329,8 @@ int photoc_command_compress(const char *path,
     const char *output_dir = options->output_dir;
     photoc_fs_type type;
     if (photoc_fs_get_type(path, &type) != 0) {
-        fprintf(stderr, "photoc compress: '%s': %s\n", path, strerror(errno));
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   path, "unable to inspect path", errno);
     }
     if (type == PHOTOC_FS_FILE && recursive) {
         fputs("photoc compress: --recursive requires a directory\n", stderr);
@@ -345,26 +338,27 @@ int photoc_command_compress(const char *path,
     }
     if (type == PHOTOC_FS_OTHER ||
         (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path))) {
-        fprintf(stderr, "photoc compress: '%s': expected a regular JPEG file or directory\n",
-                path);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_UNSUPPORTED, path,
+                                   "expected a regular JPEG file or directory", 0);
     }
     if (output_dir != NULL && output_dir[0] == '\0') {
         fputs("photoc compress: --output-dir requires a nonempty directory\n", stderr);
         return PHOTOC_EXIT_USAGE;
     }
     if (output_dir != NULL && photoc_fs_mkdirs(output_dir) != 0) {
-        fprintf(stderr, "photoc compress: cannot create output directory '%s': %s\n",
-                output_dir, strerror(errno));
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   output_dir, "cannot create output directory",
+                                   errno);
     }
 
     if (type == PHOTOC_FS_FILE) {
         char *destination = NULL;
         if (destination_for(NULL, path, output_dir, &destination) != 0) {
-            fprintf(stderr, "photoc compress: '%s': cannot build output path: %s\n",
-                    path, strerror(errno));
-            return PHOTOC_EXIT_FAILURE;
+            return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                       errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
+                                       PHOTOC_ERR_IO,
+                                       path, "cannot build output path", errno);
         }
         uint64_t before = 0;
         uint64_t after = 0;
@@ -390,12 +384,15 @@ int photoc_command_compress(const char *path,
             printf("Percentage saved: %.2f%%\n",
                    (1.0 - (double)after / (double)before) * 100.0);
         } else if (result == 1) {
-            fprintf(stderr, "photoc compress: '%s': File exists\n", destination);
+            photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                PHOTOC_ERR_COLLISION, destination,
+                                "output already exists", 0);
         }
         free(destination);
         if (ferror(stdout)) {
-            fputs("photoc compress: unable to write output\n", stderr);
-            return PHOTOC_EXIT_FAILURE;
+            return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                       PHOTOC_ERR_IO, NULL,
+                                       "unable to write output", EIO);
         }
         return result == 0 && choice.target_met ? PHOTOC_EXIT_SUCCESS :
                PHOTOC_EXIT_FAILURE;
@@ -412,8 +409,11 @@ int photoc_command_compress(const char *path,
     uint64_t after_total = 0;
     if (walk_result != 0) {
         ++failed;
-        fprintf(stderr, "photoc compress: cannot walk '%s': %s\n", path,
-                strerror(walk.error != 0 ? walk.error : errno));
+        photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                            (walk.error == ENOMEM) ? PHOTOC_ERR_INTERNAL :
+                            PHOTOC_ERR_IO,
+                            path, "cannot read directory",
+                            walk.error != 0 ? walk.error : errno);
     } else {
         if (walk.count > 1) {
             qsort(walk.paths, walk.count, sizeof(*walk.paths), compare_paths);
@@ -422,8 +422,11 @@ int photoc_command_compress(const char *path,
             char *destination = NULL;
             if (destination_for(path, walk.paths[i], output_dir, &destination) != 0) {
                 ++failed;
-                fprintf(stderr, "photoc compress: '%s': cannot build output path: %s\n",
-                        walk.paths[i], strerror(errno));
+                photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                    errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
+                                    PHOTOC_ERR_IO,
+                                    walk.paths[i], "cannot build output path",
+                                    errno);
                 continue;
             }
             uint64_t before = 0;
@@ -469,8 +472,8 @@ int photoc_command_compress(const char *path,
         printf("Total savings: -%" PRIu64 " bytes\n", after_total - before_total);
     }
     if (ferror(stdout)) {
-        fputs("photoc compress: unable to write output\n", stderr);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   NULL, "unable to write output", EIO);
     }
     return failed == 0 && targets_not_met == 0 ? PHOTOC_EXIT_SUCCESS :
            PHOTOC_EXIT_FAILURE;

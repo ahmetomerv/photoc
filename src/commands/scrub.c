@@ -1,5 +1,6 @@
 #include "photoc/commands.h"
 
+#include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/fs.h"
 #include "photoc/jpeg_write.h"
@@ -66,12 +67,8 @@ static int scrubbed_path(const char *path, char **destination)
 static void report_edit_error(const char *path, photoc_jpeg_edit_result result,
                               int saved_errno)
 {
-    fprintf(stderr, "photoc scrub: '%s': %s", path,
-            photoc_jpeg_edit_result_message(result));
-    if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
-        fprintf(stderr, ": %s", strerror(saved_errno));
-    }
-    fputc('\n', stderr);
+    photoc_error_jpeg_edit("scrub", PHOTOC_ERR_NOTE_NONE, path, result,
+                           saved_errno);
 }
 
 static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
@@ -103,8 +100,9 @@ static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
     char *destination = NULL;
     if (!in_place && scrubbed_path(path, &destination) != 0) {
         ++counts->failed;
-        fprintf(stderr, "photoc scrub: '%s': cannot build output path: %s\n",
-                path, strerror(errno));
+        photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
+                            errno == ENOMEM ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO,
+                            path, "cannot build output path", errno);
         photoc_jpeg_exif_free(exif);
         return;
     }
@@ -176,24 +174,22 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
 {
     photoc_fs_type type;
     if (photoc_fs_get_type(path, &type) != 0) {
-        fprintf(stderr, "photoc scrub: '%s': %s\n", path, strerror(errno));
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   path, "unable to inspect path", errno);
     }
     if (type == PHOTOC_FS_OTHER) {
-        fprintf(stderr,
-                "photoc scrub: '%s': expected a regular JPEG file or directory\n",
-                path);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_UNSUPPORTED, path,
+                                   "expected a regular JPEG file or directory", 0);
     }
     if (type == PHOTOC_FS_FILE && recursive) {
         fputs("photoc scrub: --recursive requires a directory\n", stderr);
         return PHOTOC_EXIT_USAGE;
     }
     if (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path)) {
-        fprintf(stderr,
-                "photoc scrub: '%s': expected a regular JPEG file or directory\n",
-                path);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_UNSUPPORTED, path,
+                                   "expected a regular JPEG file or directory", 0);
     }
 
     scrub_counts counts = {0};
@@ -207,8 +203,11 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
         counts = walk.counts;
         if (result != 0) {
             ++counts.failed;
-            fprintf(stderr, "photoc scrub: cannot walk '%s': %s\n", path,
-                    strerror(walk.error != 0 ? walk.error : errno));
+            photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
+                                walk.error == ENOMEM ? PHOTOC_ERR_INTERNAL :
+                                PHOTOC_ERR_IO,
+                                path, "cannot read directory",
+                                walk.error != 0 ? walk.error : errno);
         } else {
             if (walk.count > 1) {
                 qsort(walk.paths, walk.count, sizeof(*walk.paths), compare_paths);
@@ -226,8 +225,8 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
            "Files with GPS found and removed: %zu\n",
            counts.processed, counts.skipped, counts.failed, counts.gps_removed);
     if (ferror(stdout)) {
-        fputs("photoc scrub: unable to write output\n", stderr);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   NULL, "unable to write output", EIO);
     }
     return counts.failed == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
 }

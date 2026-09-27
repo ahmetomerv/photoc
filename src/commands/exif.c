@@ -1,5 +1,6 @@
 #include "photoc/commands.h"
 
+#include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/fs.h"
 #include "photoc/json.h"
@@ -130,22 +131,17 @@ int photoc_command_exif(const char *path, bool json)
     photoc_metadata_result result = photo_load_metadata(path, &photo);
     if (result != PHOTOC_METADATA_OK) {
         int saved_errno = errno;
-        fprintf(stderr, "photoc exif: '%s': %s", path,
-                photo_metadata_result_message(result));
-        if (result == PHOTOC_METADATA_IO_ERROR) {
-            fprintf(stderr, ": %s", strerror(saved_errno));
-        }
-        fputc('\n', stderr);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_metadata("exif", PHOTOC_ERR_NOTE_NONE, path,
+                                     result, saved_errno);
     }
 
     char *name = NULL;
     if (photoc_fs_filename(photo.path, &name) != 0) {
         int saved_errno = errno;
-        fprintf(stderr, "photoc exif: '%s': unable to extract filename: %s\n",
-                path, strerror(saved_errno));
         photo_cleanup(&photo);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("exif", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_INTERNAL, path,
+                                   "unable to extract filename", saved_errno);
     }
 
     if (json) {
@@ -157,8 +153,8 @@ int photoc_command_exif(const char *path, bool json)
     free(name);
     photo_cleanup(&photo);
     if (ferror(stdout)) {
-        fputs("photoc exif: unable to write output\n", stderr);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("exif", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   NULL, "unable to write output", EIO);
     }
     return PHOTOC_EXIT_SUCCESS;
 }

@@ -1,6 +1,7 @@
 #include "photoc/commands.h"
 
 #include "photoc/duplicates.h"
+#include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/json.h"
 
@@ -12,8 +13,8 @@
 static void report_warning(const char *path, int system_errno, void *user_data)
 {
     (void)user_data;
-    fprintf(stderr, "photoc duplicates: warning: '%s': %s\n",
-            path, strerror(system_errno));
+    photoc_error_report("duplicates", PHOTOC_ERR_NOTE_WARNING, PHOTOC_ERR_IO,
+                        path, "unable to read file", system_errno);
 }
 
 static void print_human(const char *directory, bool recursive,
@@ -81,16 +82,17 @@ int photoc_command_duplicates(const char *directory, bool recursive, bool json)
     photoc_duplicates_result result;
     if (photoc_duplicates_find(directory, recursive, report_warning,
                                NULL, &result) != 0) {
-        fprintf(stderr, "photoc duplicates: '%s': %s\n",
-                directory, strerror(errno));
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("duplicates", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, directory,
+                                   "unable to read directory", errno);
     }
 
     if (json) {
         if (print_json(directory, recursive, &result) != 0) {
-            fputs("photoc duplicates: unable to write output\n", stderr);
             photoc_duplicates_cleanup(&result);
-            return PHOTOC_EXIT_FAILURE;
+            return photoc_error_report("duplicates", PHOTOC_ERR_NOTE_NONE,
+                                       PHOTOC_ERR_IO, NULL,
+                                       "unable to write output", EIO);
         }
     } else {
         print_human(directory, recursive, &result);
@@ -99,8 +101,9 @@ int photoc_command_duplicates(const char *directory, bool recursive, bool json)
     int exit_code = result.errors == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
     photoc_duplicates_cleanup(&result);
     if (ferror(stdout)) {
-        fputs("photoc duplicates: unable to write output\n", stderr);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("duplicates", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, NULL, "unable to write output",
+                                   EIO);
     }
     return exit_code;
 }

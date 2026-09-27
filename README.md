@@ -181,10 +181,13 @@ dates and averages are `null`, and per-file warnings still go to stderr.
 
 Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter command output yet. JSON output is available for `exif`, `stats`, and `duplicates`.
 
-Exit status is `0` for success, `1` for file or metadata errors, `2` for usage
-errors, and `3` for unimplemented commands. Normal output uses stdout;
-diagnostics use stderr. Usage errors for a known command include that
-command's name. An unrecognized option names the command and points at
+Exit status is `0` for success, `1` for operational failures, `2` for invalid
+input, and `3` for unimplemented commands. Normal output uses stdout;
+diagnostics use stderr. Invalid input names the command and the problem.
+Other failures name one class: `unsupported file`, `file I/O error`,
+`metadata error`, `image decode error`, `collision`, or `internal error`.
+A system message, when present, follows that class and is never the only
+text. An unrecognized option names the command and points at
 `photoc <command> --help`.
 
 ## Shared filesystem utilities

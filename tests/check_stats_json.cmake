@@ -60,7 +60,7 @@ if(NOT actual_exit STREQUAL "0")
 endif()
 if(CASE STREQUAL "flat" OR CASE STREQUAL "recursive" OR
    CASE STREQUAL "escaped_directory" OR CASE STREQUAL "before_command")
-    set(expected_error "photoc stats: warning: '${directory}/broken.jpg': invalid or truncated JPEG file\n")
+    set(expected_error "photoc stats: warning: '${directory}/broken.jpg': image decode error: invalid or truncated JPEG file\n")
 else()
     set(expected_error "")
 endif()

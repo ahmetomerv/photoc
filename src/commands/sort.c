@@ -7,6 +7,7 @@
 
 #include "photoc/commands.h"
 
+#include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/fs.h"
 #include "photoc/photo.h"
@@ -438,33 +439,37 @@ static void print_plan(const sort_plan *plan, const char *root, bool show_safe)
         const sort_entry *entry = &plan->entries[i];
         const char *source = photoc_fs_relative(root, entry->source);
         if (entry->source_errno != 0) {
-            fprintf(stderr, "photoc sort: '%s': skipped: cannot check source: %s\n",
-                    source, strerror(entry->source_errno));
+            photoc_error_report("sort", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
+                                source, "cannot check source",
+                                entry->source_errno);
         } else if (entry->source_changed) {
-            fprintf(stderr, "photoc sort: '%s': skipped: source changed during preflight\n",
-                    source);
+            photoc_error_report("sort", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
+                                source, "source changed during preflight", 0);
         } else if (entry->metadata_error != PHOTOC_METADATA_OK) {
-            fprintf(stderr, "photoc sort: '%s': skipped: %s", source,
-                    photo_metadata_result_message(entry->metadata_error));
-            if (entry->metadata_error == PHOTOC_METADATA_IO_ERROR) {
-                fprintf(stderr, ": %s", strerror(entry->system_errno));
-            }
-            fputc('\n', stderr);
+            photoc_error_metadata("sort", PHOTOC_ERR_NOTE_SKIPPED, source,
+                                  entry->metadata_error, entry->system_errno);
         } else if (entry->missing_date) {
-            fprintf(stderr, "photoc sort: '%s': skipped: missing or invalid EXIF capture date\n",
-                    source);
+            photoc_error_report("sort", PHOTOC_ERR_NOTE_SKIPPED,
+                                PHOTOC_ERR_METADATA, source,
+                                "missing or invalid EXIF capture date", 0);
         } else if (entry->parent_conflict) {
-            fprintf(stderr, "photoc sort: '%s': skipped: destination parent is not a directory\n",
-                    source);
+            photoc_error_report("sort", PHOTOC_ERR_NOTE_SKIPPED,
+                                PHOTOC_ERR_COLLISION, source,
+                                "destination parent is not a directory", 0);
         } else if (entry->system_errno != 0) {
-            fprintf(stderr, "photoc sort: '%s': skipped: cannot check destination: %s\n",
-                    source, strerror(entry->system_errno));
+            photoc_error_report("sort", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
+                                source, "cannot check destination",
+                                entry->system_errno);
         } else if (entry->duplicate_destination) {
-            fprintf(stderr, "photoc sort: '%s': skipped: duplicate destination '%s'\n",
-                    source, photoc_fs_relative(root, entry->destination));
+            photoc_error_reportf("sort", PHOTOC_ERR_NOTE_SKIPPED,
+                                 PHOTOC_ERR_COLLISION, source, 0,
+                                 "duplicate destination '%s'",
+                                 photoc_fs_relative(root, entry->destination));
         } else if (entry->destination_exists) {
-            fprintf(stderr, "photoc sort: '%s': skipped: destination exists '%s'\n",
-                    source, photoc_fs_relative(root, entry->destination));
+            photoc_error_reportf("sort", PHOTOC_ERR_NOTE_SKIPPED,
+                                 PHOTOC_ERR_COLLISION, source, 0,
+                                 "destination exists '%s'",
+                                 photoc_fs_relative(root, entry->destination));
         } else if (show_safe) {
             printf("%s -> %s", source,
                    photoc_fs_relative(root, entry->destination));
@@ -641,8 +646,10 @@ static void remove_created_directories(int root_fd,
         const char *name;
         int parent_fd = open_parent(root_fd, created->paths[i - 1], &name);
         if (parent_fd < 0 || unlinkat(parent_fd, name, AT_REMOVEDIR) != 0) {
-            fprintf(stderr, "photoc sort: unable to remove created directory '%s': %s\n",
-                    created->paths[i - 1], strerror(errno));
+            photoc_error_reportf("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                 NULL, errno,
+                                 "unable to remove created directory '%s'",
+                                 created->paths[i - 1]);
         }
         if (parent_fd >= 0) {
             close(parent_fd);
@@ -713,9 +720,10 @@ static void rollback_moves(sort_plan *plan, const char *root, int root_fd,
             --summary->applied;
             ++summary->rolled_back;
         } else {
-            fprintf(stderr, "photoc sort: rollback failed for '%s' -> '%s': %s\n",
-                    photoc_fs_relative(root, entry->destination),
-                    photoc_fs_relative(root, entry->source), strerror(errno));
+            photoc_error_reportf("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                 NULL, errno, "rollback failed for '%s' -> '%s'",
+                                 photoc_fs_relative(root, entry->destination),
+                                 photoc_fs_relative(root, entry->source));
         }
     }
 }
@@ -725,8 +733,9 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
 {
     created_directories created = {0};
     if (prepare_created_list(plan, &created) != 0) {
-        fprintf(stderr, "photoc sort: unable to prepare directories: %s\n",
-                strerror(errno));
+        photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
+                            errno == ENOMEM ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO,
+                            NULL, "unable to prepare directories", errno);
         return PHOTOC_EXIT_FAILURE;
     }
     for (size_t i = 0; i < plan->count; ++i) {
@@ -736,8 +745,10 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
         }
         int fd = open_directory_chain(root_fd, entry->folder, true, &created);
         if (fd < 0) {
-            fprintf(stderr, "photoc sort: unable to create destination directory '%s': %s\n",
-                    entry->folder, strerror(errno));
+            photoc_error_reportf("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                 NULL, errno,
+                                 "unable to create destination directory '%s'",
+                                 entry->folder);
             remove_created_directories(root_fd, &created);
             free_created_list(&created);
             return PHOTOC_EXIT_FAILURE;
@@ -751,9 +762,10 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
             continue;
         }
         if (move_entry(root_fd, root, entry, false) != 0) {
-            fprintf(stderr, "photoc sort: apply failed for '%s' -> '%s': %s\n",
-                    photoc_fs_relative(root, entry->source),
-                    photoc_fs_relative(root, entry->destination), strerror(errno));
+            photoc_error_reportf("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                 NULL, errno, "apply failed for '%s' -> '%s'",
+                                 photoc_fs_relative(root, entry->source),
+                                 photoc_fs_relative(root, entry->destination));
             rollback_moves(plan, root, root_fd, summary);
             remove_created_directories(root_fd, &created);
             result = PHOTOC_EXIT_FAILURE;
@@ -772,9 +784,9 @@ int photoc_command_sort(const char *directory, bool recursive,
 {
     struct stat root_before;
     if (apply && lstat(directory, &root_before) != 0) {
-        fprintf(stderr, "photoc sort: '%s': %s\n", directory,
-                strerror(errno));
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   directory, "unable to inspect directory",
+                                   errno);
     }
     sort_plan plan = {0};
     int walk_result = recursive ?
@@ -782,8 +794,10 @@ int photoc_command_sort(const char *directory, bool recursive,
         photoc_fs_walk(directory, collect_jpeg, &plan);
     if (walk_result != 0) {
         int saved_errno = walk_result == 1 ? plan.error_errno : errno;
-        fprintf(stderr, "photoc sort: '%s': %s\n", directory,
-                strerror(saved_errno));
+        photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
+                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
+                            PHOTOC_ERR_IO,
+                            directory, "unable to read directory", saved_errno);
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -796,8 +810,10 @@ int photoc_command_sort(const char *directory, bool recursive,
          prepare_session_destinations(&plan, directory, gap_minutes)) != 0 ||
         mark_duplicates(&plan) != 0) {
         int saved_errno = errno;
-        fprintf(stderr, "photoc sort: unable to prepare plan: %s\n",
-                strerror(saved_errno));
+        photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
+                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
+                            PHOTOC_ERR_IO,
+                            NULL, "unable to prepare plan", saved_errno);
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -807,8 +823,8 @@ int photoc_command_sort(const char *directory, bool recursive,
         root_fd = open(directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW |
                      O_CLOEXEC);
         if (root_fd < 0) {
-            fprintf(stderr, "photoc sort: cannot open directory '%s': %s\n",
-                    directory, strerror(errno));
+            photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                directory, "cannot open directory", errno);
             free_plan(&plan);
             return PHOTOC_EXIT_FAILURE;
         }
@@ -816,8 +832,10 @@ int photoc_command_sort(const char *directory, bool recursive,
         if (fstat(root_fd, &root_now) != 0 ||
             root_before.st_dev != root_now.st_dev ||
             root_before.st_ino != root_now.st_ino) {
-            fputs("photoc sort: directory changed during preflight; no files changed\n",
-                  stderr);
+            photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                NULL,
+                                "directory changed during preflight; no files changed",
+                                0);
             close(root_fd);
             free_plan(&plan);
             return PHOTOC_EXIT_FAILURE;
@@ -845,8 +863,8 @@ int photoc_command_sort(const char *directory, bool recursive,
     }
     free_plan(&plan);
     if (ferror(stdout) || ferror(stderr)) {
-        fputs("photoc sort: unable to write output\n", stderr);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   NULL, "unable to write output", EIO);
     }
     return exit_code;
 }

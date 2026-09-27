@@ -38,9 +38,9 @@ endif()
 
 if(CASE STREQUAL "invalid" OR CASE STREQUAL "unsupported")
     if(CASE STREQUAL "invalid")
-        set(expected_error "invalid or truncated JPEG file")
+        set(expected_error "image decode error: invalid or truncated JPEG file")
     else()
-        set(expected_error "unsupported file type (expected .jpg or .jpeg)")
+        set(expected_error "unsupported file: unsupported file type (expected .jpg or .jpeg)")
     endif()
     if(NOT actual_exit STREQUAL "1" OR NOT output STREQUAL "" OR
        NOT error_output STREQUAL "photoc exif: '${path}': ${expected_error}\n")

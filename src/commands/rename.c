@@ -2,6 +2,7 @@
 
 #include "photoc/commands.h"
 
+#include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/filename_template.h"
 #include "photoc/fs.h"
@@ -253,19 +254,35 @@ static int mark_duplicate_destinations(rename_plan *plan)
     return 0;
 }
 
-static void print_placeholder(FILE *stream, const char *format, size_t offset)
+static void placeholder_text(const char *format, size_t offset, char *buffer,
+                             size_t size)
 {
+    if (size == 0) {
+        return;
+    }
+    buffer[0] = '\0';
     if (offset == SIZE_MAX || format[offset] != '{') {
-        fputs("placeholder", stream);
+        snprintf(buffer, size, "placeholder");
         return;
     }
     const char *close = strchr(format + offset + 1, '}');
     if (close == NULL) {
-        fputs("placeholder", stream);
+        snprintf(buffer, size, "placeholder");
         return;
     }
-    fwrite(format + offset, 1, (size_t)(close - (format + offset)) + 1,
-           stream);
+    size_t length = (size_t)(close - (format + offset)) + 1;
+    if (length >= size) {
+        length = size - 1;
+    }
+    memcpy(buffer, format + offset, length);
+    buffer[length] = '\0';
+}
+
+static void print_placeholder(FILE *stream, const char *format, size_t offset)
+{
+    char text[64];
+    placeholder_text(format, offset, text, sizeof(text));
+    fputs(text, stream);
 }
 
 static bool entry_blocked(const rename_entry *entry)
@@ -309,37 +326,47 @@ static void print_plan(const rename_plan *plan, const char *root,
         const rename_entry *entry = &plan->entries[i];
         const char *source = photoc_fs_relative(root, entry->source);
         if (entry->metadata_error != PHOTOC_METADATA_OK) {
-            fprintf(stderr, "photoc rename: '%s': skipped: %s", source,
-                    photo_metadata_result_message(entry->metadata_error));
-            if (entry->metadata_error == PHOTOC_METADATA_IO_ERROR) {
-                fprintf(stderr, ": %s", strerror(entry->system_errno));
-            }
-            fputc('\n', stderr);
+            photoc_error_metadata("rename", PHOTOC_ERR_NOTE_SKIPPED, source,
+                                  entry->metadata_error, entry->system_errno);
         } else if (entry->template_error != PHOTOC_TEMPLATE_OK) {
-            fprintf(stderr, "photoc rename: '%s': skipped: ", source);
             if (entry->template_error == PHOTOC_TEMPLATE_MISSING_VALUE) {
-                fputs("missing or invalid metadata for ", stderr);
-                print_placeholder(stderr, format, entry->template_offset);
+                char placeholder[64];
+                placeholder_text(format, entry->template_offset, placeholder,
+                                 sizeof(placeholder));
+                photoc_error_reportf("rename", PHOTOC_ERR_NOTE_SKIPPED,
+                                     PHOTOC_ERR_METADATA, source, 0,
+                                     "missing or invalid metadata for %s",
+                                     placeholder);
             } else {
-                fputs(photoc_template_result_message(entry->template_error),
-                      stderr);
+                photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED,
+                                    photoc_error_kind_for_template(
+                                        entry->template_error),
+                                    source,
+                                    photoc_template_result_message(
+                                        entry->template_error),
+                                    0);
             }
-            fputc('\n', stderr);
         } else if (entry->duplicate_destination) {
-            fprintf(stderr, "photoc rename: '%s': skipped: duplicate destination '%s'\n",
-                    source, photoc_fs_relative(root, entry->destination));
+            photoc_error_reportf("rename", PHOTOC_ERR_NOTE_SKIPPED,
+                                 PHOTOC_ERR_COLLISION, source, 0,
+                                 "duplicate destination '%s'",
+                                 photoc_fs_relative(root, entry->destination));
         } else if (entry->destination_exists) {
-            fprintf(stderr, "photoc rename: '%s': skipped: destination exists '%s'\n",
-                    source, photoc_fs_relative(root, entry->destination));
+            photoc_error_reportf("rename", PHOTOC_ERR_NOTE_SKIPPED,
+                                 PHOTOC_ERR_COLLISION, source, 0,
+                                 "destination exists '%s'",
+                                 photoc_fs_relative(root, entry->destination));
         } else if (entry->system_errno != 0) {
-            fprintf(stderr, "photoc rename: '%s': skipped: cannot check destination: %s\n",
-                    source, strerror(entry->system_errno));
+            photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
+                                source, "cannot check destination",
+                                entry->system_errno);
         } else if (entry->source_errno != 0) {
-            fprintf(stderr, "photoc rename: '%s': skipped: cannot check source: %s\n",
-                    source, strerror(entry->source_errno));
+            photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
+                                source, "cannot check source",
+                                entry->source_errno);
         } else if (entry->source_changed) {
-            fprintf(stderr, "photoc rename: '%s': skipped: source changed during preflight\n",
-                    source);
+            photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
+                                source, "source changed during preflight", 0);
         } else if (show_safe) {
             const char *destination = photoc_fs_relative(root, entry->destination);
             printf("%s -> %s", source, destination);
@@ -380,9 +407,11 @@ static void rollback_applied(rename_plan *plan, const char *root,
             --summary->applied;
             ++summary->rolled_back;
         } else {
-            fprintf(stderr, "photoc rename: rollback failed for '%s' -> '%s': %s\n",
-                    photoc_fs_relative(root, entry->destination),
-                    photoc_fs_relative(root, entry->source), strerror(errno));
+            photoc_error_reportf("rename", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                 NULL, errno,
+                                 "rollback failed for '%s' -> '%s'",
+                                 photoc_fs_relative(root, entry->destination),
+                                 photoc_fs_relative(root, entry->source));
         }
     }
 }
@@ -399,10 +428,11 @@ static int apply_plan(rename_plan *plan, const char *root,
             photoc_fs_rename_noreplace(entry->source,
                                        entry->destination) != 0) {
             int saved_errno = errno;
-            fprintf(stderr, "photoc rename: apply failed for '%s' -> '%s': %s\n",
-                    photoc_fs_relative(root, entry->source),
-                    photoc_fs_relative(root, entry->destination),
-                    strerror(saved_errno));
+            photoc_error_reportf("rename", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                 NULL, saved_errno,
+                                 "apply failed for '%s' -> '%s'",
+                                 photoc_fs_relative(root, entry->source),
+                                 photoc_fs_relative(root, entry->destination));
             rollback_applied(plan, root, summary);
             return PHOTOC_EXIT_FAILURE;
         }
@@ -437,8 +467,10 @@ int photoc_command_rename(const char *directory, const char *format,
         photoc_fs_walk(directory, collect_jpeg, &plan);
     if (walk_result != 0) {
         int saved_errno = walk_result == 1 ? plan.error_errno : errno;
-        fprintf(stderr, "photoc rename: '%s': %s\n", directory,
-                strerror(saved_errno));
+        photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
+                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
+                            PHOTOC_ERR_IO,
+                            directory, "unable to read directory", saved_errno);
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -449,8 +481,10 @@ int photoc_command_rename(const char *directory, const char *format,
     if (prepare_entries(&plan, format) != 0 ||
         mark_duplicate_destinations(&plan) != 0) {
         int saved_errno = errno;
-        fprintf(stderr, "photoc rename: unable to prepare plan: %s\n",
-                strerror(saved_errno));
+        photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
+                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
+                            PHOTOC_ERR_IO,
+                            NULL, "unable to prepare plan", saved_errno);
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -474,8 +508,8 @@ int photoc_command_rename(const char *directory, const char *format,
     print_summary(&plan, &summary);
     free_plan(&plan);
     if (ferror(stdout) || ferror(stderr)) {
-        fputs("photoc rename: unable to write output\n", stderr);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   NULL, "unable to write output", EIO);
     }
     return exit_code;
 }

@@ -22,6 +22,7 @@ endfunction()
 
 add_library(photoc_core STATIC
     src/core/duplicates.c
+    src/core/error.c
     src/core/fs.c
     src/core/hash.c
     src/core/image.c
@@ -170,6 +171,11 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_json)
     target_link_libraries(test_json PRIVATE photoc_core)
     add_test(NAME json_writer COMMAND test_json)
+
+    add_executable(test_error tests/test_error.c)
+    photoc_configure_c_target(test_error)
+    target_link_libraries(test_error PRIVATE photoc_core)
+    add_test(NAME error_model COMMAND test_error)
 
     function(add_cli_test name case)
         set(extra_args)
@@ -422,5 +428,13 @@ if(BUILD_TESTING)
         COMMAND "${CMAKE_COMMAND}"
             "-DPHOTOC=$<TARGET_FILE:photoc>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_cli_consistency.cmake"
+    )
+
+    add_test(
+        NAME error_reporting
+        COMMAND "${CMAKE_COMMAND}"
+            "-DPHOTOC=$<TARGET_FILE:photoc>"
+            "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_errors.cmake"
     )
 endif()

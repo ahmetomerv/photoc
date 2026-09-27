@@ -1,5 +1,6 @@
 #include "photoc/commands.h"
 
+#include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/json.h"
 #include "photoc/scan.h"
@@ -29,12 +30,8 @@ static void report_warning(const char *path, photoc_metadata_result reason,
                            int system_errno, void *user_data)
 {
     (void)user_data;
-    fprintf(stderr, "photoc stats: warning: '%s': %s", path,
-            photo_metadata_result_message(reason));
-    if (reason == PHOTOC_METADATA_IO_ERROR) {
-        fprintf(stderr, ": %s", strerror(system_errno));
-    }
-    fputc('\n', stderr);
+    photoc_error_metadata("stats", PHOTOC_ERR_NOTE_WARNING, path, reason,
+                          system_errno);
 }
 
 static void print_counts(const char *heading, const photoc_stats_counts *counts,
@@ -182,8 +179,11 @@ int photoc_command_stats(const char *directory, bool recursive, bool json)
                                        report_warning, &context, &scan);
     if (result != 0) {
         int saved_errno = result == 1 ? context.aggregation_errno : errno;
-        fprintf(stderr, "photoc stats: '%s': %s\n", directory,
-                strerror(saved_errno));
+        photoc_error_kind kind = result == 1 ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO;
+        const char *detail = result == 1 ? "unable to summarize photos" :
+                             "unable to read directory";
+        photoc_error_report("stats", PHOTOC_ERR_NOTE_NONE, kind, directory,
+                            detail, saved_errno);
         photoc_stats_cleanup(&context.aggregate);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -197,8 +197,8 @@ int photoc_command_stats(const char *directory, bool recursive, bool json)
 
     photoc_stats_cleanup(&context.aggregate);
     if (ferror(stdout)) {
-        fputs("photoc stats: unable to write output\n", stderr);
-        return PHOTOC_EXIT_FAILURE;
+        return photoc_error_report("stats", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   NULL, "unable to write output", EIO);
     }
     return PHOTOC_EXIT_SUCCESS;
 }
