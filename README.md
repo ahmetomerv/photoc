@@ -28,6 +28,10 @@ Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q
 
 Missing or unknown commands, unknown options, and conflicting options exit with status 2. Normal output uses stdout; diagnostics use stderr.
 
+## Shared filesystem utilities
+
+[`include/photoc/fs.h`](include/photoc/fs.h) defines the filesystem API used by future commands. It covers path inspection, filename and extension extraction, safe path joining, and callback-based directory walks. The header documents error returns and ownership of allocated strings.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). The project is licensed under the [MIT License](LICENSE).

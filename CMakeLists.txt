@@ -2,18 +2,32 @@ cmake_minimum_required(VERSION 3.21)
 
 project(photoc VERSION 0.1.0 LANGUAGES C)
 
+function(photoc_configure_c_target target)
+    set_target_properties("${target}" PROPERTIES
+        C_STANDARD 17
+        C_STANDARD_REQUIRED YES
+        C_EXTENSIONS NO
+    )
+
+    if(MSVC)
+        target_compile_options("${target}" PRIVATE /W4 /WX)
+    elseif(CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+        target_compile_options("${target}" PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endfunction()
+
+add_library(photoc_fs STATIC src/core/fs.c)
+photoc_configure_c_target(photoc_fs)
+target_include_directories(photoc_fs PUBLIC include)
+
 add_executable(photoc
     src/main.c
     src/core/cli.c
     src/core/parse.c
     src/commands/stub.c
 )
-
-set_target_properties(photoc PROPERTIES
-    C_STANDARD 17
-    C_STANDARD_REQUIRED YES
-    C_EXTENSIONS NO
-)
+photoc_configure_c_target(photoc)
+target_link_libraries(photoc PRIVATE photoc_fs)
 
 configure_file(
     include/photoc/version.h.in
@@ -26,15 +40,17 @@ target_include_directories(photoc PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/generated"
 )
 
-if(MSVC)
-    target_compile_options(photoc PRIVATE /W4 /WX)
-elseif(CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
-    target_compile_options(photoc PRIVATE -Wall -Wextra -Wpedantic -Werror)
-endif()
-
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(test_fs tests/test_fs.c)
+    photoc_configure_c_target(test_fs)
+    target_link_libraries(test_fs PRIVATE photoc_fs)
+    target_compile_definitions(test_fs PRIVATE
+        PHOTOC_TEST_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/fs/sample.txt"
+    )
+    add_test(NAME filesystem COMMAND test_fs)
+
     function(add_cli_test name case)
         set(extra_args)
         if(ARGC GREATER 2)

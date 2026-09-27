@@ -1,0 +1,338 @@
+#define _POSIX_C_SOURCE 200809L
+
+#include "photoc/fs.h"
+
+#include <dirent.h>
+#include <errno.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+static bool valid_path(const char *path)
+{
+    if (path == NULL || path[0] == '\0') {
+        errno = EINVAL;
+        return false;
+    }
+    return true;
+}
+
+static int basename_bounds(const char *path, size_t *start, size_t *length)
+{
+    if (!valid_path(path)) {
+        return -1;
+    }
+
+    size_t end = strlen(path);
+    while (end > 1 && path[end - 1] == '/') {
+        --end;
+    }
+
+    if (end == 1 && path[0] == '/') {
+        *start = 0;
+        *length = 1;
+        return 0;
+    }
+
+    size_t begin = end;
+    while (begin > 0 && path[begin - 1] != '/') {
+        --begin;
+    }
+    *start = begin;
+    *length = end - begin;
+    return 0;
+}
+
+/* Returns 1 for an extension, 0 for none, or -1 for an invalid path. */
+static int extension_bounds(const char *path, size_t *start, size_t *length)
+{
+    size_t name_start;
+    size_t name_length;
+    if (basename_bounds(path, &name_start, &name_length) != 0) {
+        return -1;
+    }
+
+    size_t end = name_start + name_length;
+    for (size_t i = end; i > name_start; --i) {
+        if (path[i - 1] == '.') {
+            size_t dot = i - 1;
+            if (dot > name_start && i < end) {
+                *start = i;
+                *length = end - i;
+                return 1;
+            }
+            break;
+        }
+    }
+    return 0;
+}
+
+static int copy_part(const char *start, size_t length, char **output)
+{
+    if (length == SIZE_MAX) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+
+    char *copy = malloc(length + 1);
+    if (copy == NULL) {
+        return -1;
+    }
+    memcpy(copy, start, length);
+    copy[length] = '\0';
+    *output = copy;
+    return 0;
+}
+
+int photoc_fs_exists(const char *path, bool *exists)
+{
+    if (exists == NULL || !valid_path(path)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    struct stat info;
+    if (lstat(path, &info) == 0) {
+        *exists = true;
+        return 0;
+    }
+    if (errno == ENOENT || errno == ENOTDIR) {
+        *exists = false;
+        return 0;
+    }
+    return -1;
+}
+
+int photoc_fs_get_type(const char *path, photoc_fs_type *type)
+{
+    if (type == NULL || !valid_path(path)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    struct stat info;
+    if (lstat(path, &info) != 0) {
+        return -1;
+    }
+    if (S_ISREG(info.st_mode)) {
+        *type = PHOTOC_FS_FILE;
+    } else if (S_ISDIR(info.st_mode)) {
+        *type = PHOTOC_FS_DIRECTORY;
+    } else {
+        *type = PHOTOC_FS_OTHER;
+    }
+    return 0;
+}
+
+int photoc_fs_file_size(const char *path, uint64_t *size)
+{
+    if (size == NULL || !valid_path(path)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    struct stat info;
+    if (lstat(path, &info) != 0) {
+        return -1;
+    }
+    if (!S_ISREG(info.st_mode)) {
+        errno = S_ISDIR(info.st_mode) ? EISDIR : EINVAL;
+        return -1;
+    }
+    if (info.st_size < 0) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    *size = (uint64_t)info.st_size;
+    return 0;
+}
+
+int photoc_fs_filename(const char *path, char **filename)
+{
+    if (filename == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    *filename = NULL;
+
+    size_t start;
+    size_t length;
+    if (basename_bounds(path, &start, &length) != 0) {
+        return -1;
+    }
+    return copy_part(path + start, length, filename);
+}
+
+int photoc_fs_extension(const char *path, char **extension)
+{
+    if (extension == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    *extension = NULL;
+
+    size_t start;
+    size_t length;
+    int result = extension_bounds(path, &start, &length);
+    if (result <= 0) {
+        return result;
+    }
+    return copy_part(path + start, length, extension);
+}
+
+static char ascii_lower(char ch)
+{
+    if (ch >= 'A' && ch <= 'Z') {
+        return (char)(ch - 'A' + 'a');
+    }
+    return ch;
+}
+
+bool photoc_fs_is_jpeg(const char *path)
+{
+    size_t start;
+    size_t length;
+    if (extension_bounds(path, &start, &length) != 1) {
+        return false;
+    }
+
+    if (length == 3) {
+        return ascii_lower(path[start]) == 'j' &&
+               ascii_lower(path[start + 1]) == 'p' &&
+               ascii_lower(path[start + 2]) == 'g';
+    }
+    if (length == 4) {
+        return ascii_lower(path[start]) == 'j' &&
+               ascii_lower(path[start + 1]) == 'p' &&
+               ascii_lower(path[start + 2]) == 'e' &&
+               ascii_lower(path[start + 3]) == 'g';
+    }
+    return false;
+}
+
+int photoc_fs_join(const char *base, const char *child, char **joined)
+{
+    if (joined == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    *joined = NULL;
+    if (!valid_path(base) || !valid_path(child) || child[0] == '/') {
+        errno = EINVAL;
+        return -1;
+    }
+
+    size_t base_length = strlen(base);
+    size_t child_length = strlen(child);
+    size_t separator_length = base[base_length - 1] == '/' ? 0 : 1;
+    if (base_length > SIZE_MAX - separator_length - 1 ||
+        child_length > SIZE_MAX - base_length - separator_length - 1) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+
+    size_t length = base_length + separator_length + child_length;
+    char *path = malloc(length + 1);
+    if (path == NULL) {
+        return -1;
+    }
+    memcpy(path, base, base_length);
+    if (separator_length != 0) {
+        path[base_length] = '/';
+    }
+    memcpy(path + base_length + separator_length, child, child_length);
+    path[length] = '\0';
+    *joined = path;
+    return 0;
+}
+
+static int walk_directory(const char *directory, bool recursive,
+                          photoc_fs_visit_fn visit, void *user_data)
+{
+    DIR *stream = opendir(directory);
+    if (stream == NULL) {
+        return -1;
+    }
+
+    int result = 0;
+    int saved_errno = 0;
+    for (;;) {
+        errno = 0;
+        struct dirent *entry = readdir(stream);
+        if (entry == NULL) {
+            if (errno != 0) {
+                saved_errno = errno;
+                result = -1;
+            }
+            break;
+        }
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        char *child = NULL;
+        if (photoc_fs_join(directory, entry->d_name, &child) != 0) {
+            saved_errno = errno;
+            result = -1;
+            break;
+        }
+
+        photoc_fs_type type;
+        if (photoc_fs_get_type(child, &type) != 0) {
+            saved_errno = errno;
+            result = -1;
+        } else if (!visit(child, type, user_data)) {
+            result = 1;
+        } else if (recursive && type == PHOTOC_FS_DIRECTORY) {
+            result = walk_directory(child, true, visit, user_data);
+            if (result == -1) {
+                saved_errno = errno;
+            }
+        }
+
+        free(child);
+        if (result != 0) {
+            break;
+        }
+    }
+
+    if (closedir(stream) != 0 && result != -1) {
+        return -1;
+    }
+    if (result == -1) {
+        errno = saved_errno;
+    }
+    return result;
+}
+
+static int start_walk(const char *directory, bool recursive,
+                      photoc_fs_visit_fn visit, void *user_data)
+{
+    if (visit == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    photoc_fs_type type;
+    if (photoc_fs_get_type(directory, &type) != 0) {
+        return -1;
+    }
+    if (type != PHOTOC_FS_DIRECTORY) {
+        errno = ENOTDIR;
+        return -1;
+    }
+    return walk_directory(directory, recursive, visit, user_data);
+}
+
+int photoc_fs_walk(const char *directory, photoc_fs_visit_fn visit,
+                   void *user_data)
+{
+    return start_walk(directory, false, visit, user_data);
+}
+
+int photoc_fs_walk_recursive(const char *directory, photoc_fs_visit_fn visit,
+                             void *user_data)
+{
+    return start_walk(directory, true, visit, user_data);
+}
