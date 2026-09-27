@@ -8,3 +8,6 @@ Status: available for JPEG files
 Example:
   photoc exif photo.jpg
   photoc exif photo.jpg --json
+
+Options:
+  --json               Print structured JSON

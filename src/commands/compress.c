@@ -362,8 +362,8 @@ int photoc_command_compress(const char *path,
     if (type == PHOTOC_FS_FILE) {
         char *destination = NULL;
         if (destination_for(NULL, path, output_dir, &destination) != 0) {
-            fprintf(stderr, "photoc compress: cannot build output path: %s\n",
-                    strerror(errno));
+            fprintf(stderr, "photoc compress: '%s': cannot build output path: %s\n",
+                    path, strerror(errno));
             return PHOTOC_EXIT_FAILURE;
         }
         uint64_t before = 0;

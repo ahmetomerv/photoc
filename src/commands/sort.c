@@ -117,19 +117,6 @@ static int compare_source(const void *left, const void *right)
     return strcmp(a->source, b->source);
 }
 
-static const char *relative_name(const char *root, const char *path)
-{
-    size_t length = strlen(root);
-    while (length > 1 && root[length - 1] == '/') {
-        --length;
-    }
-    const char *relative = path + length;
-    while (*relative == '/') {
-        ++relative;
-    }
-    return relative;
-}
-
 /* A future move must not enter an existing file or symlink in its folder. */
 static int check_parents(const char *root, const char *relative_folder,
                          bool *conflict)
@@ -437,57 +424,50 @@ static sort_summary summarize_plan(const sort_plan *plan)
     return summary;
 }
 
-static void print_summary(const sort_plan *plan, const sort_summary *summary,
-                          bool apply)
+static void print_summary(const sort_plan *plan, const sort_summary *summary)
 {
-    if (apply) {
-        printf("Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
-               "%zu applied, %zu rolled back\n", plan->count,
-               summary->planned, summary->unchanged, summary->blocked,
-               summary->applied, summary->rolled_back);
-    } else {
-        printf("Summary: %zu JPEG, %zu planned, %zu unchanged, %zu skipped (dry-run)\n",
-               plan->count, summary->planned, summary->unchanged,
-               summary->blocked);
-    }
+    printf("Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
+           "%zu applied, %zu rolled back\n", plan->count, summary->planned,
+           summary->unchanged, summary->blocked, summary->applied,
+           summary->rolled_back);
 }
 
 static void print_plan(const sort_plan *plan, const char *root, bool show_safe)
 {
     for (size_t i = 0; i < plan->count; ++i) {
         const sort_entry *entry = &plan->entries[i];
-        const char *source = relative_name(root, entry->source);
+        const char *source = photoc_fs_relative(root, entry->source);
         if (entry->source_errno != 0) {
-            fprintf(stderr, "photoc sort: %s: skipped: cannot check source: %s\n",
+            fprintf(stderr, "photoc sort: '%s': skipped: cannot check source: %s\n",
                     source, strerror(entry->source_errno));
         } else if (entry->source_changed) {
-            fprintf(stderr, "photoc sort: %s: skipped: source changed during preflight\n",
+            fprintf(stderr, "photoc sort: '%s': skipped: source changed during preflight\n",
                     source);
         } else if (entry->metadata_error != PHOTOC_METADATA_OK) {
-            fprintf(stderr, "photoc sort: %s: skipped: %s", source,
+            fprintf(stderr, "photoc sort: '%s': skipped: %s", source,
                     photo_metadata_result_message(entry->metadata_error));
             if (entry->metadata_error == PHOTOC_METADATA_IO_ERROR) {
                 fprintf(stderr, ": %s", strerror(entry->system_errno));
             }
             fputc('\n', stderr);
         } else if (entry->missing_date) {
-            fprintf(stderr, "photoc sort: %s: skipped: missing or invalid EXIF capture date\n",
+            fprintf(stderr, "photoc sort: '%s': skipped: missing or invalid EXIF capture date\n",
                     source);
         } else if (entry->parent_conflict) {
-            fprintf(stderr, "photoc sort: %s: skipped: destination parent is not a directory\n",
+            fprintf(stderr, "photoc sort: '%s': skipped: destination parent is not a directory\n",
                     source);
         } else if (entry->system_errno != 0) {
-            fprintf(stderr, "photoc sort: %s: skipped: cannot check destination: %s\n",
+            fprintf(stderr, "photoc sort: '%s': skipped: cannot check destination: %s\n",
                     source, strerror(entry->system_errno));
         } else if (entry->duplicate_destination) {
-            fprintf(stderr, "photoc sort: %s: skipped: duplicate destination '%s'\n",
-                    source, relative_name(root, entry->destination));
+            fprintf(stderr, "photoc sort: '%s': skipped: duplicate destination '%s'\n",
+                    source, photoc_fs_relative(root, entry->destination));
         } else if (entry->destination_exists) {
-            fprintf(stderr, "photoc sort: %s: skipped: destination exists '%s'\n",
-                    source, relative_name(root, entry->destination));
+            fprintf(stderr, "photoc sort: '%s': skipped: destination exists '%s'\n",
+                    source, photoc_fs_relative(root, entry->destination));
         } else if (show_safe) {
             printf("%s -> %s", source,
-                   relative_name(root, entry->destination));
+                   photoc_fs_relative(root, entry->destination));
             if (strcmp(entry->source, entry->destination) == 0) {
                 fputs(" (unchanged)", stdout);
             }
@@ -601,7 +581,7 @@ static void recheck_source_descriptors(sort_plan *plan, const char *root,
         }
         const char *name;
         int parent_fd = open_parent(root_fd,
-                                    relative_name(root, entry->source), &name);
+                                    photoc_fs_relative(root, entry->source), &name);
         if (parent_fd < 0) {
             entry->source_errno = errno;
             continue;
@@ -685,13 +665,13 @@ static int move_entry(int root_fd, const char *root, sort_entry *entry,
     const char *destination_path = reverse ? entry->source : entry->destination;
     const char *source_name;
     const char *destination_name;
-    int source_fd = open_parent(root_fd, relative_name(root, source_path),
+    int source_fd = open_parent(root_fd, photoc_fs_relative(root, source_path),
                                 &source_name);
     if (source_fd < 0) {
         return -1;
     }
     int destination_fd = open_parent(root_fd,
-                                     relative_name(root, destination_path),
+                                     photoc_fs_relative(root, destination_path),
                                      &destination_name);
     if (destination_fd < 0) {
         int saved_errno = errno;
@@ -734,8 +714,8 @@ static void rollback_moves(sort_plan *plan, const char *root, int root_fd,
             ++summary->rolled_back;
         } else {
             fprintf(stderr, "photoc sort: rollback failed for '%s' -> '%s': %s\n",
-                    relative_name(root, entry->destination),
-                    relative_name(root, entry->source), strerror(errno));
+                    photoc_fs_relative(root, entry->destination),
+                    photoc_fs_relative(root, entry->source), strerror(errno));
         }
     }
 }
@@ -772,8 +752,8 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
         }
         if (move_entry(root_fd, root, entry, false) != 0) {
             fprintf(stderr, "photoc sort: apply failed for '%s' -> '%s': %s\n",
-                    relative_name(root, entry->source),
-                    relative_name(root, entry->destination), strerror(errno));
+                    photoc_fs_relative(root, entry->source),
+                    photoc_fs_relative(root, entry->destination), strerror(errno));
             rollback_moves(plan, root, root_fd, summary);
             remove_created_directories(root_fd, &created);
             result = PHOTOC_EXIT_FAILURE;
@@ -859,7 +839,7 @@ int photoc_command_sort(const char *directory, bool recursive,
             print_plan(&plan, directory, true);
         }
     }
-    print_summary(&plan, &summary, apply);
+    print_summary(&plan, &summary);
     if (root_fd >= 0) {
         close(root_fd);
     }

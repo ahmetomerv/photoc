@@ -25,6 +25,11 @@ int photoc_fs_filename(const char *path, char **filename);
 int photoc_fs_extension(const char *path, char **extension);
 bool photoc_fs_is_jpeg(const char *path);
 
+/* Returns the part of path after root. Trailing slashes on root are ignored,
+   except that "/" is kept. path must begin with that prefix. The result is
+   borrowed from path and has no leading slash. */
+const char *photoc_fs_relative(const char *root, const char *path);
+
 /* Compares paths bytewise after folding ASCII A-Z. Useful for detecting
    portable destination-name collisions; does not inspect the filesystem. */
 int photoc_fs_compare_casefold(const char *left, const char *right);

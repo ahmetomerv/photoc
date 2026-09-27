@@ -416,4 +416,11 @@ if(BUILD_TESTING)
         add_cli_test("option_${test_suffix}" option_routing "${option}")
     endforeach()
     add_cli_test(option_after_command option_after_routing -v)
+
+    add_test(
+        NAME cli_consistency
+        COMMAND "${CMAKE_COMMAND}"
+            "-DPHOTOC=$<TARGET_FILE:photoc>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_cli_consistency.cmake"
+    )
 endif()

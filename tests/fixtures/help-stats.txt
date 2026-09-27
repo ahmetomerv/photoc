@@ -9,3 +9,7 @@ Example:
   photoc stats ~/Pictures
   photoc stats ~/Pictures --recursive
   photoc stats ~/Pictures --json
+
+Options:
+  --recursive          Include nested directories
+  --json               Print structured JSON

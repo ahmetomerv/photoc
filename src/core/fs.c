@@ -201,6 +201,19 @@ static char ascii_lower(char ch)
     return ch;
 }
 
+const char *photoc_fs_relative(const char *root, const char *path)
+{
+    size_t length = strlen(root);
+    while (length > 1 && root[length - 1] == '/') {
+        --length;
+    }
+    const char *relative = path + length;
+    while (*relative == '/') {
+        ++relative;
+    }
+    return relative;
+}
+
 bool photoc_fs_is_jpeg(const char *path)
 {
     size_t start;

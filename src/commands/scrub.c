@@ -180,7 +180,8 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
         return PHOTOC_EXIT_FAILURE;
     }
     if (type == PHOTOC_FS_OTHER) {
-        fprintf(stderr, "photoc scrub: '%s': expected a regular JPEG or directory\n",
+        fprintf(stderr,
+                "photoc scrub: '%s': expected a regular JPEG file or directory\n",
                 path);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -189,7 +190,8 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
         return PHOTOC_EXIT_USAGE;
     }
     if (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path)) {
-        fprintf(stderr, "photoc scrub: '%s': only JPEG files are supported\n",
+        fprintf(stderr,
+                "photoc scrub: '%s': expected a regular JPEG file or directory\n",
                 path);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -220,7 +222,7 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
         }
         free(walk.paths);
     }
-    printf("Processed: %zu\nSkipped: %zu\nFailed: %zu\n"
+    printf("Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n"
            "Files with GPS found and removed: %zu\n",
            counts.processed, counts.skipped, counts.failed, counts.gps_removed);
     if (ferror(stdout)) {

@@ -88,7 +88,7 @@ int photoc_command_duplicates(const char *directory, bool recursive, bool json)
 
     if (json) {
         if (print_json(directory, recursive, &result) != 0) {
-            fputs("photoc duplicates: unable to write JSON output\n", stderr);
+            fputs("photoc duplicates: unable to write output\n", stderr);
             photoc_duplicates_cleanup(&result);
             return PHOTOC_EXIT_FAILURE;
         }

@@ -12,5 +12,5 @@ Example:
 
 Options:
   --format <template>  Required filename template
-  --recursive        Include nested directories
-  --apply            Rename files after the whole plan passes preflight
+  --recursive          Include nested directories
+  --apply              Rename files after the whole plan passes preflight

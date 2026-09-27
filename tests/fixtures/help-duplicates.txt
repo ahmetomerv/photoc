@@ -11,5 +11,5 @@ Example:
   photoc duplicates ~/Pictures --json
 
 Options:
-  --recursive        Include nested directories
-  --json             Print structured JSON
+  --recursive          Include nested directories
+  --json               Print structured JSON

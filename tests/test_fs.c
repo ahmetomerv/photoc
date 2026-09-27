@@ -178,6 +178,13 @@ static void test_path_strings(void)
     CHECK(!photoc_fs_is_jpeg(".jpg"));
     CHECK(!photoc_fs_is_jpeg(NULL));
 
+    CHECK(strcmp(photoc_fs_relative("/photos/", "/photos/a.jpg"), "a.jpg") == 0);
+    CHECK(strcmp(photoc_fs_relative("/photos", "/photos/nested/a.jpg"),
+                 "nested/a.jpg") == 0);
+    CHECK(strcmp(photoc_fs_relative("/", "/a.jpg"), "a.jpg") == 0);
+    CHECK(strcmp(photoc_fs_relative("/photos///", "/photos///a.jpg"),
+                 "a.jpg") == 0);
+
     expect_join("/photos", "photo.jpg", "/photos/photo.jpg");
     expect_join("/photos/", "photo.jpg", "/photos/photo.jpg");
     expect_join("/", "photo.jpg", "/photo.jpg");

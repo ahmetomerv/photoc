@@ -13,11 +13,11 @@ Example:
   photoc compress ~/Pictures --recursive --quality 75 --output-dir ~/Compressed
 
 Options:
-  --quality <1-100>  JPEG quality (default: 80)
-  --target <size>    Maximum output size; searches quality 20-100 by default
-  --min-quality <n>  Minimum quality for --target (default: 20)
-  --recursive        Include nested directories
-  --output-dir <dir>  Put copies in this directory; preserve relative paths
+  --quality <1-100>    JPEG quality (default: 80)
+  --target <size>      Maximum output size; searches quality 20-100 by default
+  --min-quality <n>    Minimum quality for --target (default: 20)
+  --recursive          Include nested directories
+  --output-dir <dir>   Put copies in this directory; preserve relative paths
 
 Output: photo.compressed.jpg; existing outputs are skipped in directory mode.
 Sizes use bytes, KB/MB/GB (decimal), or KiB/MiB/GiB (binary).

@@ -12,7 +12,7 @@ Example:
   photoc sort ~/Pictures --by date --apply
 
 Options:
-  --by date|session  Required; group by date or capture-time session
-  --gap <duration>   Session gap (for example 30m or 2h; default 60m)
-  --recursive        Include nested directories
-  --apply            Move files after the whole plan passes preflight
+  --by date|session    Required; group by date or capture-time session
+  --gap <duration>     Session gap (for example 30m or 2h; default 60m)
+  --recursive          Include nested directories
+  --apply              Move files after the whole plan passes preflight

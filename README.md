@@ -141,10 +141,11 @@ the files. The whole plan is checked first; any blocked entry prevents every
 move. Destination directories are opened without following symlinks, and moves
 use an exclusive operation that will not overwrite a file created after
 preflight. If a later step fails, photoc attempts to move earlier files back
-and remove directories it created, reporting any restoration failure. The
-apply summary includes planned, unchanged, blocked, applied, and rolled-back
-counts. Concurrent filesystem changes can prevent full restoration; photoc
-will not overwrite a competing file to complete rollback.
+and remove directories it created, reporting any restoration failure. Preview
+and apply use the same summary: JPEG, planned, unchanged, blocked, applied,
+and rolled-back counts. A preview leaves applied and rolled-back at zero.
+Concurrent filesystem changes can prevent full restoration; photoc will not
+overwrite a competing file to complete rollback.
 
 `scrub <file|directory> --gps [--recursive] [--in-place]` removes EXIF GPS tags
 from JPEGs. By default it creates copies named like `photo.scrubbed.jpg`; it
@@ -152,7 +153,7 @@ never changes the source or replaces an existing destination. Directory scans
 include one level by default and can include nested directories with
 `--recursive`. JPEGs without GPS tags and non-JPEG directory entries are
 skipped. The report lists each file whose GPS
-tags were removed and totals processed, skipped, failed, and GPS-removed files.
+tags were removed and totals files processed, skipped, failed, and GPS-removed.
 Invalid or unreadable JPEGs and output collisions count as failures, while
 other files continue processing. Scrub does not remove location data from XMP
 or MakerNotes.
@@ -182,7 +183,9 @@ Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q
 
 Exit status is `0` for success, `1` for file or metadata errors, `2` for usage
 errors, and `3` for unimplemented commands. Normal output uses stdout;
-diagnostics use stderr.
+diagnostics use stderr. Usage errors for a known command include that
+command's name. An unrecognized option names the command and points at
+`photoc <command> --help`.
 
 ## Shared filesystem utilities
 

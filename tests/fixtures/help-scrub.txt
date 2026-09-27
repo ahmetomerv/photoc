@@ -11,9 +11,9 @@ Example:
   photoc scrub photo.jpg --gps --in-place
 
 Options:
-  --gps             Required; remove EXIF GPS tags
-  --recursive       Include nested directories
-  --in-place        Replace each original after temporary-file verification
+  --gps                Required; remove EXIF GPS tags
+  --recursive          Include nested directories
+  --in-place           Replace each original after temporary-file verification
 
 Warning: --in-place replaces original files and creates no backup.
 It preserves mode bits; ACLs and extended attributes may change.
