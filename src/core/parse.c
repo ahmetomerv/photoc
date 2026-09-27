@@ -61,9 +61,14 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
                    (strcmp(options->command, "duplicates") == 0 ||
                     strcmp(options->command, "stats") == 0 ||
                     strcmp(options->command, "rename") == 0 ||
-                    strcmp(options->command, "sort") == 0) &&
+                    strcmp(options->command, "sort") == 0 ||
+                    strcmp(options->command, "scrub") == 0) &&
                    strcmp(arg, "--recursive") == 0) {
             options->recursive = true;
+        } else if (!options_ended && options->command != NULL &&
+                   strcmp(options->command, "scrub") == 0 &&
+                   strcmp(arg, "--gps") == 0) {
+            options->gps = true;
         } else if (!options_ended && options->command != NULL &&
                    strcmp(options->command, "sort") == 0 &&
                    strcmp(arg, "--by") == 0) {

@@ -1,9 +1,14 @@
-Usage: photoc [global options] scrub <photo>...
+Usage: photoc [global options] scrub <file|directory> --gps [--recursive]
        photoc scrub --help
 
-Remove selected metadata
+Remove GPS metadata from JPEG copies
 
-Status: not implemented
+Status: available for JPEG files; writes .scrubbed copies without overwriting
 
-Example (planned):
-  photoc scrub photo.jpg
+Example:
+  photoc scrub photo.jpg --gps
+  photoc scrub ~/Pictures --gps --recursive
+
+Options:
+  --gps             Required; remove EXIF GPS tags
+  --recursive       Include nested directories

@@ -25,7 +25,7 @@ static const photoc_command commands[] = {
     {"rename", "Preview or apply JPEG renames", "<directory> --format <template> [--recursive] [--apply]", "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\""},
     {"sort", "Preview or apply JPEG sorting", "<directory> --by date|session [--gap <duration>] [--recursive] [--apply]", "photoc sort ~/Pictures --by date"},
     {"focus", "Assess image focus", "<photo>...", "photoc focus photo.jpg"},
-    {"scrub", "Remove selected metadata", "<photo>...", "photoc scrub photo.jpg"}
+    {"scrub", "Remove GPS metadata from JPEG copies", "<file|directory> --gps [--recursive]", "photoc scrub photo.jpg --gps"}
 };
 
 static const photoc_command *find_command(const char *name)
@@ -58,7 +58,7 @@ static void print_global_help(void)
     puts("      --json       Request JSON output where supported");
     puts("");
     puts("Exif and stats inspect JPEG files; duplicates compares file bytes.");
-    puts("Rename and sort preview by default.");
+    puts("Rename and sort preview by default; scrub writes new JPEG copies.");
     puts("Other commands are planned.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
@@ -80,6 +80,8 @@ static void print_command_help(const photoc_command *command)
         puts("Status: dry-run by default; --apply changes files after preflight");
     } else if (strcmp(command->name, "sort") == 0) {
         puts("Status: dry-run by default; --apply moves files after preflight");
+    } else if (strcmp(command->name, "scrub") == 0) {
+        puts("Status: available for JPEG files; writes .scrubbed copies without overwriting");
     } else {
         puts("Status: not implemented");
     }
@@ -88,7 +90,8 @@ static void print_command_help(const photoc_command *command)
                        strcmp(command->name, "duplicates") == 0 ||
                        strcmp(command->name, "stats") == 0 ||
                        strcmp(command->name, "rename") == 0 ||
-                       strcmp(command->name, "sort") == 0;
+                       strcmp(command->name, "sort") == 0 ||
+                       strcmp(command->name, "scrub") == 0;
     puts(implemented ? "Example:" : "Example (planned):");
     printf("  %s\n", command->example);
     if (strcmp(command->name, "duplicates") == 0) {
@@ -121,6 +124,12 @@ static void print_command_help(const photoc_command *command)
         puts("  --gap <duration>   Session gap (for example 30m or 2h; default 60m)");
         puts("  --recursive        Include nested directories");
         puts("  --apply            Move files after the whole plan passes preflight");
+    } else if (strcmp(command->name, "scrub") == 0) {
+        puts("  photoc scrub ~/Pictures --gps --recursive");
+        puts("");
+        puts("Options:");
+        puts("  --gps             Required; remove EXIF GPS tags");
+        puts("  --recursive       Include nested directories");
     }
 }
 
@@ -270,6 +279,20 @@ int photoc_run(int argc, char *argv[])
         }
         return photoc_command_sort(options.first_argument, options.recursive,
                                    mode, gap_minutes, options.apply);
+    }
+
+    if (strcmp(command->name, "scrub") == 0) {
+        if (options.argument_count != 1 || !options.gps) {
+            fputs("photoc scrub: expected one file or directory and --gps\n"
+                  "Usage: photoc scrub <file|directory> --gps [--recursive]\n",
+                  stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (options.json) {
+            fputs("photoc scrub: --json is not supported\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        return photoc_command_scrub(options.first_argument, options.recursive);
     }
 
     return photoc_command_unimplemented(command->name);

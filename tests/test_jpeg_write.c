@@ -196,12 +196,14 @@ static void test_writing(const char *gps_path, const char *base_path,
     photoc_jpeg_exif *edited = NULL;
     CHECK(photoc_jpeg_exif_load_copy(gps_path, &source) == PHOTOC_JPEG_EDIT_OK);
     if (source == NULL) goto cleanup;
+    CHECK(photoc_jpeg_exif_has_gps(source));
     CHECK(photoc_jpeg_exif_copy(source, &edited) == PHOTOC_JPEG_EDIT_OK);
     if (edited == NULL) {
         photoc_jpeg_exif_free(source);
         goto cleanup;
     }
     CHECK(photoc_jpeg_exif_remove_gps(edited) == PHOTOC_JPEG_EDIT_OK);
+    CHECK(!photoc_jpeg_exif_has_gps(edited));
     CHECK(photoc_jpeg_exif_remove_gps(edited) == PHOTOC_JPEG_EDIT_OK);
     CHECK(photoc_jpeg_write_with_exif(gps_path, clean_path, edited) ==
           PHOTOC_JPEG_EDIT_OK);

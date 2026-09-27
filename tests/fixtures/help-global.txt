@@ -11,7 +11,7 @@ Commands:
   rename       Preview or apply JPEG renames
   sort         Preview or apply JPEG sorting
   focus        Assess image focus
-  scrub        Remove selected metadata
+  scrub        Remove GPS metadata from JPEG copies
 
 Global options:
   -h, --help       Show global or command help
@@ -21,6 +21,6 @@ Global options:
       --json       Request JSON output where supported
 
 Exif and stats inspect JPEG files; duplicates compares file bytes.
-Rename and sort preview by default.
+Rename and sort preview by default; scrub writes new JPEG copies.
 Other commands are planned.
 Run 'photoc <command> --help' for usage and examples.

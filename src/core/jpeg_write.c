@@ -215,6 +215,16 @@ photoc_jpeg_edit_result photoc_jpeg_exif_remove_gps(photoc_jpeg_exif *exif)
     return PHOTOC_JPEG_EDIT_OK;
 }
 
+bool photoc_jpeg_exif_has_gps(const photoc_jpeg_exif *exif)
+{
+    if (exif == NULL || exif->data == NULL) {
+        return false;
+    }
+    return exif->data->ifd[EXIF_IFD_GPS]->count != 0 ||
+           exif_content_get_entry(exif->data->ifd[EXIF_IFD_0],
+                                  EXIF_TAG_GPS_INFO_IFD_POINTER) != NULL;
+}
+
 static photoc_jpeg_edit_result destination_directory(const char *destination,
                                                       char **directory)
 {

@@ -1,6 +1,8 @@
 #ifndef PHOTOC_JPEG_WRITE_H
 #define PHOTOC_JPEG_WRITE_H
 
+#include <stdbool.h>
+
 typedef struct photoc_jpeg_exif photoc_jpeg_exif;
 
 typedef enum {
@@ -25,6 +27,10 @@ photoc_jpeg_edit_result photoc_jpeg_exif_load_copy(
    rules as load_copy. The source remains independent and unchanged. */
 photoc_jpeg_edit_result photoc_jpeg_exif_copy(
     const photoc_jpeg_exif *source, photoc_jpeg_exif **out);
+
+/* True when the EXIF GPS IFD has entries or its root pointer is present.
+   The caller retains ownership of exif. */
+bool photoc_jpeg_exif_has_gps(const photoc_jpeg_exif *exif);
 
 /* Remove all GPS IFD entries and the GPS pointer from this in-memory copy.
    The source JPEG and any other EXIF document remain unchanged. */

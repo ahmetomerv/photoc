@@ -2,7 +2,8 @@
 
 `photoc` is a command-line toolkit for photographers, written in C. It can
 inspect JPEG metadata, summarize JPEG collections, find exact duplicate files,
-rename JPEGs, and sort JPEGs. Other planned commands are placeholders.
+rename JPEGs, sort JPEGs, and create JPEG copies without EXIF GPS tags.
+Other planned commands are placeholders.
 
 ## Build and test
 
@@ -45,6 +46,8 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc sort ~/Pictures --by date --recursive
 ./build/photoc sort ~/Pictures --by session --gap 30m
 ./build/photoc sort ~/Pictures --by date --apply
+./build/photoc scrub photo.jpg --gps
+./build/photoc scrub ~/Pictures --gps --recursive
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -117,8 +120,18 @@ apply summary includes planned, unchanged, blocked, applied, and rolled-back
 counts. Concurrent filesystem changes can prevent full restoration; photoc
 will not overwrite a competing file to complete rollback.
 
-The planned `compress`, `focus`, and `scrub` commands
-still report that they are not implemented.
+`scrub <file|directory> --gps [--recursive]` removes EXIF GPS tags from JPEG
+copies named like `photo.scrubbed.jpg`; it never changes the source or replaces
+an existing destination. Directory scans include one level by default and
+can include nested directories with `--recursive`. JPEGs without GPS tags and
+non-JPEG directory entries are skipped. The report lists each file whose GPS
+tags were removed and totals processed, skipped, failed, and GPS-removed files.
+Invalid or unreadable JPEGs and output collisions count as failures, while
+other files continue processing. Scrub does not remove location data from XMP
+or MakerNotes.
+
+The planned `compress` and `focus` commands still report that they are not
+implemented.
 
 With `exif --json`, details are grouped under `file`, `image`, `camera`,
 `exposure`, `date`, and `location`. Missing values are `null`; `has_gps` is a
@@ -189,8 +202,8 @@ uses this API for both previews and applied changes.
 ## JPEG metadata writing API
 
 [`include/photoc/jpeg_write.h`](include/photoc/jpeg_write.h) exposes reusable
-functions to load an editable EXIF copy, deep-copy it, remove its GPS IFD, and
-write a new JPEG. No CLI command uses this API yet. The source stays untouched;
+functions to load an editable EXIF copy, deep-copy it, inspect and remove its GPS
+IFD, and write a new JPEG. `photoc scrub` uses this API. The source stays untouched;
 the destination must not exist. The writer creates a mode-0600 temporary file
 beside the destination, flushes and syncs it, reopens and validates the JPEG and
 EXIF, compares all bytes outside the replaced EXIF segment with the source,

@@ -13,6 +13,7 @@ typedef struct {
     bool json;
     bool recursive;
     bool apply;
+    bool gps;
     const char *command;
     const char *first_argument;
     const char *format;

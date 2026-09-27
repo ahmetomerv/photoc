@@ -45,6 +45,7 @@ add_executable(photoc
     src/commands/duplicates.c
     src/commands/exif.c
     src/commands/rename.c
+    src/commands/scrub.c
     src/commands/sort.c
     src/commands/stats.c
     src/commands/stub.c
@@ -162,7 +163,7 @@ if(BUILD_TESTING)
         add_cli_test("cli_${case}" "${case}")
     endforeach()
 
-    foreach(command IN ITEMS compress focus scrub)
+    foreach(command IN ITEMS compress focus)
         add_cli_test("command_${command}" stub "${command}")
         add_cli_test("command_${command}_help" command_help "${command}")
     endforeach()
@@ -171,6 +172,7 @@ if(BUILD_TESTING)
     add_cli_test(command_stats_help command_help stats)
     add_cli_test(command_rename_help command_help rename)
     add_cli_test(command_sort_help command_help sort)
+    add_cli_test(command_scrub_help command_help scrub)
 
     foreach(case IN ITEMS duplicates same_size_nonduplicates no_duplicates
                           multiple_groups
@@ -313,6 +315,19 @@ if(BUILD_TESTING)
                 "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
                 "-DCASE=${case}"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_exif_json.cmake"
+        )
+    endforeach()
+
+    foreach(case IN ITEMS single directory directory_failure recursive no_gps invalid
+                          collision unsupported missing_gps missing_path
+                          recursive_file json unknown_option)
+        add_test(
+            NAME "scrub_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_scrub_cli.cmake"
         )
     endforeach()
 
