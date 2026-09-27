@@ -1,9 +1,13 @@
-Usage: photoc [global options] duplicates <path>...
+Usage: photoc [global options] duplicates <directory> [--recursive]
        photoc duplicates --help
 
-Find duplicate photos
+Find exact duplicate files
 
-Status: not implemented
+Status: available for regular files (read-only)
 
-Example (planned):
+Example:
   photoc duplicates ~/Pictures
+  photoc duplicates ~/Pictures --recursive
+
+Options:
+  --recursive        Include nested directories

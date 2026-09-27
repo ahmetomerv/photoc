@@ -58,7 +58,8 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
         } else if (!options_ended && strcmp(arg, "--json") == 0) {
             options->json = true;
         } else if (!options_ended && options->command != NULL &&
-                   (strcmp(options->command, "stats") == 0 ||
+                   (strcmp(options->command, "duplicates") == 0 ||
+                    strcmp(options->command, "stats") == 0 ||
                     strcmp(options->command, "rename") == 0 ||
                     strcmp(options->command, "sort") == 0) &&
                    strcmp(arg, "--recursive") == 0) {

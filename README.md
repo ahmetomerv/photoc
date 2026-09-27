@@ -1,8 +1,8 @@
 # photoc
 
 `photoc` is a command-line toolkit for photographers, written in C. It can
-inspect JPEG metadata, summarize JPEG collections, rename JPEGs, and preview sorting.
-Other planned commands are placeholders.
+inspect JPEG metadata, summarize JPEG collections, find exact duplicate files,
+rename JPEGs, and sort JPEGs. Other planned commands are placeholders.
 
 ## Build and test
 
@@ -38,6 +38,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc exif photo.jpg --json
 ./build/photoc stats ~/Pictures --recursive
 ./build/photoc stats ~/Pictures --json
+./build/photoc duplicates ~/Pictures --recursive
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}"
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}" --apply
 ./build/photoc sort ~/Pictures --by date --recursive
@@ -55,6 +56,15 @@ counts and percentages of all successfully parsed photos; missing EXIF values
 are omitted, so a distribution can total less than 100%. It scans one directory
 level by default. Unreadable or invalid JPEGs produce warnings on stderr while
 the scan continues. Counts are sorted by frequency, with deterministic ties.
+
+`duplicates <directory> [--recursive]` compares regular files of any type by
+size, then hashes only same-size candidates with SHA-256. It reports each exact
+duplicate group in deterministic order. `Total duplicate files` includes every
+file in those groups; potential savings count all but one file per group. The
+savings estimate is based on file sizes and does not account for hard links or
+filesystem sharing. The command never deletes or changes files. Symlinks are
+ignored; unreadable files produce warnings and a non-zero exit status.
+
 `rename <directory> --format <template> [--recursive] [--apply]` is a dry run
 by default. It prints planned JPEG renames as `old_name -> new_name` and makes
 no changes. Add `--apply` to perform them. Recursive output uses paths relative
@@ -102,7 +112,7 @@ apply summary includes planned, unchanged, blocked, applied, and rolled-back
 counts. Concurrent filesystem changes can prevent full restoration; photoc
 will not overwrite a competing file to complete rollback.
 
-The planned `compress`, `duplicates`, `focus`, and `scrub` commands
+The planned `compress`, `focus`, and `scrub` commands
 still report that they are not implemented.
 
 With `exif --json`, details are grouped under `file`, `image`, `camera`,
@@ -131,7 +141,11 @@ for JSON output without another dependency.
 hashing of regular files and lowercase hex formatting. The digest and hex
 buffers belong to the caller. Hashing failures return `-1` with `errno` set,
 and leave the digest buffer unchanged. The implementation is portable C17 and
-adds no external dependency; it does not change command behavior.
+adds no external dependency.
+
+[`include/photoc/duplicates.h`](include/photoc/duplicates.h) defines the
+read-only duplicate-finding API. The result owns its groups and paths; callers
+release them with `photoc_duplicates_cleanup`.
 
 `photo_load_metadata` loads JPEG dimensions, file size, and available EXIF fields
 into a `Photo`. It reports distinct results for unsupported extensions, invalid

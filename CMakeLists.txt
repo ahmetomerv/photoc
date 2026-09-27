@@ -20,6 +20,7 @@ function(photoc_configure_c_target target)
 endfunction()
 
 add_library(photoc_core STATIC
+    src/core/duplicates.c
     src/core/fs.c
     src/core/hash.c
     src/core/filename_template.c
@@ -39,6 +40,7 @@ add_executable(photoc
     src/main.c
     src/core/cli.c
     src/core/parse.c
+    src/commands/duplicates.c
     src/commands/exif.c
     src/commands/rename.c
     src/commands/sort.c
@@ -150,14 +152,28 @@ if(BUILD_TESTING)
         add_cli_test("cli_${case}" "${case}")
     endforeach()
 
-    foreach(command IN ITEMS compress duplicates focus scrub)
+    foreach(command IN ITEMS compress focus scrub)
         add_cli_test("command_${command}" stub "${command}")
         add_cli_test("command_${command}_help" command_help "${command}")
     endforeach()
     add_cli_test(command_exif_help command_help exif)
+    add_cli_test(command_duplicates_help command_help duplicates)
     add_cli_test(command_stats_help command_help stats)
     add_cli_test(command_rename_help command_help rename)
     add_cli_test(command_sort_help command_help sort)
+
+    foreach(case IN ITEMS duplicates same_size_nonduplicates no_duplicates
+                          multiple_groups
+                          nested missing no_argument extra_argument
+                          unknown_option json)
+        add_test(
+            NAME "duplicates_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_duplicates_cli.cmake"
+        )
+    endforeach()
 
     foreach(case IN ITEMS flat recursive missing_date collision duplicate
                           case_duplicate parent_conflict invalid_jpeg unchanged
