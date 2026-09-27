@@ -1,6 +1,7 @@
 # photoc
 
-`photoc` is a command-line toolkit for photographers, written in C. This initial project skeleton provides the CLI structure only; it does not process photos yet.
+`photoc` is a command-line toolkit for photographers, written in C. It can
+inspect metadata in JPEG files; the other planned commands are placeholders.
 
 ## Build and test
 
@@ -31,14 +32,20 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ```sh
 ./build/photoc --help
 ./build/photoc --version
-./build/photoc compress --help
+./build/photoc exif --help
+./build/photoc exif photo.jpg
 ```
 
-The planned commands are `compress`, `exif`, `duplicates`, `stats`, `rename`, `sort`, `focus`, and `scrub`. Each has help with planned usage and an example, but running it currently reports that it is not implemented and exits with status 3.
+`exif <file>` prints file, image, camera, exposure, date, and location details
+for one JPEG. Unavailable EXIF fields are labeled `Unavailable`. The planned
+`compress`, `duplicates`, `stats`, `rename`, `sort`, `focus`, and `scrub`
+commands still report that they are not implemented.
 
-Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose, quiet, and JSON output modes are accepted for future command output; they do not change the current placeholders. Verbose and quiet cannot be combined.
+Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter `exif` output yet. JSON output is not supported by `exif` yet; requesting it returns a usage error.
 
-Missing or unknown commands, unknown options, and conflicting options exit with status 2. Normal output uses stdout; diagnostics use stderr.
+Exit status is `0` for success, `1` for file or metadata errors, `2` for usage
+errors, and `3` for unimplemented commands. Normal output uses stdout;
+diagnostics use stderr.
 
 ## Shared filesystem utilities
 
@@ -47,8 +54,7 @@ Missing or unknown commands, unknown options, and conflicting options exit with 
 `photo_load_metadata` loads JPEG dimensions, file size, and available EXIF fields
 into a `Photo`. It reports distinct results for unsupported extensions, invalid
 JPEG data, filesystem errors, and allocation failures. Missing EXIF fields are
-left unavailable. Call `photo_cleanup` after a successful load. The `exif`
-command remains a placeholder.
+left unavailable. Call `photo_cleanup` after a successful load.
 
 ## EXIF dependency
 

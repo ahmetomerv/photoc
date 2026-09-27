@@ -1,0 +1,25 @@
+File
+  Name: with_gps.jpeg
+  Path: @FILE_PATH@
+  Size: @FILE_SIZE@ bytes
+
+Image
+  Dimensions: 3 x 2 pixels
+
+Camera
+  Make: Fixture Camera Co.
+  Model: Model Z
+
+Exposure
+  ISO: 200
+  Aperture: f/2.8
+  Exposure time: 0.008 s
+  Focal length: 50 mm
+
+Date
+  Captured: 2026:09:27 12:34:56
+
+Location
+  GPS: Yes
+  Latitude: -37.808333
+  Longitude: -122.404167

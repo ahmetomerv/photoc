@@ -32,6 +32,7 @@ add_executable(photoc
     src/main.c
     src/core/cli.c
     src/core/parse.c
+    src/commands/exif.c
     src/commands/stub.c
 )
 photoc_configure_c_target(photoc)
@@ -101,9 +102,22 @@ if(BUILD_TESTING)
         add_cli_test("cli_${case}" "${case}")
     endforeach()
 
-    foreach(command IN ITEMS compress exif duplicates stats rename sort focus scrub)
+    foreach(command IN ITEMS compress duplicates stats rename sort focus scrub)
         add_cli_test("command_${command}" stub "${command}")
         add_cli_test("command_${command}_help" command_help "${command}")
+    endforeach()
+    add_cli_test(command_exif_help command_help exif)
+
+    foreach(case IN ITEMS with_exif with_gps no_exif invalid unsupported missing
+                          no_argument extra_argument json unknown_option)
+        add_test(
+            NAME "exif_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_exif_cli.cmake"
+        )
     endforeach()
 
     foreach(option IN ITEMS -v --verbose -q --quiet --json)

@@ -3,9 +3,9 @@ photoc - command-line toolkit for photographers
 Usage: photoc [global options] <command> [args]
        photoc <command> --help
 
-Commands (planned; not implemented):
+Commands:
   compress     Compress image files
-  exif         Inspect image metadata
+  exif         Inspect JPEG metadata
   duplicates   Find duplicate photos
   stats        Summarize photo collections
   rename       Rename photo files
@@ -20,4 +20,5 @@ Global options:
   -q, --quiet      Request reduced output
       --json       Request JSON output where supported
 
-Run 'photoc <command> --help' for planned usage and examples.
+The exif command supports JPEG files; other commands are planned.
+Run 'photoc <command> --help' for usage and examples.

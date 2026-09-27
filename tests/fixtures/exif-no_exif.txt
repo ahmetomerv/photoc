@@ -1,0 +1,23 @@
+File
+  Name: no_exif.jpg
+  Path: @FILE_PATH@
+  Size: @FILE_SIZE@ bytes
+
+Image
+  Dimensions: 3 x 2 pixels
+
+Camera
+  Make: Unavailable
+  Model: Unavailable
+
+Exposure
+  ISO: Unavailable
+  Aperture: Unavailable
+  Exposure time: Unavailable
+  Focal length: Unavailable
+
+Date
+  Captured: Unavailable
+
+Location
+  GPS: No

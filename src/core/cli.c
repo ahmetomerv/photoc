@@ -18,7 +18,7 @@ typedef struct {
 
 static const photoc_command commands[] = {
     {"compress", "Compress image files", "<photo>...", "photoc compress photo.jpg"},
-    {"exif", "Inspect image metadata", "<photo>...", "photoc exif photo.jpg"},
+    {"exif", "Inspect JPEG metadata", "<file>", "photoc exif photo.jpg"},
     {"duplicates", "Find duplicate photos", "<path>...", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize photo collections", "<path>...", "photoc stats ~/Pictures"},
     {"rename", "Rename photo files", "<photo>...", "photoc rename photo.jpg"},
@@ -44,7 +44,7 @@ static void print_global_help(void)
     puts("Usage: photoc [global options] <command> [args]");
     puts("       photoc <command> --help");
     puts("");
-    puts("Commands (planned; not implemented):");
+    puts("Commands:");
     for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); ++i) {
         printf("  %-12s %s\n", commands[i].name, commands[i].description);
     }
@@ -56,7 +56,8 @@ static void print_global_help(void)
     puts("  -q, --quiet      Request reduced output");
     puts("      --json       Request JSON output where supported");
     puts("");
-    puts("Run 'photoc <command> --help' for planned usage and examples.");
+    puts("The exif command supports JPEG files; other commands are planned.");
+    puts("Run 'photoc <command> --help' for usage and examples.");
 }
 
 static void print_command_help(const photoc_command *command)
@@ -66,9 +67,14 @@ static void print_command_help(const photoc_command *command)
     printf("       photoc %s --help\n\n", command->name);
     puts(command->description);
     puts("");
-    puts("Status: not implemented");
+    if (strcmp(command->name, "exif") == 0) {
+        puts("Status: available for JPEG files");
+    } else {
+        puts("Status: not implemented");
+    }
     puts("");
-    puts("Example (planned):");
+    puts(strcmp(command->name, "exif") == 0 ? "Example:" :
+                                               "Example (planned):");
     printf("  %s\n", command->example);
 }
 
@@ -129,6 +135,19 @@ int photoc_run(int argc, char *argv[])
               "Usage: photoc [global options] <command> [args]\n"
               "Try 'photoc --help' for available commands.\n", stderr);
         return PHOTOC_EXIT_USAGE;
+    }
+
+    if (strcmp(command->name, "exif") == 0) {
+        if (options.argument_count != 1) {
+            fputs("photoc exif: expected exactly one file\n"
+                  "Usage: photoc exif <file>\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        if (options.json) {
+            fputs("photoc exif: --json is not supported yet\n", stderr);
+            return PHOTOC_EXIT_USAGE;
+        }
+        return photoc_command_exif(options.first_argument);
     }
 
     return photoc_command_unimplemented(command->name);

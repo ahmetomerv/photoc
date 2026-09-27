@@ -34,8 +34,12 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
             return PHOTOC_PARSE_UNKNOWN_OPTION;
         } else if (options->command == NULL) {
             options->command = arg;
+        } else {
+            if (options->argument_count == 0) {
+                options->first_argument = arg;
+            }
+            ++options->argument_count;
         }
-        /* Remaining positional arguments belong to the future command parser. */
     }
 
     return PHOTOC_PARSE_OK;

@@ -2,6 +2,7 @@
 #define PHOTOC_PARSE_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct {
     bool help;
@@ -10,6 +11,8 @@ typedef struct {
     bool quiet;
     bool json;
     const char *command;
+    const char *first_argument;
+    size_t argument_count;
 } photoc_cli_options;
 
 typedef enum {
@@ -17,7 +20,7 @@ typedef enum {
     PHOTOC_PARSE_UNKNOWN_OPTION
 } photoc_parse_status;
 
-/* command and error_arg borrow their strings from argv; no memory is allocated. */
+/* command, first_argument, and error_arg borrow strings from argv. */
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,
                                       const char **error_arg);

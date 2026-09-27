@@ -1,9 +1,9 @@
-Usage: photoc [global options] exif <photo>...
+Usage: photoc [global options] exif <file>
        photoc exif --help
 
-Inspect image metadata
+Inspect JPEG metadata
 
-Status: not implemented
+Status: available for JPEG files
 
-Example (planned):
+Example:
   photoc exif photo.jpg
