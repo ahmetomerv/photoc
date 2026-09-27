@@ -21,6 +21,7 @@ endfunction()
 
 add_library(photoc_core STATIC
     src/core/fs.c
+    src/core/metadata.c
     src/core/photo.c
 )
 photoc_configure_c_target(photoc_core)
@@ -62,6 +63,14 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_photo)
     target_link_libraries(test_photo PRIVATE photoc_core)
     add_test(NAME photo_model COMMAND test_photo)
+
+    add_executable(test_metadata tests/test_metadata.c)
+    photoc_configure_c_target(test_metadata)
+    target_link_libraries(test_metadata PRIVATE photoc_core)
+    target_compile_definitions(test_metadata PRIVATE
+        PHOTOC_METADATA_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+    )
+    add_test(NAME jpeg_metadata COMMAND test_metadata)
 
     add_executable(test_exif_link tests/test_exif_link.c)
     photoc_configure_c_target(test_exif_link)

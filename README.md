@@ -44,6 +44,12 @@ Missing or unknown commands, unknown options, and conflicting options exit with 
 
 [`include/photoc/fs.h`](include/photoc/fs.h) defines the filesystem API used by future commands. It covers path inspection, filename and extension extraction, safe path joining, and callback-based directory walks. [`include/photoc/photo.h`](include/photoc/photo.h) defines the shared `Photo` metadata model. Both headers document ownership and unavailable values.
 
+`photo_load_metadata` loads JPEG dimensions, file size, and available EXIF fields
+into a `Photo`. It reports distinct results for unsupported extensions, invalid
+JPEG data, filesystem errors, and allocation failures. Missing EXIF fields are
+left unavailable. Call `photo_cleanup` after a successful load. The `exif`
+command remains a placeholder.
+
 ## EXIF dependency
 
 [`libexif`](https://libexif.github.io/) is a C library for reading, editing,

@@ -47,4 +47,25 @@ int photo_init(Photo *photo, const char *path);
    NULL and for a zeroed or previously cleaned Photo. */
 void photo_cleanup(Photo *photo);
 
+/* Result codes for photo_load_metadata; these are separate from CLI exit codes.
+   IO_ERROR preserves errno from the failed filesystem operation. */
+typedef enum {
+    PHOTOC_METADATA_OK = 0,
+    PHOTOC_METADATA_INVALID_ARGUMENT = 1,
+    PHOTOC_METADATA_UNSUPPORTED_FORMAT = 2,
+    PHOTOC_METADATA_INVALID_JPEG = 3,
+    PHOTOC_METADATA_IO_ERROR = 4,
+    PHOTOC_METADATA_NO_MEMORY = 5
+} photoc_metadata_result;
+
+/* Loads a .jpg/.jpeg file (extension match is case-insensitive). JPEG frame
+   dimensions are authoritative; missing or invalid EXIF tags stay unavailable.
+   photo must be zero-initialized or cleaned before calling. On success it owns
+   path and optional strings; call photo_cleanup. On failure it is unchanged.
+   No diagnostic is printed by this layer. */
+photoc_metadata_result photo_load_metadata(const char *path, Photo *photo);
+
+/* Static, human-readable description of a metadata result. Never free it. */
+const char *photo_metadata_result_message(photoc_metadata_result result);
+
 #endif
