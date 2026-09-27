@@ -36,6 +36,10 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
             options->recursive = true;
         } else if (!options_ended && options->command != NULL &&
                    strcmp(options->command, "rename") == 0 &&
+                   strcmp(arg, "--apply") == 0) {
+            options->apply = true;
+        } else if (!options_ended && options->command != NULL &&
+                   strcmp(options->command, "rename") == 0 &&
                    strcmp(arg, "--format") == 0) {
             if (options->format != NULL) {
                 *error_arg = arg;

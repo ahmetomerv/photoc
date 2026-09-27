@@ -1,9 +1,21 @@
+#if defined(__linux__)
+#define _GNU_SOURCE
+#elif defined(__APPLE__)
+#define _DARWIN_C_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 
 #include "photoc/fs.h"
 
 #include <dirent.h>
 #include <errno.h>
+#if defined(__linux__)
+#include <fcntl.h>
+#include <linux/fs.h>
+#elif defined(__APPLE__)
+#include <sys/stdio.h>
+#endif
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -245,6 +257,23 @@ int photoc_fs_join(const char *base, const char *child, char **joined)
     path[length] = '\0';
     *joined = path;
     return 0;
+}
+
+int photoc_fs_rename_noreplace(const char *source, const char *destination)
+{
+    if (!valid_path(source) || !valid_path(destination)) {
+        errno = EINVAL;
+        return -1;
+    }
+#if defined(__APPLE__)
+    return renamex_np(source, destination, RENAME_EXCL);
+#elif defined(__linux__)
+    return renameat2(AT_FDCWD, source, AT_FDCWD, destination,
+                     RENAME_NOREPLACE);
+#else
+    errno = ENOTSUP;
+    return -1;
+#endif
 }
 
 static int walk_directory(const char *directory, bool recursive,

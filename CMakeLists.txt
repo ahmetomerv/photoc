@@ -156,6 +156,18 @@ if(BUILD_TESTING)
         )
     endforeach()
 
+    foreach(case IN ITEMS success recursive unchanged empty collision duplicate
+                          missing_date invalid_jpeg runtime_rollback)
+        add_test(
+            NAME "rename_apply_${case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DPHOTOC=$<TARGET_FILE:photoc>"
+                "-DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+                "-DCASE=${case}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_rename_apply.cmake"
+        )
+    endforeach()
+
     foreach(case IN ITEMS flat recursive empty single missing_exif missing no_argument
                           extra_argument unknown_option)
         add_test(

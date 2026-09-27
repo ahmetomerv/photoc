@@ -21,7 +21,7 @@ static const photoc_command commands[] = {
     {"exif", "Inspect JPEG metadata", "<file>", "photoc exif photo.jpg"},
     {"duplicates", "Find duplicate photos", "<path>...", "photoc duplicates ~/Pictures"},
     {"stats", "Summarize JPEG collections", "<directory> [--recursive] [--json]", "photoc stats ~/Pictures"},
-    {"rename", "Preview JPEG filename changes", "<directory> --format <template> [--recursive]", "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\""},
+    {"rename", "Preview or apply JPEG renames", "<directory> --format <template> [--recursive] [--apply]", "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\""},
     {"sort", "Organize photos into folders", "<path>...", "photoc sort ~/Pictures"},
     {"focus", "Assess image focus", "<photo>...", "photoc focus photo.jpg"},
     {"scrub", "Remove selected metadata", "<photo>...", "photoc scrub photo.jpg"}
@@ -56,7 +56,8 @@ static void print_global_help(void)
     puts("  -q, --quiet      Request reduced output");
     puts("      --json       Request JSON output where supported");
     puts("");
-    puts("Exif and stats inspect JPEG files; rename previews changes only. Other commands are planned.");
+    puts("Exif and stats inspect JPEG files; rename previews changes unless --apply is set.");
+    puts("Other commands are planned.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
 
@@ -71,7 +72,7 @@ static void print_command_help(const photoc_command *command)
         strcmp(command->name, "stats") == 0) {
         puts("Status: available for JPEG files");
     } else if (strcmp(command->name, "rename") == 0) {
-        puts("Status: dry-run only; no files are changed");
+        puts("Status: dry-run by default; --apply changes files after preflight");
     } else {
         puts("Status: not implemented");
     }
@@ -88,10 +89,12 @@ static void print_command_help(const photoc_command *command)
         puts("  photoc stats ~/Pictures --json");
     } else if (strcmp(command->name, "rename") == 0) {
         puts("  photoc rename ~/Pictures --format \"{original}_{sequence}.{ext}\" --recursive");
+        puts("  photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\" --apply");
         puts("");
         puts("Options:");
         puts("  --format <template>  Required filename template");
         puts("  --recursive        Include nested directories");
+        puts("  --apply            Rename files after the whole plan passes preflight");
     }
 }
 
@@ -185,7 +188,7 @@ int photoc_run(int argc, char *argv[])
     if (strcmp(command->name, "rename") == 0) {
         if (options.argument_count != 1 || options.format == NULL) {
             fputs("photoc rename: expected one directory and --format <template>\n"
-                  "Usage: photoc rename <directory> --format <template> [--recursive]\n",
+                  "Usage: photoc rename <directory> --format <template> [--recursive] [--apply]\n",
                   stderr);
             return PHOTOC_EXIT_USAGE;
         }
@@ -194,7 +197,7 @@ int photoc_run(int argc, char *argv[])
             return PHOTOC_EXIT_USAGE;
         }
         return photoc_command_rename(options.first_argument, options.format,
-                                     options.recursive);
+                                     options.recursive, options.apply);
     }
 
     return photoc_command_unimplemented(command->name);

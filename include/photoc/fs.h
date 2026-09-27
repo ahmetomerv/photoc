@@ -31,6 +31,12 @@ bool photoc_fs_is_jpeg(const char *path);
    the caller. */
 int photoc_fs_join(const char *base, const char *child, char **joined);
 
+/* Atomically renames a path only when destination does not exist. Never
+   falls back to ordinary rename(), which could overwrite a file. Returns
+   -1 with errno (including EEXIST or an unsupported-filesystem error) when
+   the operation cannot be completed. Both paths must be nonempty. */
+int photoc_fs_rename_noreplace(const char *source, const char *destination);
+
 /* The callback receives each child (not the root) in unspecified order.
    Its path is valid only during the callback; copy it to retain it.
    Returning false stops the walk. Walks return 0 when complete, 1 when

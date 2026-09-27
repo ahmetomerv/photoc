@@ -8,7 +8,7 @@ Commands:
   exif         Inspect JPEG metadata
   duplicates   Find duplicate photos
   stats        Summarize JPEG collections
-  rename       Preview JPEG filename changes
+  rename       Preview or apply JPEG renames
   sort         Organize photos into folders
   focus        Assess image focus
   scrub        Remove selected metadata
@@ -20,5 +20,6 @@ Global options:
   -q, --quiet      Request reduced output
       --json       Request JSON output where supported
 
-Exif and stats inspect JPEG files; rename previews changes only. Other commands are planned.
+Exif and stats inspect JPEG files; rename previews changes unless --apply is set.
+Other commands are planned.
 Run 'photoc <command> --help' for usage and examples.

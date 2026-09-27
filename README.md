@@ -1,7 +1,7 @@
 # photoc
 
 `photoc` is a command-line toolkit for photographers, written in C. It can
-inspect JPEG metadata, summarize JPEG collections, and preview filename changes.
+inspect JPEG metadata, summarize JPEG collections, and rename JPEG files.
 Other planned commands are placeholders.
 
 ## Build and test
@@ -39,6 +39,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc stats ~/Pictures --recursive
 ./build/photoc stats ~/Pictures --json
 ./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}"
+./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}" --apply
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -51,16 +52,25 @@ counts and percentages of all successfully parsed photos; missing EXIF values
 are omitted, so a distribution can total less than 100%. It scans one directory
 level by default. Unreadable or invalid JPEGs produce warnings on stderr while
 the scan continues. Counts are sorted by frequency, with deterministic ties.
-`rename <directory> --format <template> [--recursive]` prints planned JPEG
-renames as `old_name -> new_name`. It is **dry-run only** and never modifies
-files. Recursive output uses paths relative to the supplied directory. JPEGs
-are sorted by path before sequence numbers are assigned, starting at 0001;
+`rename <directory> --format <template> [--recursive] [--apply]` is a dry run
+by default. It prints planned JPEG renames as `old_name -> new_name` and makes
+no changes. Add `--apply` to perform them. Recursive output uses paths relative
+to the supplied directory. JPEGs are sorted by path before sequence numbers
+are assigned, starting at 0001;
 invalid JPEGs and entries missing required EXIF fields still consume a number.
 The original extension's casing is preserved when using `{ext}`. Existing
 destinations and duplicate planned destinations (including ASCII case-only
-differences) are skipped. Each skipped JPEG gets a reason on stderr, and the
-command exits with status 1 if any entry was skipped. A missing date does not
-fall back to file timestamps. Use `photoc rename --help` for examples.
+differences) are blocked. Each blocked JPEG gets a reason on stderr. With
+`--apply`, the entire set is checked before any file is changed; a blocked
+entry cancels the whole apply. The command uses an exclusive rename operation
+so a destination that appears later is never overwritten. If a rename fails
+midway, photoc attempts to restore earlier names in reverse order and reports
+any restoration failure. Another process creating a former source name can
+prevent complete rollback; photoc will leave that file in its new location
+rather than overwrite the competing path. The summary reports JPEG, planned,
+unchanged, blocked, applied, and rolled-back counts. Exit status is 1 for
+blocked or failed operations. A missing date does not fall back to file
+timestamps. Use `photoc rename --help` for examples.
 
 The planned `compress`, `duplicates`, `sort`, `focus`, and `scrub` commands
 still report that they are not implemented.
@@ -111,8 +121,8 @@ defines the filename-template API for future rename operations. It expands
 `2026-09-27_EOS_R5_0007.JpEg` with sequence width 4. Dates use the captured
 EXIF time (`YYYY-MM-DD` or `YYYY-MM-DD_HH-MM-SS`); missing required metadata
 returns an error. The original filename stem and extension retain their
-letter case. Unsafe filename characters become underscores. The rename preview
-uses this API without changing any files.
+letter case. Unsafe filename characters become underscores. The rename command
+uses this API for both previews and applied changes.
 
 ## EXIF dependency
 

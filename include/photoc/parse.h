@@ -11,6 +11,7 @@ typedef struct {
     bool quiet;
     bool json;
     bool recursive;
+    bool apply;
     const char *command;
     const char *first_argument;
     const char *format;

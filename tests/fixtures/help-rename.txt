@@ -1,14 +1,16 @@
-Usage: photoc [global options] rename <directory> --format <template> [--recursive]
+Usage: photoc [global options] rename <directory> --format <template> [--recursive] [--apply]
        photoc rename --help
 
-Preview JPEG filename changes
+Preview or apply JPEG renames
 
-Status: dry-run only; no files are changed
+Status: dry-run by default; --apply changes files after preflight
 
 Example:
   photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}"
   photoc rename ~/Pictures --format "{original}_{sequence}.{ext}" --recursive
+  photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}" --apply
 
 Options:
   --format <template>  Required filename template
   --recursive        Include nested directories
+  --apply            Rename files after the whole plan passes preflight
