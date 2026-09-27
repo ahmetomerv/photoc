@@ -131,7 +131,7 @@ if(BUILD_TESTING)
     add_cli_test(command_exif_help command_help exif)
     add_cli_test(command_stats_help command_help stats)
 
-    foreach(case IN ITEMS flat recursive empty missing no_argument
+    foreach(case IN ITEMS flat recursive empty single missing_exif missing no_argument
                           extra_argument json unknown_option)
         add_test(
             NAME "stats_${case}"

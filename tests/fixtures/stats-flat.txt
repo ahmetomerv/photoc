@@ -2,24 +2,30 @@ Photo statistics
   Directory: @DIRECTORY@
   Scan: flat
   Total photos: 4
-  Total file size: @TOTAL_SIZE@ bytes
-  Files visited: 7
-  JPEG files found: 5
-  Skipped files: 3
-  Errors: 1
+  Total storage used: @TOTAL_SIZE@ bytes
+  Average file size: 936.5 bytes
+  Earliest capture: 2024:01:02 03:04:05
+  Latest capture: 2026:09:27 12:34:56
+  Most-used camera: Model Z (2)
+  Most-used ISO: 200 (2)
+  Most-used aperture: f/2.8 (2)
+  Most-used focal length: 50 mm (2)
+  Files: 7 visited, 5 JPEG, 3 skipped, 1 error
+
+Distributions (share of parsed photos)
 
 Camera models
-  Model Z: 2
-  Model A: 1
+  Model Z: 2 (50.0%)
+  Model A: 1 (25.0%)
 
 ISO
-  200: 2
-  100: 1
+  200: 2 (50.0%)
+  100: 1 (25.0%)
 
 Apertures
-  f/2.8: 2
-  f/4: 1
+  f/2.8: 2 (50.0%)
+  f/4: 1 (25.0%)
 
 Focal lengths
-  50 mm: 2
-  35 mm: 1
+  50 mm: 2 (50.0%)
+  35 mm: 1 (25.0%)

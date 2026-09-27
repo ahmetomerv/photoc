@@ -42,11 +42,13 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 `exif <file>` prints file, image, camera, exposure, date, and location details
 for one JPEG. Unavailable EXIF fields are labeled `Unavailable`.
 
-`stats <directory> [--recursive]` reports parsed photo count, total bytes,
-scanner counts, and frequencies for camera model, ISO, aperture, and focal
-length. It scans one directory level by default. Unreadable or invalid JPEGs
-produce warnings on stderr while the scan continues; their metadata is omitted
-from the aggregate. Counts are sorted by frequency, with deterministic ties.
+`stats <directory> [--recursive]` reports parsed photo count, total storage,
+average file size, earliest and latest valid EXIF capture timestamps, and the
+most-used camera model, ISO, aperture, and focal length. Its distributions show
+counts and percentages of all successfully parsed photos; missing EXIF values
+are omitted, so a distribution can total less than 100%. It scans one directory
+level by default. Unreadable or invalid JPEGs produce warnings on stderr while
+the scan continues. Counts are sorted by frequency, with deterministic ties.
 The planned `compress`, `duplicates`, `rename`, `sort`, `focus`, and `scrub`
 commands still report that they are not implemented.
 

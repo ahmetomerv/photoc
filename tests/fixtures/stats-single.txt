@@ -1,0 +1,27 @@
+Photo statistics
+  Directory: @DIRECTORY@
+  Scan: flat
+  Total photos: 1
+  Total storage used: @TOTAL_SIZE@ bytes
+  Average file size: @TOTAL_SIZE@.0 bytes
+  Earliest capture: 2026:09:27 12:34:56
+  Latest capture: 2026:09:27 12:34:56
+  Most-used camera: Model Z (1)
+  Most-used ISO: 200 (1)
+  Most-used aperture: f/2.8 (1)
+  Most-used focal length: 50 mm (1)
+  Files: 1 visited, 1 JPEG, 0 skipped, 0 errors
+
+Distributions (share of parsed photos)
+
+Camera models
+  Model Z: 1 (100.0%)
+
+ISO
+  200: 1 (100.0%)
+
+Apertures
+  f/2.8: 1 (100.0%)
+
+Focal lengths
+  50 mm: 1 (100.0%)

@@ -28,8 +28,9 @@ static char *copy_text(const char *value)
 }
 
 static void add_photo(photoc_stats_aggregate *aggregate, const char *model,
-                      uint64_t size, uint32_t iso, double aperture,
-                      double focal_length)
+                      uint64_t size, bool has_size, uint32_t iso,
+                      double aperture, double focal_length,
+                      const char *captured)
 {
     Photo photo = {0};
     if (photo_init(&photo, "test.jpg") != 0) {
@@ -44,7 +45,15 @@ static void add_photo(photoc_stats_aggregate *aggregate, const char *model,
             return;
         }
     }
-    photo.has_file_size = model != NULL;
+    if (captured != NULL) {
+        photo.capture_timestamp = copy_text(captured);
+        if (photo.capture_timestamp == NULL) {
+            CHECK(false);
+            photo_cleanup(&photo);
+            return;
+        }
+    }
+    photo.has_file_size = has_size;
     photo.file_size = size;
     photo.has_iso = iso != 0;
     photo.iso = iso;
@@ -72,17 +81,30 @@ static void test_aggregation(void)
     photoc_stats_aggregate aggregate;
     photoc_stats_init(&aggregate);
 
-    add_photo(&aggregate, "Beta", 100, 200, 2.8, 50.0);
-    add_photo(&aggregate, "Alpha", 200, 100, 4.0, 35.0);
-    add_photo(&aggregate, "Beta", 300, 200, 2.8, 35.0);
-    add_photo(&aggregate, "Alpha", 400, 100, 4.0, 50.0);
-    add_photo(&aggregate, "Gamma", 500, 400, 2.8, 85.0);
-    add_photo(&aggregate, "Gamma", 600, 800, 5.6, 85.0);
-    add_photo(&aggregate, "Gamma", 700, 800, 5.6, 85.0);
-    add_photo(&aggregate, NULL, 999, 0, 0.0, 0.0);
+    add_photo(&aggregate, "Beta", 100, true, 200, 2.8, 50.0,
+              "2025:01:01 00:00:00");
+    add_photo(&aggregate, "Alpha", 200, true, 100, 4.0, 35.0,
+              "2024:12:31 23:59:59");
+    add_photo(&aggregate, "Beta", 300, true, 200, 2.8, 35.0,
+              "invalid date");
+    add_photo(&aggregate, "Alpha", 400, true, 100, 4.0, 50.0,
+              "2026:05:10 12:30:00");
+    add_photo(&aggregate, "Gamma", 500, true, 400, 2.8, 85.0, NULL);
+    add_photo(&aggregate, "Gamma", 600, true, 800, 5.6, 85.0,
+              "2020:02:29 08:00:00");
+    add_photo(&aggregate, "Gamma", 700, true, 800, 5.6, 85.0,
+              "2019:02:29 08:00:00");
+    add_photo(&aggregate, NULL, 999, false, 0, 0.0, 0.0, NULL);
 
     CHECK(aggregate.total_photos == 8);
     CHECK(aggregate.total_file_size == 2800);
+    CHECK(aggregate.photos_with_file_size == 7);
+    double average = 0.0;
+    CHECK(photoc_stats_average_file_size(&aggregate, &average));
+    CHECK(average == 400.0);
+    CHECK(aggregate.has_capture_dates);
+    CHECK(strcmp(aggregate.earliest_capture, "2020:02:29 08:00:00") == 0);
+    CHECK(strcmp(aggregate.latest_capture, "2026:05:10 12:30:00") == 0);
     CHECK(aggregate.camera_models.count == 3);
     CHECK(aggregate.iso_values.count == 4);
     CHECK(aggregate.apertures.count == 3);
@@ -105,7 +127,40 @@ static void test_aggregation(void)
 
     photoc_stats_cleanup(&aggregate);
     CHECK(aggregate.total_photos == 0 && aggregate.total_file_size == 0);
+    CHECK(!aggregate.has_capture_dates && aggregate.photos_with_file_size == 0);
     CHECK(aggregate.camera_models.items == NULL);
+    photoc_stats_cleanup(&aggregate);
+}
+
+static void test_one_photo_and_missing_exif(void)
+{
+    photoc_stats_aggregate aggregate;
+    photoc_stats_init(&aggregate);
+    double average = -1.0;
+    CHECK(!photoc_stats_average_file_size(&aggregate, &average));
+    CHECK(average == -1.0);
+
+    add_photo(&aggregate, "Solo", 1234, true, 640, 1.8, 85.0,
+              "2023:04:05 06:07:08");
+    photoc_stats_sort(&aggregate);
+    CHECK(aggregate.total_photos == 1 && aggregate.total_file_size == 1234);
+    CHECK(photoc_stats_average_file_size(&aggregate, &average));
+    CHECK(average == 1234.0);
+    CHECK(strcmp(aggregate.earliest_capture, "2023:04:05 06:07:08") == 0);
+    CHECK(strcmp(aggregate.latest_capture, "2023:04:05 06:07:08") == 0);
+    check_count(&aggregate.camera_models, 0, "Solo", 1);
+    check_count(&aggregate.iso_values, 0, "640", 1);
+    check_count(&aggregate.apertures, 0, "1.8", 1);
+    check_count(&aggregate.focal_lengths, 0, "85", 1);
+    photoc_stats_cleanup(&aggregate);
+
+    add_photo(&aggregate, NULL, 512, true, 0, 0.0, 0.0, NULL);
+    CHECK(aggregate.total_photos == 1 && aggregate.total_file_size == 512);
+    CHECK(photoc_stats_average_file_size(&aggregate, &average));
+    CHECK(average == 512.0);
+    CHECK(!aggregate.has_capture_dates);
+    CHECK(aggregate.camera_models.count == 0 && aggregate.iso_values.count == 0);
+    CHECK(aggregate.apertures.count == 0 && aggregate.focal_lengths.count == 0);
     photoc_stats_cleanup(&aggregate);
 }
 
@@ -134,6 +189,7 @@ static void test_errors(void)
 int main(void)
 {
     test_aggregation();
+    test_one_photo_and_missing_exif();
     test_errors();
     if (failures != 0) {
         fprintf(stderr, "%d aggregation test failure(s)\n", failures);

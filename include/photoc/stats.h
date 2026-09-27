@@ -3,6 +3,7 @@
 
 #include "photoc/photo.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -21,6 +22,10 @@ typedef struct {
 typedef struct {
     uint64_t total_photos;
     uint64_t total_file_size; /* Bytes from photos with known file size. */
+    uint64_t photos_with_file_size;
+    bool has_capture_dates;
+    char earliest_capture[20]; /* Valid EXIF YYYY:MM:DD HH:MM:SS or empty. */
+    char latest_capture[20];
     photoc_stats_counts camera_models;
     photoc_stats_counts iso_values;
     photoc_stats_counts apertures;
@@ -33,11 +38,17 @@ void photoc_stats_init(photoc_stats_aggregate *aggregate);
 void photoc_stats_cleanup(photoc_stats_aggregate *aggregate);
 
 /* Adds a successfully loaded photo. Presence flags determine which metadata
-   participates; unavailable fields are omitted. Returns 0, or -1 with errno
+   participates; unavailable fields and invalid capture dates are omitted.
+   Returns 0, or -1 with errno
    set on invalid arguments, allocation failure, or counter overflow. On
    failure the aggregate may be partially updated but remains safe to clean. */
 int photoc_stats_add_photo(photoc_stats_aggregate *aggregate,
                            const Photo *photo);
+
+/* Average bytes among photos whose file size is known. Returns false if no
+   such photos exist or arguments are invalid; output is then unchanged. */
+bool photoc_stats_average_file_size(const photoc_stats_aggregate *aggregate,
+                                    double *output);
 
 /* Sorts each table by descending count. Ties use bytewise model-name order
    for cameras and ascending numeric order for ISO, aperture, focal length. */

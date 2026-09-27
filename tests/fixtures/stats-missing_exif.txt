@@ -1,16 +1,16 @@
 Photo statistics
   Directory: @DIRECTORY@
   Scan: flat
-  Total photos: 0
-  Total storage used: 0 bytes
-  Average file size: Unavailable
+  Total photos: 1
+  Total storage used: @TOTAL_SIZE@ bytes
+  Average file size: @TOTAL_SIZE@.0 bytes
   Earliest capture: Unavailable
   Latest capture: Unavailable
   Most-used camera: Unavailable
   Most-used ISO: Unavailable
   Most-used aperture: Unavailable
   Most-used focal length: Unavailable
-  Files: 0 visited, 0 JPEG, 0 skipped, 0 errors
+  Files: 1 visited, 1 JPEG, 0 skipped, 0 errors
 
 Distributions (share of parsed photos)
 
