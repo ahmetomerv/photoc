@@ -30,14 +30,15 @@ typedef void (*photoc_duplicates_warning_fn)(const char *path,
                                               int system_errno,
                                               void *user_data);
 
-/* Examines regular files, regardless of extension. Hashes only files that
-   share a size with another file. Groups and paths are sorted deterministically.
-   Returns 0 when the walk completes, including when individual files were
-   skipped (see errors); -1 with errno on a fatal error. On entry result need
-   not be initialized, but clean up any previous result before reusing it.
-   On return it owns groups and paths, and the caller must
-   call photoc_duplicates_cleanup, including after a fatal error. The warning
-   callback and user_data are borrowed and are not retained. */
+/* Examines regular files, regardless of extension. Full SHA-256 is used only
+   for files that share both a size and a leading content prefix with another
+   file (empty files use the known empty digest without reading). Groups and
+   paths are sorted deterministically. Returns 0 when the walk completes,
+   including when individual files were skipped (see errors); -1 with errno on
+   a fatal error. On entry result need not be initialized, but clean up any
+   previous result before reusing it. On return it owns groups and paths, and
+   the caller must call photoc_duplicates_cleanup, including after a fatal
+   error. The warning callback and user_data are borrowed and are not retained. */
 int photoc_duplicates_find(const char *directory, bool recursive,
                            photoc_duplicates_warning_fn on_warning,
                            void *user_data, photoc_duplicates_result *result);

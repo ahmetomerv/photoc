@@ -299,7 +299,8 @@ if(BUILD_TESTING)
         )
     endforeach()
 
-    foreach(case IN ITEMS duplicates same_size_nonduplicates no_duplicates
+    foreach(case IN ITEMS duplicates same_size_nonduplicates
+                          large_unique_same_size no_duplicates
                           multiple_groups
                           nested missing file unreadable no_argument
                           extra_argument unknown_option)

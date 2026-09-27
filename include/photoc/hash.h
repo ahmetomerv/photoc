@@ -1,6 +1,8 @@
 #ifndef PHOTOC_HASH_H
 #define PHOTOC_HASH_H
 
+#include <stddef.h>
+
 #define PHOTOC_SHA256_DIGEST_SIZE 32
 #define PHOTOC_SHA256_HEX_SIZE 65
 
@@ -11,6 +13,12 @@
    and is unchanged on failure. */
 int photoc_hash_file_sha256(const char *path,
                             unsigned char out[PHOTOC_SHA256_DIGEST_SIZE]);
+
+/* Hashes an in-memory buffer. length may be 0. Returns 0 on success, or -1
+   with errno EINVAL for NULL data when length != 0, NULL out, or a length
+   that overflows SHA-256's 64-bit bit-counter. */
+int photoc_hash_bytes_sha256(const unsigned char *data, size_t length,
+                             unsigned char out[PHOTOC_SHA256_DIGEST_SIZE]);
 
 /* Writes lowercase hexadecimal and a terminating NUL to caller-owned out.
    Returns 0 on success, or -1 with errno EINVAL for NULL pointers. */

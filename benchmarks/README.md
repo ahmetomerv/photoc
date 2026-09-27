@@ -5,8 +5,6 @@ Lightweight wall-clock measurements for `photoc stats` and
 CLI, and report files/sec plus peak child RSS. They are for regression
 awareness and bottleneck notes — not a formal performance suite.
 
-No application optimizations are implied by these numbers.
-
 ## Running
 
 ```sh
@@ -27,13 +25,13 @@ The script rebuilds corpora each run:
 
 - **stats** — copies of the small synthetic JPEG fixtures under nested
   `batch_*/` directories (EXIF / alternate EXIF / GPS / no-EXIF).
-- **duplicates** — many unique 4 KiB files of the same size (forces SHA-256)
-  plus a few exact duplicate groups.
+- **duplicates** — many unique 4 KiB files of the same size (exercises the
+  same-size path) plus a few exact duplicate groups.
 
 ## Baseline results
 
-Recorded on 2026-09-27 with an unoptimized Release-style local build
-(`cmake --build build`, no sanitizers):
+Recorded on 2026-09-27 with a local build (`cmake --build build`, no
+sanitizers) after the duplicates optimizations below:
 
 | Host | Notes |
 | --- | --- |
@@ -41,10 +39,19 @@ Recorded on 2026-09-27 with an unoptimized Release-style local build
 
 | Command | Files | Elapsed (s) | Files/s | Peak RSS |
 | --- | ---: | ---: | ---: | ---: |
-| `stats --recursive` | 1000 | 0.049 | 20617 | 6.2 MiB |
-| `duplicates --recursive` | 1000 | 0.074 | 13562 | 6.2 MiB |
-| `stats --recursive` | 5000 | 0.188 | 26560 | 6.3 MiB |
-| `duplicates --recursive` | 5000 | 0.359 | 13924 | 6.9 MiB |
+| `stats --recursive` | 1000 | 0.045 | 22062 | 6.3 MiB |
+| `duplicates --recursive` | 1000 | 0.077 | 13049 | ~8–10 MiB |
+| `stats --recursive` | 5000 | 0.224 | 22366 | 6.3 MiB |
+| `duplicates --recursive` | 5000 | 0.444 | 11251 | 8.0 MiB |
+
+Additional duplicates stress (not produced by `benchmark.py`): **8020** files of
+**64 KiB**, almost all unique content with distinct leading bytes, plus five
+exact duplicate groups of four copies:
+
+| Build | Elapsed | Files hashed | Notes |
+| --- | ---: | ---: | --- |
+| Before prefix filter | ~7.6 s | 8020 | Full SHA-256 of every same-size file |
+| After optimizations | ~0.16 s | 20 | Prefix filter + empty fast path; only true candidates hashed |
 
 Peak RSS is the child process maximum resident set from
 `resource.getrusage(RUSAGE_CHILDREN)` (bytes on macOS, KiB×1024 on Linux).
@@ -52,36 +59,45 @@ Elapsed time is wall clock around that child. Numbers move with CPU load,
 filesystem cache, and libc/`libexif` versions — treat them as order-of-magnitude
 baselines.
 
-## Likely bottlenecks
+## `photoc duplicates` performance notes
 
-### `photoc stats`
+Changes landed to improve large-directory and same-size workloads without
+concurrency:
 
-1. **Per-JPEG metadata load** — `photoc_scan_directory` calls
-   `photo_load_metadata` for every JPEG (open, `photoc_jpeg_inspect`, libexif
-   parse, string copies into `Photo`). With tiny fixtures this dominates over
-   pixel decode.
-2. **Directory walk** — recursive `photoc_fs_walk_recursive` visits every
-   entry; nested `batch_*` trees add syscall cost.
-3. **Aggregation** — `photoc_stats_add_photo` grows count tables; cheap at
-   these sizes relative to metadata I/O.
-4. **Stdout** — human-readable report formatting is minor next to scanning.
+1. **Avoid unnecessary hashing** — Within a size cohort, read a short leading
+   prefix (64 bytes). Full SHA-256 runs only when at least two files share that
+   prefix. Empty files use the known empty digest with no I/O. Duplicate groups
+   and savings are unchanged; `files_hashed` can be lower when unique same-size
+   files are filtered out.
+2. **Buffered file reads** — SHA-256 reads use a 64 KiB buffer. `open` still
+   uses `O_NONBLOCK` so FIFOs cannot hang, then clears it for sequential reads.
+3. **Allocation reduction** — Paths collected during the walk live in a chunked
+   arena (freed once). Group path strings are copied only for files that enter
+   a duplicate group.
+4. **In-memory hash for tiny files** — When the prefix read already consumed the
+   whole file, SHA-256 runs over that buffer instead of re-opening the path.
 
-Not stressed here: large JPEG decode, broken-file warning volume, or JSON
-output.
+Concurrency was not added: single-threaded hashing remains the clear bottleneck
+only when many files share both size and prefix (true near-duplicate or
+duplicate sets). Prefix filtering removes most of that work for typical photo
+libraries with unique content.
 
-### `photoc duplicates`
+### Remaining bottlenecks
 
-1. **SHA-256 of same-size groups** — after collecting sizes, every file that
-   shares a size is hashed (`photoc_hash_file_sha256`). The corpus intentionally
-   uses one shared size so almost every file is hashed.
-2. **Path storage** — each visited file keeps an owned path string until
-   grouping finishes; RSS grows with file count (visible in the 5k run).
-3. **Sort / group assembly** — `qsort` by digest and group appends are
-   secondary at these counts.
-4. **Walk** — same recursive directory walk as stats.
+1. **True duplicate / shared-prefix cohorts** — Still one full SHA-256 per
+   candidate; large identical photos dominate runtime.
+2. **Directory walk + `lstat`** — Every regular file is sized before grouping.
+3. **Prefix reads on huge same-size cohorts** — Unique files still pay one short
+   read each when many files share a size (common in the synthetic 4 KiB
+   benchmark corpus).
+4. **Path arena + result copies** — Duplicate-heavy trees copy winning paths
+   into owned group strings.
 
-Not stressed here: very large files (hash throughput), millions of unique
-sizes (hash skipped), or deep symlink/permission failure paths.
+## `photoc stats` bottlenecks (unchanged)
+
+1. **Per-JPEG metadata load** — `photo_load_metadata` for every JPEG.
+2. **Directory walk** — recursive `photoc_fs_walk_recursive`.
+3. **Aggregation / stdout** — minor next to metadata I/O.
 
 ## Interpreting changes
 
@@ -90,5 +106,6 @@ When comparing a future run:
 - Prefer the same `--count` and a warm cache (run twice, keep the second).
 - Do not mix sanitizer builds with baseline rows.
 - A drop in files/s on `stats` usually points at metadata/I/O; on `duplicates`,
-  at hashing or path allocation.
+  at hashing or path allocation. For duplicates, also check `files hashed` in
+  the command summary — a higher hash count means more shared size+prefix work.
 - Memory regressions matter more than small timing noise on laptop CPUs.

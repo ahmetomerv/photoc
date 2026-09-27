@@ -1,12 +1,33 @@
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE
+#endif
+#define _POSIX_C_SOURCE 200809L
+
 #include "photoc/duplicates.h"
 
 #include "photoc/fs.h"
 #include "photoc/hash.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+/* Leading-byte sample used to skip full SHA-256 when a size group contains
+   unique prefixes. Exact duplicates always share a prefix, so groups are
+   unchanged; only files_hashed may drop for unique files. Keep this small so
+   a large same-size cohort does not allocate megabytes of prefix storage. */
+enum { DUPLICATE_PREFIX_BYTES = 64 };
+enum { PATH_ARENA_CHUNK = 65536 };
+
+/* SHA-256 of an empty message (FIPS 180-4). */
+static const unsigned char empty_sha256[PHOTOC_SHA256_DIGEST_SIZE] = {
+    0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8,
+    0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c,
+    0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55
+};
 
 typedef struct {
     char *path;
@@ -16,15 +37,32 @@ typedef struct {
 } file_record;
 
 typedef struct {
+    char **chunks;
+    size_t chunk_count;
+    size_t chunk_capacity;
+    char *current;
+    size_t current_used;
+    size_t current_capacity;
+} path_arena;
+
+typedef struct {
     file_record *files;
     size_t count;
     size_t capacity;
     size_t group_capacity;
     int error;
+    path_arena paths;
     photoc_duplicates_result *result;
     photoc_duplicates_warning_fn on_warning;
     void *user_data;
 } find_context;
+
+typedef struct {
+    size_t index;
+    unsigned char *prefix;
+    size_t length;
+    const char *path;
+} prefix_entry;
 
 void photoc_duplicates_cleanup(photoc_duplicates_result *result)
 {
@@ -39,6 +77,66 @@ void photoc_duplicates_cleanup(photoc_duplicates_result *result)
     }
     free(result->groups);
     *result = (photoc_duplicates_result){0};
+}
+
+static void path_arena_cleanup(path_arena *arena)
+{
+    if (arena == NULL) {
+        return;
+    }
+    for (size_t i = 0; i < arena->chunk_count; ++i) {
+        free(arena->chunks[i]);
+    }
+    free(arena->chunks);
+    *arena = (path_arena){0};
+}
+
+static char *path_arena_copy(path_arena *arena, const char *path)
+{
+    size_t length = strlen(path);
+    if (length == SIZE_MAX) {
+        errno = EOVERFLOW;
+        return NULL;
+    }
+    size_t need = length + 1;
+    if (arena->current == NULL ||
+        arena->current_used > arena->current_capacity ||
+        need > arena->current_capacity - arena->current_used) {
+        size_t capacity = PATH_ARENA_CHUNK;
+        while (capacity < need) {
+            if (capacity > SIZE_MAX / 2) {
+                errno = EOVERFLOW;
+                return NULL;
+            }
+            capacity *= 2;
+        }
+        if (arena->chunk_count == arena->chunk_capacity) {
+            size_t next = arena->chunk_capacity == 0 ? 4 : arena->chunk_capacity * 2;
+            if (next < arena->chunk_capacity ||
+                next > SIZE_MAX / sizeof(*arena->chunks)) {
+                errno = EOVERFLOW;
+                return NULL;
+            }
+            char **chunks = realloc(arena->chunks, next * sizeof(*chunks));
+            if (chunks == NULL) {
+                return NULL;
+            }
+            arena->chunks = chunks;
+            arena->chunk_capacity = next;
+        }
+        char *chunk = malloc(capacity);
+        if (chunk == NULL) {
+            return NULL;
+        }
+        arena->chunks[arena->chunk_count++] = chunk;
+        arena->current = chunk;
+        arena->current_used = 0;
+        arena->current_capacity = capacity;
+    }
+    char *copy = arena->current + arena->current_used;
+    memcpy(copy, path, need);
+    arena->current_used += need;
+    return copy;
 }
 
 static void warn_file(find_context *context, const char *path, int error)
@@ -78,13 +176,11 @@ static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
         context->files = files;
         context->capacity = capacity;
     }
-    size_t length = strlen(path);
-    char *copy = malloc(length + 1);
+    char *copy = path_arena_copy(&context->paths, path);
     if (copy == NULL) {
         context->error = errno;
         return false;
     }
-    memcpy(copy, path, length + 1);
     context->files[context->count++] = (file_record){.path = copy, .size = size};
     return true;
 }
@@ -116,6 +212,157 @@ static int compare_digest(const void *left, const void *right)
     return comparison != 0 ? comparison : strcmp(a->path, b->path);
 }
 
+static int compare_prefix_entry(const void *left, const void *right)
+{
+    const prefix_entry *a = left;
+    const prefix_entry *b = right;
+    size_t length = a->length < b->length ? a->length : b->length;
+    int comparison = memcmp(a->prefix, b->prefix, length);
+    if (comparison != 0) {
+        return comparison;
+    }
+    if (a->length != b->length) {
+        return a->length < b->length ? -1 : 1;
+    }
+    return strcmp(a->path, b->path);
+}
+
+static int read_file_prefix(const char *path, unsigned char *buffer,
+                            size_t capacity, size_t *out_length)
+{
+    int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+    if (fd < 0) {
+        return -1;
+    }
+    int flags = fcntl(fd, F_GETFL);
+    if (flags >= 0) {
+        (void)fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+    }
+    size_t total = 0;
+    while (total < capacity) {
+        ssize_t length = read(fd, buffer + total, capacity - total);
+        if (length < 0 && errno == EINTR) {
+            continue;
+        }
+        if (length < 0) {
+            int saved_errno = errno;
+            close(fd);
+            errno = saved_errno;
+            return -1;
+        }
+        if (length == 0) {
+            break;
+        }
+        total += (size_t)length;
+    }
+    if (close(fd) != 0) {
+        return -1;
+    }
+    *out_length = total;
+    return 0;
+}
+
+static void mark_empty_hashes(find_context *context, size_t start, size_t end)
+{
+    for (size_t i = start; i < end; ++i) {
+        file_record *file = &context->files[i];
+        memcpy(file->digest, empty_sha256, sizeof(file->digest));
+        file->hashed = true;
+        ++context->result->files_hashed;
+    }
+}
+
+static void hash_records(find_context *context, size_t start, size_t end)
+{
+    for (size_t i = start; i < end; ++i) {
+        file_record *file = &context->files[i];
+        if (photoc_hash_file_sha256(file->path, file->digest) != 0) {
+            warn_file(context, file->path, errno);
+        } else {
+            file->hashed = true;
+            ++context->result->files_hashed;
+        }
+    }
+}
+
+static void hash_size_group(find_context *context, size_t start, size_t end)
+{
+    uint64_t size = context->files[start].size;
+    size_t count = end - start;
+    if (count < 2) {
+        return;
+    }
+    if (size == 0) {
+        mark_empty_hashes(context, start, end);
+        return;
+    }
+
+    size_t prefix_cap = size < DUPLICATE_PREFIX_BYTES ?
+                        (size_t)size : (size_t)DUPLICATE_PREFIX_BYTES;
+    prefix_entry *entries = calloc(count, sizeof(*entries));
+    unsigned char *prefix_bytes = malloc(count * prefix_cap);
+    if (entries == NULL || prefix_bytes == NULL) {
+        free(entries);
+        free(prefix_bytes);
+        hash_records(context, start, end);
+        return;
+    }
+
+    size_t readable = 0;
+    for (size_t i = 0; i < count; ++i) {
+        file_record *file = &context->files[start + i];
+        unsigned char *prefix = prefix_bytes + i * prefix_cap;
+        size_t length = 0;
+        if (read_file_prefix(file->path, prefix, prefix_cap, &length) != 0) {
+            warn_file(context, file->path, errno);
+            continue;
+        }
+        entries[readable++] = (prefix_entry){
+            .index = start + i,
+            .prefix = prefix,
+            .length = length,
+            .path = file->path
+        };
+    }
+
+    if (readable > 1) {
+        qsort(entries, readable, sizeof(*entries), compare_prefix_entry);
+    }
+    for (size_t group_start = 0; group_start < readable;) {
+        size_t group_end = group_start + 1;
+        while (group_end < readable &&
+               entries[group_end].length == entries[group_start].length &&
+               memcmp(entries[group_end].prefix, entries[group_start].prefix,
+                      entries[group_start].length) == 0) {
+            ++group_end;
+        }
+        if (group_end - group_start > 1) {
+            for (size_t i = group_start; i < group_end; ++i) {
+                file_record *file = &context->files[entries[i].index];
+                int hash_status;
+                /* Whole file already in the prefix buffer: hash in place. */
+                if ((uint64_t)entries[i].length == file->size) {
+                    hash_status = photoc_hash_bytes_sha256(
+                        entries[i].prefix, entries[i].length, file->digest);
+                } else {
+                    hash_status = photoc_hash_file_sha256(file->path,
+                                                          file->digest);
+                }
+                if (hash_status != 0) {
+                    warn_file(context, file->path, errno);
+                } else {
+                    file->hashed = true;
+                    ++context->result->files_hashed;
+                }
+            }
+        }
+        group_start = group_end;
+    }
+
+    free(prefix_bytes);
+    free(entries);
+}
+
 static void hash_same_size_files(find_context *context)
 {
     for (size_t start = 0; start < context->count;) {
@@ -124,19 +371,24 @@ static void hash_same_size_files(find_context *context)
                context->files[end].size == context->files[start].size) {
             ++end;
         }
-        if (end - start > 1) {
-            for (size_t i = start; i < end; ++i) {
-                file_record *file = &context->files[i];
-                if (photoc_hash_file_sha256(file->path, file->digest) != 0) {
-                    warn_file(context, file->path, errno);
-                } else {
-                    file->hashed = true;
-                    ++context->result->files_hashed;
-                }
-            }
-        }
+        hash_size_group(context, start, end);
         start = end;
     }
+}
+
+static char *copy_path(const char *path)
+{
+    size_t length = strlen(path);
+    if (length == SIZE_MAX) {
+        errno = EOVERFLOW;
+        return NULL;
+    }
+    char *copy = malloc(length + 1);
+    if (copy == NULL) {
+        return NULL;
+    }
+    memcpy(copy, path, length + 1);
+    return copy;
 }
 
 static int append_group(find_context *context, size_t start, size_t count)
@@ -174,8 +426,19 @@ static int append_group(find_context *context, size_t start, size_t count)
         return -1;
     }
     for (size_t i = 0; i < count; ++i) {
-        paths[i] = context->files[start + i].path;
-        context->files[start + i].path = NULL;
+        paths[i] = NULL;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        paths[i] = copy_path(context->files[start + i].path);
+        if (paths[i] == NULL) {
+            int saved_errno = errno;
+            for (size_t j = 0; j < i; ++j) {
+                free(paths[j]);
+            }
+            free(paths);
+            errno = saved_errno;
+            return -1;
+        }
     }
     result->groups[result->group_count++] = (photoc_duplicate_group){
         .file_size = size, .paths = paths, .count = count
@@ -238,10 +501,8 @@ int photoc_duplicates_find(const char *directory, bool recursive,
             walk_result = -1;
         }
     }
-    for (size_t i = 0; i < context.count; ++i) {
-        free(context.files[i].path);
-    }
     free(context.files);
+    path_arena_cleanup(&context.paths);
     if (walk_result != 0) {
         photoc_duplicates_cleanup(result);
         errno = saved_errno;

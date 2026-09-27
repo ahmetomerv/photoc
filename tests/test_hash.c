@@ -116,6 +116,25 @@ static void test_known_vectors(const char *path)
         "d29751f2649b32ff572b5e0a9f541ea660a50f94ff0beedfb0b692b924cc8025");
 }
 
+static void test_bytes_hash(void)
+{
+    unsigned char digest[PHOTOC_SHA256_DIGEST_SIZE];
+    char hex[PHOTOC_SHA256_HEX_SIZE];
+    CHECK(photoc_hash_bytes_sha256(NULL, 0, digest) == 0);
+    CHECK(photoc_hash_sha256_hex(digest, hex) == 0);
+    CHECK(strcmp(hex,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") == 0);
+    CHECK(photoc_hash_bytes_sha256((const unsigned char *)"abc", 3, digest) == 0);
+    CHECK(photoc_hash_sha256_hex(digest, hex) == 0);
+    CHECK(strcmp(hex,
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") == 0);
+    errno = 0;
+    CHECK(photoc_hash_bytes_sha256(NULL, 1, digest) == -1 && errno == EINVAL);
+    errno = 0;
+    CHECK(photoc_hash_bytes_sha256((const unsigned char *)"x", 1, NULL) == -1 &&
+          errno == EINVAL);
+}
+
 static void test_same_content(const char *first, const char *second)
 {
     unsigned char first_digest[PHOTOC_SHA256_DIGEST_SIZE];
@@ -195,6 +214,7 @@ int main(void)
         CHECK(false);
     } else {
         test_known_vectors(file);
+        test_bytes_hash();
         test_same_content(file, second);
         test_errors(file, directory, missing, link, pipe_path);
     }

@@ -34,6 +34,9 @@ static const uint32_t round_constants[64] = {
     0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u
 };
 
+/* Large enough to amortize read syscalls on multi-megabyte photos. */
+enum { HASH_READ_BUFFER = 65536 };
+
 typedef struct {
     uint32_t state[8];
     unsigned char block[64];
@@ -153,6 +156,26 @@ static void sha256_finish(sha256_state *hash,
     }
 }
 
+int photoc_hash_bytes_sha256(const unsigned char *data, size_t length,
+                             unsigned char out[PHOTOC_SHA256_DIGEST_SIZE])
+{
+    if (out == NULL || (data == NULL && length != 0)) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (length > UINT64_MAX / 8u) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    sha256_state hash;
+    sha256_init(&hash);
+    if (length != 0) {
+        sha256_update(&hash, data, length);
+    }
+    sha256_finish(&hash, out);
+    return 0;
+}
+
 int photoc_hash_file_sha256(const char *path,
                             unsigned char out[PHOTOC_SHA256_DIGEST_SIZE])
 {
@@ -160,6 +183,8 @@ int photoc_hash_file_sha256(const char *path,
         errno = EINVAL;
         return -1;
     }
+    /* O_NONBLOCK so open() on a FIFO/device cannot hang the caller; after we
+       confirm a regular file, clear it for full-size sequential reads. */
     int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
     if (fd < 0) {
         return -1;
@@ -177,9 +202,13 @@ int photoc_hash_file_sha256(const char *path,
         errno = saved_errno;
         return -1;
     }
+    int flags = fcntl(fd, F_GETFL);
+    if (flags >= 0) {
+        (void)fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+    }
     sha256_state hash;
     sha256_init(&hash);
-    unsigned char buffer[16384];
+    unsigned char buffer[HASH_READ_BUFFER];
     for (;;) {
         ssize_t length = read(fd, buffer, sizeof(buffer));
         if (length < 0 && errno == EINTR) {
