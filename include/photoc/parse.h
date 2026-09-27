@@ -14,6 +14,7 @@ typedef struct {
     bool recursive;
     bool apply;
     bool gps;
+    bool in_place;
     const char *command;
     const char *first_argument;
     const char *format;

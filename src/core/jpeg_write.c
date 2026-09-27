@@ -1,3 +1,6 @@
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 
 #include "photoc/jpeg_write.h"
@@ -20,7 +23,35 @@
 struct photoc_jpeg_exif {
     ExifMem *memory;
     ExifData *data;
+    struct stat source_info;
+    bool has_source_info;
 };
+
+static bool same_source(const struct stat *left, const struct stat *right)
+{
+#if defined(__APPLE__)
+    const struct timespec *left_mtime = &left->st_mtimespec;
+    const struct timespec *right_mtime = &right->st_mtimespec;
+    const struct timespec *left_ctime = &left->st_ctimespec;
+    const struct timespec *right_ctime = &right->st_ctimespec;
+#else
+    const struct timespec *left_mtime = &left->st_mtim;
+    const struct timespec *right_mtime = &right->st_mtim;
+    const struct timespec *left_ctime = &left->st_ctim;
+    const struct timespec *right_ctime = &right->st_ctim;
+#endif
+    return left->st_dev == right->st_dev &&
+           left->st_ino == right->st_ino &&
+           left->st_size == right->st_size &&
+           left->st_mode == right->st_mode &&
+           left->st_uid == right->st_uid &&
+           left->st_gid == right->st_gid &&
+           left->st_nlink == right->st_nlink &&
+           left_mtime->tv_sec == right_mtime->tv_sec &&
+           left_mtime->tv_nsec == right_mtime->tv_nsec &&
+           left_ctime->tv_sec == right_ctime->tv_sec &&
+           left_ctime->tv_nsec == right_ctime->tv_nsec;
+}
 
 void photoc_jpeg_exif_free(photoc_jpeg_exif *exif)
 {
@@ -137,10 +168,32 @@ photoc_jpeg_edit_result photoc_jpeg_exif_load_copy(
     if (file == NULL) {
         return PHOTOC_JPEG_EDIT_IO_ERROR;
     }
+    struct stat before;
+    if (fstat(fileno(file), &before) != 0) {
+        int saved_errno = errno;
+        fclose(file);
+        errno = saved_errno;
+        return PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
     photoc_jpeg_info info;
     photoc_jpeg_edit_result result = inspect_file(file, &info);
     if (result == PHOTOC_JPEG_EDIT_OK) {
         result = read_exif(file, &info, out);
+    }
+    if (result == PHOTOC_JPEG_EDIT_OK) {
+        struct stat after;
+        if (fstat(fileno(file), &after) != 0) {
+            photoc_jpeg_exif_free(*out);
+            *out = NULL;
+            result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        } else if (!same_source(&before, &after)) {
+            photoc_jpeg_exif_free(*out);
+            *out = NULL;
+            result = PHOTOC_JPEG_EDIT_UNSAFE_SOURCE;
+        } else {
+            (*out)->source_info = before;
+            (*out)->has_source_info = true;
+        }
     }
     int saved_errno = errno;
     if (fclose(file) != 0 && result == PHOTOC_JPEG_EDIT_OK) {
@@ -192,6 +245,10 @@ photoc_jpeg_edit_result photoc_jpeg_exif_copy(
     photoc_jpeg_edit_result result = serialize_exif(source, &bytes, &length);
     if (result == PHOTOC_JPEG_EDIT_OK) {
         result = parse_exif(bytes, length, out);
+        if (result == PHOTOC_JPEG_EDIT_OK) {
+            (*out)->source_info = source->source_info;
+            (*out)->has_source_info = source->has_source_info;
+        }
         exif_mem_free(source->memory, bytes);
     }
     return result;
@@ -424,9 +481,25 @@ static photoc_jpeg_edit_result verify_temporary(
     return result;
 }
 
-photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
+static photoc_jpeg_edit_result check_replace_source(
+    const char *path, const photoc_jpeg_exif *exif)
+{
+    struct stat current;
+    if (lstat(path, &current) != 0) {
+        return PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
+    if (!exif->has_source_info || !S_ISREG(current.st_mode) ||
+        current.st_nlink != 1 || current.st_uid != geteuid() ||
+        (current.st_mode & (S_ISUID | S_ISGID)) != 0 ||
+        !same_source(&current, &exif->source_info)) {
+        return PHOTOC_JPEG_EDIT_UNSAFE_SOURCE;
+    }
+    return PHOTOC_JPEG_EDIT_OK;
+}
+
+static photoc_jpeg_edit_result write_with_exif(
     const char *source_path, const char *destination_path,
-    const photoc_jpeg_exif *exif)
+    const photoc_jpeg_exif *exif, bool replace_source)
 {
     if (source_path == NULL || source_path[0] == '\0' ||
         destination_path == NULL || destination_path[0] == '\0' ||
@@ -434,13 +507,23 @@ photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
         exif == NULL || exif->data == NULL || exif->memory == NULL) {
         return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
     }
-    bool exists;
-    if (photoc_fs_exists(destination_path, &exists) != 0) {
-        return PHOTOC_JPEG_EDIT_IO_ERROR;
-    }
-    if (exists) {
-        errno = EEXIST;
-        return PHOTOC_JPEG_EDIT_IO_ERROR;
+    if (replace_source) {
+        if (strcmp(source_path, destination_path) != 0) {
+            return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
+        }
+        photoc_jpeg_edit_result safety = check_replace_source(source_path, exif);
+        if (safety != PHOTOC_JPEG_EDIT_OK) {
+            return safety;
+        }
+    } else {
+        bool exists;
+        if (photoc_fs_exists(destination_path, &exists) != 0) {
+            return PHOTOC_JPEG_EDIT_IO_ERROR;
+        }
+        if (exists) {
+            errno = EEXIST;
+            return PHOTOC_JPEG_EDIT_IO_ERROR;
+        }
     }
     unsigned char *exif_bytes;
     unsigned int exif_length;
@@ -459,6 +542,9 @@ photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
     int saved_errno = 0;
     if (fstat(fileno(source), &source_info) != 0) {
         result = PHOTOC_JPEG_EDIT_IO_ERROR;
+    } else if (replace_source &&
+               !same_source(&source_info, &exif->source_info)) {
+        result = PHOTOC_JPEG_EDIT_UNSAFE_SOURCE;
     } else if (!S_ISREG(source_info.st_mode)) {
         errno = S_ISDIR(source_info.st_mode) ? EISDIR : EINVAL;
         result = PHOTOC_JPEG_EDIT_IO_ERROR;
@@ -505,6 +591,16 @@ photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
         saved_errno = errno;
     }
     if (output != NULL) {
+        if (result == PHOTOC_JPEG_EDIT_OK && replace_source &&
+            fchown(fileno(output), (uid_t)-1, source_info.st_gid) != 0) {
+            result = PHOTOC_JPEG_EDIT_IO_ERROR;
+            saved_errno = errno;
+        }
+        if (result == PHOTOC_JPEG_EDIT_OK && replace_source &&
+            fchmod(fileno(output), source_info.st_mode & 07777) != 0) {
+            result = PHOTOC_JPEG_EDIT_IO_ERROR;
+            saved_errno = errno;
+        }
         if (result == PHOTOC_JPEG_EDIT_OK &&
             (fflush(output) != 0 || fsync(fileno(output)) != 0)) {
             result = PHOTOC_JPEG_EDIT_IO_ERROR;
@@ -522,14 +618,32 @@ photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
             saved_errno = errno;
         }
     }
+    if (result == PHOTOC_JPEG_EDIT_OK && replace_source) {
+        struct stat after;
+        if (fstat(fileno(source), &after) != 0) {
+            result = PHOTOC_JPEG_EDIT_IO_ERROR;
+            saved_errno = errno;
+        } else if (!same_source(&source_info, &after)) {
+            result = PHOTOC_JPEG_EDIT_UNSAFE_SOURCE;
+        }
+    }
     if (fclose(source) != 0 && result == PHOTOC_JPEG_EDIT_OK) {
         result = PHOTOC_JPEG_EDIT_IO_ERROR;
         saved_errno = errno;
     }
-    if (result == PHOTOC_JPEG_EDIT_OK &&
-        photoc_fs_rename_noreplace(temporary, destination_path) != 0) {
-        result = PHOTOC_JPEG_EDIT_IO_ERROR;
-        saved_errno = errno;
+    if (result == PHOTOC_JPEG_EDIT_OK) {
+        if (replace_source) {
+            result = check_replace_source(source_path, exif);
+            if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
+                saved_errno = errno;
+            }
+        }
+        if (result == PHOTOC_JPEG_EDIT_OK &&
+            (replace_source ? rename(temporary, destination_path) :
+             photoc_fs_rename_noreplace(temporary, destination_path)) != 0) {
+            result = PHOTOC_JPEG_EDIT_IO_ERROR;
+            saved_errno = errno;
+        }
     }
     if (temporary != NULL) {
         unlink(temporary);
@@ -541,6 +655,19 @@ photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
         errno = saved_errno;
     }
     return result;
+}
+
+photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
+    const char *source_path, const char *destination_path,
+    const photoc_jpeg_exif *exif)
+{
+    return write_with_exif(source_path, destination_path, exif, false);
+}
+
+photoc_jpeg_edit_result photoc_jpeg_replace_with_exif(
+    const char *source_path, const photoc_jpeg_exif *exif)
+{
+    return write_with_exif(source_path, source_path, exif, true);
 }
 
 const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result)
@@ -555,6 +682,8 @@ const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result)
     case PHOTOC_JPEG_EDIT_EXIF_TOO_LARGE: return "EXIF exceeds JPEG APP1 limit";
     case PHOTOC_JPEG_EDIT_IO_ERROR: return "JPEG I/O error";
     case PHOTOC_JPEG_EDIT_NO_MEMORY: return "out of memory";
+    case PHOTOC_JPEG_EDIT_UNSAFE_SOURCE:
+        return "unsafe in-place source (changed, linked, symlinked, or not owned by this user)";
     default: return "unknown JPEG editing error";
     }
 }

@@ -14,7 +14,8 @@ typedef enum {
     PHOTOC_JPEG_EDIT_UNSAFE_LAYOUT,
     PHOTOC_JPEG_EDIT_EXIF_TOO_LARGE,
     PHOTOC_JPEG_EDIT_IO_ERROR,
-    PHOTOC_JPEG_EDIT_NO_MEMORY
+    PHOTOC_JPEG_EDIT_NO_MEMORY,
+    PHOTOC_JPEG_EDIT_UNSAFE_SOURCE
 } photoc_jpeg_edit_result;
 
 /* Load an owned, editable copy of the EXIF from a JPEG. A JPEG without an
@@ -45,6 +46,16 @@ photoc_jpeg_edit_result photoc_jpeg_exif_remove_gps(photoc_jpeg_exif *exif);
 photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
     const char *source_path, const char *destination_path,
     const photoc_jpeg_exif *exif);
+
+/* Replace source_path with an edited JPEG only after writing, syncing, and
+   verifying a temporary JPEG beside it. Preserves POSIX permission bits and
+   group ownership, failing before replacement if either cannot be set.
+   Refuses symlinks, hard-linked files, files owned by another user, and a
+   source whose identity or contents changed since exif was loaded. The
+   original path remains untouched on any failure before atomic rename.
+   Other metadata such as ACLs and extended attributes is not preserved. */
+photoc_jpeg_edit_result photoc_jpeg_replace_with_exif(
+    const char *source_path, const photoc_jpeg_exif *exif);
 
 void photoc_jpeg_exif_free(photoc_jpeg_exif *exif);
 

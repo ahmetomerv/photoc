@@ -320,7 +320,11 @@ if(BUILD_TESTING)
 
     foreach(case IN ITEMS single directory directory_failure recursive no_gps invalid
                           collision unsupported missing_gps missing_path
-                          recursive_file json unknown_option)
+                          recursive_file json unknown_option
+                          in_place_single in_place_directory
+                          in_place_directory_failure in_place_recursive
+                          in_place_no_gps in_place_invalid
+                          in_place_hardlink in_place_symlink)
         add_test(
             NAME "scrub_${case}"
             COMMAND "${CMAKE_COMMAND}"

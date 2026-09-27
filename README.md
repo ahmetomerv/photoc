@@ -48,6 +48,7 @@ You can run the same steps with `sh scripts/build-and-test.sh`.
 ./build/photoc sort ~/Pictures --by date --apply
 ./build/photoc scrub photo.jpg --gps
 ./build/photoc scrub ~/Pictures --gps --recursive
+./build/photoc scrub photo.jpg --gps --in-place
 ```
 
 `exif <file>` prints file, image, camera, exposure, date, and location details
@@ -120,15 +121,26 @@ apply summary includes planned, unchanged, blocked, applied, and rolled-back
 counts. Concurrent filesystem changes can prevent full restoration; photoc
 will not overwrite a competing file to complete rollback.
 
-`scrub <file|directory> --gps [--recursive]` removes EXIF GPS tags from JPEG
-copies named like `photo.scrubbed.jpg`; it never changes the source or replaces
-an existing destination. Directory scans include one level by default and
-can include nested directories with `--recursive`. JPEGs without GPS tags and
-non-JPEG directory entries are skipped. The report lists each file whose GPS
+`scrub <file|directory> --gps [--recursive] [--in-place]` removes EXIF GPS tags
+from JPEGs. By default it creates copies named like `photo.scrubbed.jpg`; it
+never changes the source or replaces an existing destination. Directory scans
+include one level by default and can include nested directories with
+`--recursive`. JPEGs without GPS tags and non-JPEG directory entries are
+skipped. The report lists each file whose GPS
 tags were removed and totals processed, skipped, failed, and GPS-removed files.
 Invalid or unreadable JPEGs and output collisions count as failures, while
 other files continue processing. Scrub does not remove location data from XMP
 or MakerNotes.
+
+**Warning:** `--in-place` replaces each original JPEG after writing and
+verifying a temporary file in the same directory. It creates no backup.
+The replacement keeps POSIX permission bits and group ownership. It refuses
+symlinks, hard links, files owned by another user, and sources changed since
+metadata was read. ACLs and extended attributes are not copied. If permission
+preservation, writing, or verification fails, the original remains in place
+and the temporary file is removed. The final
+rename is atomic on a local filesystem; as with other portable POSIX tools,
+concurrent replacement of the same path cannot be prevented completely.
 
 The planned `compress` and `focus` commands still report that they are not
 implemented.
@@ -202,21 +214,27 @@ uses this API for both previews and applied changes.
 ## JPEG metadata writing API
 
 [`include/photoc/jpeg_write.h`](include/photoc/jpeg_write.h) exposes reusable
-functions to load an editable EXIF copy, deep-copy it, inspect and remove its GPS
-IFD, and write a new JPEG. `photoc scrub` uses this API. The source stays untouched;
-the destination must not exist. The writer creates a mode-0600 temporary file
+functions to load an editable EXIF copy, deep-copy it, inspect and remove its
+GPS IFD, and write a new JPEG. `photoc scrub` uses this API. By default the
+source stays untouched; the destination must not exist. The writer creates a
+mode-0600 temporary file
 beside the destination, flushes and syncs it, reopens and validates the JPEG and
 EXIF, compares all bytes outside the replaced EXIF segment with the source,
 then uses a no-overwrite rename. It copies compressed image data verbatim, with
 no decoding or recompression. Failure paths attempt to remove the temporary
 file.
 
+For explicit in-place scrubbing, `photoc_jpeg_replace_with_exif` uses the same
+temporary-file verification, restores the original mode bits and group, checks
+the source identity again, then atomically replaces it. It refuses sources with multiple
+hard links, symlinks, changed timestamps or identity, or different ownership.
+
 The writer preserves other JPEG segments byte-for-byte and retains non-GPS
 EXIF fields that libexif can represent. It rejects ambiguous files with
 multiple EXIF APP1 segments or EXIF after the first image scan. libexif has
 limited support for some MakerNotes, so unusual maker-specific EXIF may change
 when serialized. GPS stored outside the EXIF GPS IFD, such as in XMP or a
-MakerNote, is outside this API's scope. The original remains available for
+MakerNote, is outside this API's scope. Copy mode retains the original for
 inspection or recovery.
 
 ## EXIF dependency

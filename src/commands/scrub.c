@@ -74,7 +74,7 @@ static void report_edit_error(const char *path, photoc_jpeg_edit_result result,
     fputc('\n', stderr);
 }
 
-static void scrub_file(const char *path, scrub_counts *counts)
+static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
 {
     if (!photoc_fs_is_jpeg(path)) {
         ++counts->skipped;
@@ -101,7 +101,7 @@ static void scrub_file(const char *path, scrub_counts *counts)
     }
 
     char *destination = NULL;
-    if (scrubbed_path(path, &destination) != 0) {
+    if (!in_place && scrubbed_path(path, &destination) != 0) {
         ++counts->failed;
         fprintf(stderr, "photoc scrub: '%s': cannot build output path: %s\n",
                 path, strerror(errno));
@@ -111,16 +111,21 @@ static void scrub_file(const char *path, scrub_counts *counts)
 
     result = photoc_jpeg_exif_remove_gps(exif);
     if (result == PHOTOC_JPEG_EDIT_OK) {
-        result = photoc_jpeg_write_with_exif(path, destination, exif);
+        result = in_place ? photoc_jpeg_replace_with_exif(path, exif) :
+                            photoc_jpeg_write_with_exif(path, destination, exif);
     }
     int saved_errno = errno;
     if (result == PHOTOC_JPEG_EDIT_OK) {
         ++counts->processed;
         ++counts->gps_removed;
-        printf("GPS removed: %s -> %s\n", path, destination);
+        if (in_place) {
+            printf("GPS removed in place: %s\n", path);
+        } else {
+            printf("GPS removed: %s -> %s\n", path, destination);
+        }
     } else {
         ++counts->failed;
-        report_edit_error(destination, result, saved_errno);
+        report_edit_error(in_place ? path : destination, result, saved_errno);
     }
     free(destination);
     photoc_jpeg_exif_free(exif);
@@ -167,7 +172,7 @@ static int compare_paths(const void *left, const void *right)
     return strcmp(*(const char *const *)left, *(const char *const *)right);
 }
 
-int photoc_command_scrub(const char *path, bool recursive)
+int photoc_command_scrub(const char *path, bool recursive, bool in_place)
 {
     photoc_fs_type type;
     if (photoc_fs_get_type(path, &type) != 0) {
@@ -191,7 +196,7 @@ int photoc_command_scrub(const char *path, bool recursive)
 
     scrub_counts counts = {0};
     if (type == PHOTOC_FS_FILE) {
-        scrub_file(path, &counts);
+        scrub_file(path, in_place, &counts);
     } else {
         scrub_walk walk = {0};
         int result = recursive ? photoc_fs_walk_recursive(path, visit_file,
@@ -207,7 +212,7 @@ int photoc_command_scrub(const char *path, bool recursive)
                 qsort(walk.paths, walk.count, sizeof(*walk.paths), compare_paths);
             }
             for (size_t i = 0; i < walk.count; ++i) {
-                scrub_file(walk.paths[i], &counts);
+                scrub_file(walk.paths[i], in_place, &counts);
             }
         }
         for (size_t i = 0; i < walk.count; ++i) {

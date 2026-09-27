@@ -70,6 +70,10 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
                    strcmp(arg, "--gps") == 0) {
             options->gps = true;
         } else if (!options_ended && options->command != NULL &&
+                   strcmp(options->command, "scrub") == 0 &&
+                   strcmp(arg, "--in-place") == 0) {
+            options->in_place = true;
+        } else if (!options_ended && options->command != NULL &&
                    strcmp(options->command, "sort") == 0 &&
                    strcmp(arg, "--by") == 0) {
             if (options->sort_by != NULL) {

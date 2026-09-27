@@ -329,6 +329,122 @@ cleanup:
     free(link_path);
 }
 
+static void test_in_place(const char *gps_path, const char *base_path,
+                          const char *directory)
+{
+    char *target = path_join(directory, "in-place.jpeg");
+    char *changed = path_join(directory, "changed.jpeg");
+    char *replaced = path_join(directory, "replaced.jpeg");
+    char *former = path_join(directory, "former.jpeg");
+    char *linked = path_join(directory, "linked.jpeg");
+    char *second_link = path_join(directory, "second-link.jpeg");
+    char *symlink_path = path_join(directory, "symlink.jpeg");
+    CHECK(target && changed && replaced && former && linked && second_link &&
+          symlink_path);
+    if (!target || !changed || !replaced || !former || !linked ||
+        !second_link || !symlink_path) {
+        goto cleanup;
+    }
+    size_t source_length = 0;
+    unsigned char *source = read_file(gps_path, &source_length);
+    CHECK(source != NULL);
+    if (source == NULL) goto cleanup;
+
+    CHECK(write_file(target, source, source_length) == 0);
+    CHECK(chmod(target, 0640) == 0);
+    struct stat before;
+    CHECK(stat(target, &before) == 0);
+    photoc_jpeg_exif *exif = NULL;
+    CHECK(photoc_jpeg_exif_load_copy(target, &exif) == PHOTOC_JPEG_EDIT_OK);
+    if (exif != NULL) {
+        CHECK(photoc_jpeg_exif_remove_gps(exif) == PHOTOC_JPEG_EDIT_OK);
+        CHECK(photoc_jpeg_replace_with_exif(target, exif) ==
+              PHOTOC_JPEG_EDIT_OK);
+        photoc_jpeg_exif_free(exif);
+        struct stat info;
+        if (stat(target, &info) == 0) {
+            CHECK((info.st_mode & 07777) == 0640);
+            CHECK(info.st_uid == before.st_uid);
+            CHECK(info.st_gid == before.st_gid);
+        } else {
+            CHECK(false);
+        }
+        check_non_gps_metadata(target, false);
+        check_image_bytes(target, base_path);
+    }
+
+    CHECK(write_file(changed, source, source_length) == 0);
+    exif = NULL;
+    CHECK(photoc_jpeg_exif_load_copy(changed, &exif) == PHOTOC_JPEG_EDIT_OK);
+    if (exif != NULL) {
+        CHECK(photoc_jpeg_exif_remove_gps(exif) == PHOTOC_JPEG_EDIT_OK);
+        CHECK(write_file(changed, "changed", 7) == 0);
+        CHECK(photoc_jpeg_replace_with_exif(changed, exif) ==
+              PHOTOC_JPEG_EDIT_UNSAFE_SOURCE);
+        size_t length = 0;
+        unsigned char *remaining = read_file(changed, &length);
+        CHECK(remaining != NULL && length == 7 &&
+              memcmp(remaining, "changed", 7) == 0);
+        free(remaining);
+        photoc_jpeg_exif_free(exif);
+    }
+
+    CHECK(write_file(replaced, source, source_length) == 0);
+    exif = NULL;
+    CHECK(photoc_jpeg_exif_load_copy(replaced, &exif) == PHOTOC_JPEG_EDIT_OK);
+    if (exif != NULL) {
+        CHECK(photoc_jpeg_exif_remove_gps(exif) == PHOTOC_JPEG_EDIT_OK);
+        CHECK(rename(replaced, former) == 0);
+        CHECK(write_file(replaced, source, source_length) == 0);
+        CHECK(photoc_jpeg_replace_with_exif(replaced, exif) ==
+              PHOTOC_JPEG_EDIT_UNSAFE_SOURCE);
+        check_non_gps_metadata(replaced, true);
+        check_non_gps_metadata(former, true);
+        photoc_jpeg_exif_free(exif);
+    }
+
+    CHECK(write_file(linked, source, source_length) == 0);
+    CHECK(link(linked, second_link) == 0);
+    exif = NULL;
+    CHECK(photoc_jpeg_exif_load_copy(linked, &exif) == PHOTOC_JPEG_EDIT_OK);
+    if (exif != NULL) {
+        CHECK(photoc_jpeg_exif_remove_gps(exif) == PHOTOC_JPEG_EDIT_OK);
+        CHECK(photoc_jpeg_replace_with_exif(linked, exif) ==
+              PHOTOC_JPEG_EDIT_UNSAFE_SOURCE);
+        check_non_gps_metadata(linked, true);
+        check_non_gps_metadata(second_link, true);
+        photoc_jpeg_exif_free(exif);
+    }
+
+    CHECK(symlink(linked, symlink_path) == 0);
+    exif = NULL;
+    CHECK(photoc_jpeg_exif_load_copy(symlink_path, &exif) ==
+          PHOTOC_JPEG_EDIT_OK);
+    if (exif != NULL) {
+        CHECK(photoc_jpeg_exif_remove_gps(exif) == PHOTOC_JPEG_EDIT_OK);
+        CHECK(photoc_jpeg_replace_with_exif(symlink_path, exif) ==
+              PHOTOC_JPEG_EDIT_UNSAFE_SOURCE);
+        check_non_gps_metadata(linked, true);
+        photoc_jpeg_exif_free(exif);
+    }
+    free(source);
+cleanup:
+    if (target) unlink(target);
+    if (changed) unlink(changed);
+    if (replaced) unlink(replaced);
+    if (former) unlink(former);
+    if (linked) unlink(linked);
+    if (second_link) unlink(second_link);
+    if (symlink_path) unlink(symlink_path);
+    free(target);
+    free(changed);
+    free(replaced);
+    free(former);
+    free(linked);
+    free(second_link);
+    free(symlink_path);
+}
+
 int main(void)
 {
     char *gps = path_join(PHOTOC_METADATA_FIXTURES, "with_gps.jpeg");
@@ -341,6 +457,7 @@ int main(void)
     if (gps && base && invalid && directory && mkdtemp(directory) != NULL) {
         test_writing(gps, base, directory);
         test_failures(gps, base, invalid, directory);
+        test_in_place(gps, base, directory);
         CHECK(rmdir(directory) == 0);
     } else {
         CHECK(false);
