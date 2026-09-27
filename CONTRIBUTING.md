@@ -63,5 +63,8 @@ Thanks for helping build `photoc`.
    `clang-tidy -p build-analyze src/core/fs.c` also works after the script
    has configured `build-analyze`.
 
-5. Add or update tests when adding behavior. Keep fixtures small and place them in `tests/fixtures/`.
+5. Add or update tests when adding behavior. Keep fixtures small and place them
+   in `tests/fixtures/`. Prefer generated synthetic images over external photos;
+   see [`tests/fixtures/README.md`](tests/fixtures/README.md). Regenerate binary
+   fixtures with `python3 scripts/make-fixtures.py` when you change a generator.
 6. Describe what changed and how it was tested in your pull request.

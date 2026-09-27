@@ -6,4 +6,6 @@
 *.o
 *.obj
 *.dSYM/
+__pycache__/
+*.py[cod]
 .DS_Store

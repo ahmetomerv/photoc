@@ -3,7 +3,7 @@ Photo statistics
   Scan: recursive
   Total photos: 5
   Total storage used: @TOTAL_SIZE@ bytes
-  Average file size: 940.6 bytes
+  Average file size: @AVERAGE@ bytes
   Earliest capture: 2024:01:02 03:04:05
   Latest capture: 2026:09:27 12:34:56
   Most-used camera: Model A (2)
