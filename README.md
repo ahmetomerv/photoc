@@ -123,6 +123,14 @@ The scanner owns and frees each `Photo` after its callback returns.
 aggregation API used by `photoc stats`. It owns frequency labels, ignores
 unavailable values, and sorts frequency tables separately from CLI formatting.
 
+[`include/photoc/session.h`](include/photoc/session.h) groups photos already
+sorted by EXIF capture time. Consecutive photos stay in one session when their
+gap is at most the configured threshold (60 minutes by default). It writes
+stable, 1-based IDs to a caller-owned array; missing timestamps receive ID 0
+and break the session chain. Invalid or out-of-order timestamps return an error
+without changing the output. This is shared logic only; no CLI command uses it
+yet.
+
 [`include/photoc/filename_template.h`](include/photoc/filename_template.h)
 defines the filename-template API for future rename operations. It expands
 `{date}`, `{datetime}`, `{camera}`, `{make}`, `{iso}`, `{aperture}`, `{focal}`,

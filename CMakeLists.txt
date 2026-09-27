@@ -26,6 +26,7 @@ add_library(photoc_core STATIC
     src/core/metadata.c
     src/core/photo.c
     src/core/scan.c
+    src/core/session.c
     src/core/stats.c
     src/core/timestamp.c
 )
@@ -72,6 +73,11 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_photo)
     target_link_libraries(test_photo PRIVATE photoc_core)
     add_test(NAME photo_model COMMAND test_photo)
+
+    add_executable(test_session tests/test_session.c)
+    photoc_configure_c_target(test_session)
+    target_link_libraries(test_session PRIVATE photoc_core)
+    add_test(NAME photo_sessions COMMAND test_session)
 
     add_executable(test_filename_template tests/test_filename_template.c)
     photoc_configure_c_target(test_filename_template)
