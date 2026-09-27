@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 
 project(photoc VERSION 0.1.0 LANGUAGES C)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
+
 function(photoc_configure_c_target target)
     set_target_properties("${target}" PROPERTIES
         C_STANDARD 17
@@ -22,6 +25,7 @@ add_library(photoc_core STATIC
 )
 photoc_configure_c_target(photoc_core)
 target_include_directories(photoc_core PUBLIC include)
+target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF)
 
 add_executable(photoc
     src/main.c
@@ -58,6 +62,11 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_photo)
     target_link_libraries(test_photo PRIVATE photoc_core)
     add_test(NAME photo_model COMMAND test_photo)
+
+    add_executable(test_exif_link tests/test_exif_link.c)
+    photoc_configure_c_target(test_exif_link)
+    target_link_libraries(test_exif_link PRIVATE photoc_core)
+    add_test(NAME exif_library_link COMMAND test_exif_link)
 
     function(add_cli_test name case)
         set(extra_args)

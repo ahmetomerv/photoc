@@ -4,7 +4,19 @@
 
 ## Build and test
 
-Requires a C17 compiler and CMake 3.21 or newer.
+Requires a C17 compiler, CMake 3.21 or newer, a `pkg-config` implementation,
+and the libexif development package:
+
+```sh
+# macOS (Homebrew)
+brew install cmake pkgconf libexif
+
+# Debian/Ubuntu
+sudo apt install cmake pkg-config libexif-dev
+
+# Fedora
+sudo dnf install cmake pkgconf-pkg-config libexif-devel
+```
 
 ```sh
 cmake -S . -B build
@@ -31,6 +43,18 @@ Missing or unknown commands, unknown options, and conflicting options exit with 
 ## Shared filesystem utilities
 
 [`include/photoc/fs.h`](include/photoc/fs.h) defines the filesystem API used by future commands. It covers path inspection, filename and extension extraction, safe path joining, and callback-based directory walks. [`include/photoc/photo.h`](include/photoc/photo.h) defines the shared `Photo` metadata model. Both headers document ownership and unavailable values.
+
+## EXIF dependency
+
+[`libexif`](https://libexif.github.io/) is a C library for reading, editing,
+and serializing EXIF metadata. CMake finds the system installation through its
+`libexif.pc` file; the library is not vendored. It is LGPL-licensed and remains
+separate from photoc's MIT-licensed source. Binary distributors must meet the
+LGPL requirements for the library they ship or link.
+
+libexif's direct file-loading API targets JPEG. Its save API produces an EXIF
+data buffer, so safely writing modified metadata back into an image file will
+need additional work. RAW and HEIC support are outside this integration.
 
 ## Contributing
 
