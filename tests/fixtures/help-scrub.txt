@@ -1,0 +1,9 @@
+Usage: photoc [global options] scrub <photo>...
+       photoc scrub --help
+
+Remove selected metadata
+
+Status: not implemented
+
+Example (planned):
+  photoc scrub photo.jpg

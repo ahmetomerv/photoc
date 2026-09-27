@@ -1,0 +1,9 @@
+Usage: photoc [global options] focus <photo>...
+       photoc focus --help
+
+Assess image focus
+
+Status: not implemented
+
+Example (planned):
+  photoc focus photo.jpg

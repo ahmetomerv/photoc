@@ -12,17 +12,19 @@
 typedef struct {
     const char *name;
     const char *description;
+    const char *arguments;
+    const char *example;
 } photoc_command;
 
 static const photoc_command commands[] = {
-    {"compress", "Compress image files"},
-    {"exif", "Inspect image metadata"},
-    {"duplicates", "Find duplicate photos"},
-    {"stats", "Summarize photo collections"},
-    {"rename", "Rename photo files"},
-    {"sort", "Organize photos into folders"},
-    {"focus", "Assess image focus"},
-    {"scrub", "Remove selected metadata"}
+    {"compress", "Compress image files", "<photo>...", "photoc compress photo.jpg"},
+    {"exif", "Inspect image metadata", "<photo>...", "photoc exif photo.jpg"},
+    {"duplicates", "Find duplicate photos", "<path>...", "photoc duplicates ~/Pictures"},
+    {"stats", "Summarize photo collections", "<path>...", "photoc stats ~/Pictures"},
+    {"rename", "Rename photo files", "<photo>...", "photoc rename photo.jpg"},
+    {"sort", "Organize photos into folders", "<path>...", "photoc sort ~/Pictures"},
+    {"focus", "Assess image focus", "<photo>...", "photoc focus photo.jpg"},
+    {"scrub", "Remove selected metadata", "<photo>...", "photoc scrub photo.jpg"}
 };
 
 static const photoc_command *find_command(const char *name)
@@ -37,11 +39,12 @@ static const photoc_command *find_command(const char *name)
 
 static void print_global_help(void)
 {
-    puts("Usage: photoc [global options] <command> [args]");
-    puts("       photoc --help");
-    puts("       photoc --version");
+    puts("photoc - command-line toolkit for photographers");
     puts("");
-    puts("Commands:");
+    puts("Usage: photoc [global options] <command> [args]");
+    puts("       photoc <command> --help");
+    puts("");
+    puts("Commands (planned; not implemented):");
     for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); ++i) {
         printf("  %-12s %s\n", commands[i].name, commands[i].description);
     }
@@ -52,13 +55,21 @@ static void print_global_help(void)
     puts("  -v, --verbose    Request detailed output");
     puts("  -q, --quiet      Request reduced output");
     puts("      --json       Request JSON output where supported");
+    puts("");
+    puts("Run 'photoc <command> --help' for planned usage and examples.");
 }
 
 static void print_command_help(const photoc_command *command)
 {
-    printf("Usage: photoc [global options] %s [args]\n\n", command->name);
+    printf("Usage: photoc [global options] %s %s\n",
+           command->name, command->arguments);
+    printf("       photoc %s --help\n\n", command->name);
     puts(command->description);
-    puts("This command is not implemented yet.");
+    puts("");
+    puts("Status: not implemented");
+    puts("");
+    puts("Example (planned):");
+    printf("  %s\n", command->example);
 }
 
 int photoc_run(int argc, char *argv[])
@@ -114,7 +125,8 @@ int photoc_run(int argc, char *argv[])
     }
 
     if (command == NULL) {
-        fputs("Usage: photoc [global options] <command> [args]\n"
+        fputs("photoc: missing command\n"
+              "Usage: photoc [global options] <command> [args]\n"
               "Try 'photoc --help' for available commands.\n", stderr);
         return PHOTOC_EXIT_USAGE;
     }

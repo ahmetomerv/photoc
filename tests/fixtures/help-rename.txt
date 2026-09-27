@@ -1,0 +1,9 @@
+Usage: photoc [global options] rename <photo>...
+       photoc rename --help
+
+Rename photo files
+
+Status: not implemented
+
+Example (planned):
+  photoc rename photo.jpg

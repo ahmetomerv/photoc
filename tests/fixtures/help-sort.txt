@@ -1,0 +1,9 @@
+Usage: photoc [global options] sort <path>...
+       photoc sort --help
+
+Organize photos into folders
+
+Status: not implemented
+
+Example (planned):
+  photoc sort ~/Pictures

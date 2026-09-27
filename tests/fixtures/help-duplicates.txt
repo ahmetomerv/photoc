@@ -1,0 +1,9 @@
+Usage: photoc [global options] duplicates <path>...
+       photoc duplicates --help
+
+Find duplicate photos
+
+Status: not implemented
+
+Example (planned):
+  photoc duplicates ~/Pictures

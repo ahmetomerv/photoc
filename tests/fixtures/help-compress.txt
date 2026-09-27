@@ -1,0 +1,9 @@
+Usage: photoc [global options] compress <photo>...
+       photoc compress --help
+
+Compress image files
+
+Status: not implemented
+
+Example (planned):
+  photoc compress photo.jpg

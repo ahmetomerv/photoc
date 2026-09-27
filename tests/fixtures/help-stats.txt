@@ -1,0 +1,9 @@
+Usage: photoc [global options] stats <path>...
+       photoc stats --help
+
+Summarize photo collections
+
+Status: not implemented
+
+Example (planned):
+  photoc stats ~/Pictures
