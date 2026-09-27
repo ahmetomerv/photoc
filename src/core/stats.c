@@ -86,15 +86,38 @@ static int add_count(photoc_stats_counts *counts, const char *value,
     return 0;
 }
 
-static int add_numeric(photoc_stats_counts *counts, double value)
+static int format_numeric_label(double value, char *label, size_t label_size)
 {
-    char label[64];
-    int length = snprintf(label, sizeof(label), "%.15g", value);
-    if (length < 0 || (size_t)length >= sizeof(label)) {
+    int length = snprintf(label, label_size, "%.15g", value);
+    if (length < 0 || (size_t)length >= label_size) {
         errno = EOVERFLOW;
         return -1;
     }
+    return 0;
+}
+
+static int add_numeric(photoc_stats_counts *counts, double value)
+{
+    char label[64];
+    if (format_numeric_label(value, label, sizeof(label)) != 0) {
+        return -1;
+    }
     return add_count(counts, label, value);
+}
+
+/* Existing buckets stop at UINT64_MAX. Reject that before any bucket is
+   updated so a later overflow cannot leave earlier counts incremented. */
+static int reject_full_bucket(const photoc_stats_counts *counts,
+                              const char *value)
+{
+    for (size_t i = 0; i < counts->count; ++i) {
+        if (strcmp(counts->items[i].value, value) == 0 &&
+            counts->items[i].count == UINT64_MAX) {
+            errno = EOVERFLOW;
+            return -1;
+        }
+    }
+    return 0;
 }
 
 int photoc_stats_add_photo(photoc_stats_aggregate *aggregate,
@@ -111,28 +134,57 @@ int photoc_stats_add_photo(photoc_stats_aggregate *aggregate,
         return -1;
     }
 
-    if (photo->camera_model != NULL && photo->camera_model[0] != '\0' &&
-        add_count(&aggregate->camera_models, photo->camera_model, 0.0) != 0) {
-        return -1;
-    }
-    if (photo->has_iso && photo->iso != 0) {
-        char label[32];
-        int length = snprintf(label, sizeof(label), "%" PRIu32, photo->iso);
-        if (length < 0 || (size_t)length >= sizeof(label)) {
+    const bool add_camera = photo->camera_model != NULL &&
+                            photo->camera_model[0] != '\0';
+    const bool add_iso = photo->has_iso && photo->iso != 0;
+    const bool add_aperture = photo->has_aperture && isfinite(photo->aperture) &&
+                              photo->aperture > 0.0;
+    const bool add_focal = photo->has_focal_length &&
+                           isfinite(photo->focal_length) &&
+                           photo->focal_length > 0.0;
+    char iso_label[32];
+    char aperture_label[64];
+    char focal_label[64];
+    if (add_iso) {
+        int length = snprintf(iso_label, sizeof(iso_label), "%" PRIu32,
+                              photo->iso);
+        if (length < 0 || (size_t)length >= sizeof(iso_label)) {
             errno = EOVERFLOW;
             return -1;
         }
-        if (add_count(&aggregate->iso_values, label, (double)photo->iso) != 0) {
-            return -1;
-        }
     }
-    if (photo->has_aperture && isfinite(photo->aperture) &&
-        photo->aperture > 0.0 &&
-        add_numeric(&aggregate->apertures, photo->aperture) != 0) {
+    if (add_aperture &&
+        format_numeric_label(photo->aperture, aperture_label,
+                             sizeof(aperture_label)) != 0) {
         return -1;
     }
-    if (photo->has_focal_length && isfinite(photo->focal_length) &&
-        photo->focal_length > 0.0 &&
+    if (add_focal &&
+        format_numeric_label(photo->focal_length, focal_label,
+                             sizeof(focal_label)) != 0) {
+        return -1;
+    }
+    if ((add_camera &&
+         reject_full_bucket(&aggregate->camera_models, photo->camera_model) != 0) ||
+        (add_iso && reject_full_bucket(&aggregate->iso_values, iso_label) != 0) ||
+        (add_aperture &&
+         reject_full_bucket(&aggregate->apertures, aperture_label) != 0) ||
+        (add_focal &&
+         reject_full_bucket(&aggregate->focal_lengths, focal_label) != 0)) {
+        return -1;
+    }
+
+    if (add_camera &&
+        add_count(&aggregate->camera_models, photo->camera_model, 0.0) != 0) {
+        return -1;
+    }
+    if (add_iso &&
+        add_count(&aggregate->iso_values, iso_label, (double)photo->iso) != 0) {
+        return -1;
+    }
+    if (add_aperture && add_numeric(&aggregate->apertures, photo->aperture) != 0) {
+        return -1;
+    }
+    if (add_focal &&
         add_numeric(&aggregate->focal_lengths, photo->focal_length) != 0) {
         return -1;
     }

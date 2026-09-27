@@ -42,6 +42,10 @@ elseif(CASE STREQUAL "invalid")
     set(expected_skipped 1)
     set(expected_failed 1)
     set(expected_exit 1)
+elseif(CASE STREQUAL "skipped_inputs")
+    file(COPY_FILE "${FIXTURE_DIR}/with_exif.jpg" "${source}/prior.compressed.jpg")
+    file(CREATE_LINK "${source}/a.jpg" "${source}/link.jpg" SYMBOLIC)
+    set(expected_skipped 3)
 elseif(CASE STREQUAL "flat")
 else()
     message(FATAL_ERROR "Unknown compress directory case: ${CASE}")
@@ -116,6 +120,11 @@ endforeach()
 
 if(CASE STREQUAL "flat" AND EXISTS "${source}/nested/c.compressed.JPG")
     message(FATAL_ERROR "Flat scan reached nested JPEG")
+endif()
+if(CASE STREQUAL "skipped_inputs" AND
+   (EXISTS "${source}/link.compressed.jpg" OR
+    EXISTS "${source}/prior.compressed.compressed.jpg"))
+    message(FATAL_ERROR "Symlink or already-compressed JPEG was compressed")
 endif()
 if(CASE STREQUAL "output_dir" OR CASE STREQUAL "output_dir_external")
     if(EXISTS "${source}/a.compressed.jpg" OR

@@ -31,6 +31,13 @@ elseif(CASE STREQUAL "directory_failure")
     set(expected_exit 1)
     set(expected_summary "Files processed: 1\nFiles skipped: 1\nFiles failed: 1\nFiles with GPS found and removed: 1")
     set(expected_error "invalid JPEG")
+elseif(CASE STREQUAL "symlink")
+    file(REMOVE "${invalid}")
+    file(REMOVE "${clean}")
+    file(CREATE_LINK "${gps}" "${root}/link.jpeg" SYMBOLIC)
+    file(WRITE "${root}/notes.txt" "not a JPEG")
+    set(arguments scrub "${root}" --gps)
+    set(expected_summary "Files processed: 1\nFiles skipped: 2\nFiles failed: 0\nFiles with GPS found and removed: 1")
 elseif(CASE STREQUAL "recursive")
     file(REMOVE "${invalid}")
     file(MAKE_DIRECTORY "${root}/nested")
@@ -138,7 +145,7 @@ if(expected_exit EQUAL 0 AND NOT stderr STREQUAL "")
 endif()
 
 if(CASE STREQUAL "single" OR CASE STREQUAL "directory" OR
-   CASE STREQUAL "directory_failure" OR
+   CASE STREQUAL "directory_failure" OR CASE STREQUAL "symlink" OR
    CASE STREQUAL "recursive")
     string(REGEX REPLACE "\\.(jpe?g)$" ".scrubbed.\\1" output "${gps}")
     if(NOT EXISTS "${output}")
@@ -173,7 +180,8 @@ if(CASE STREQUAL "single" OR CASE STREQUAL "directory" OR
         message(FATAL_ERROR "Original GPS metadata changed")
     endif()
     if(EXISTS "${root}/gps.scrubbed.scrubbed.jpeg" OR
-       EXISTS "${root}/nested/gps.scrubbed.scrubbed.jpeg")
+       EXISTS "${root}/nested/gps.scrubbed.scrubbed.jpeg" OR
+       EXISTS "${root}/link.scrubbed.jpeg")
         message(FATAL_ERROR "Scrubbed output was processed again")
     endif()
 elseif(CASE STREQUAL "no_gps")

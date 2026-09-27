@@ -237,7 +237,10 @@ if(BUILD_TESTING)
                           unknown_with_option unknown_option_before
                           unknown_option_after unknown_short_option
                           help_version_conflict verbose_quiet_conflict
-                          version_with_command end_of_options command_arguments)
+                          verbose_quiet_after version_with_command
+                          end_of_options end_of_options_command
+                          help_before_command dash_argument focus_json
+                          command_arguments)
         add_cli_test("cli_${case}" "${case}")
     endforeach()
 
@@ -271,7 +274,7 @@ if(BUILD_TESTING)
     endforeach()
 
     foreach(case IN ITEMS flat recursive output_dir output_dir_external
-                          output_dir_same collision invalid)
+                          output_dir_same collision invalid skipped_inputs)
         add_test(
             NAME "compress_directory_${case}"
             COMMAND "${CMAKE_COMMAND}"
@@ -298,8 +301,8 @@ if(BUILD_TESTING)
 
     foreach(case IN ITEMS duplicates same_size_nonduplicates no_duplicates
                           multiple_groups
-                          nested missing no_argument extra_argument
-                          unknown_option)
+                          nested missing file unreadable no_argument
+                          extra_argument unknown_option)
         add_test(
             NAME "duplicates_${case}"
             COMMAND "${CMAKE_COMMAND}"
@@ -322,7 +325,7 @@ if(BUILD_TESTING)
 
     foreach(case IN ITEMS flat recursive missing_date collision duplicate
                           case_duplicate parent_conflict invalid_jpeg unchanged
-                          empty missing_directory missing_by missing_value
+                          symlink empty missing_directory missing_by missing_value
                           duplicate_by unknown_by json unknown_option)
         add_test(
             NAME "sort_${case}"
@@ -366,7 +369,8 @@ if(BUILD_TESTING)
 
     foreach(case IN ITEMS flat recursive missing_date missing_camera collision
                           file_collision duplicate case_duplicate
-                          separate_directories invalid_jpeg unchanged empty
+                          separate_directories invalid_jpeg unchanged symlink
+                          unsafe_name empty
                           format_before_directory unknown_placeholder
                           malformed_template missing_format missing_value
                           duplicate_format missing_directory json unknown_option)
@@ -417,7 +421,7 @@ if(BUILD_TESTING)
     endforeach()
 
     foreach(case IN ITEMS with_exif with_gps no_exif invalid unsupported missing
-                          no_argument extra_argument unknown_option)
+                          directory no_argument extra_argument unknown_option)
         add_test(
             NAME "exif_${case}"
             COMMAND "${CMAKE_COMMAND}"
@@ -441,7 +445,7 @@ if(BUILD_TESTING)
     endforeach()
 
     foreach(case IN ITEMS single directory directory_failure recursive no_gps invalid
-                          collision unsupported missing_gps missing_path
+                          collision unsupported missing_gps missing_path symlink
                           recursive_file json unknown_option
                           in_place_single in_place_directory
                           in_place_directory_failure in_place_recursive

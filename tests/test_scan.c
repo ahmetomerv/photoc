@@ -292,6 +292,30 @@ static void observe_io_warning(const char *path, photoc_metadata_result reason,
     }
 }
 
+static void test_non_regular_entries(const test_tree *tree)
+{
+    char *album = NULL;
+    char *link = NULL;
+    CHECK(photoc_fs_join(tree->empty, "album.jpg", &album) == 0);
+    CHECK(photoc_fs_join(tree->empty, "link.jpg", &link) == 0);
+    if (album != NULL && link != NULL) {
+        CHECK(mkdir(album, 0700) == 0);
+        CHECK(symlink(tree->camera, link) == 0);
+        observations seen = {0};
+        photoc_scan_stats stats = {0};
+        CHECK(photoc_scan_directory(tree->empty, true, observe_photo,
+                                    observe_warning, &seen, &stats) == 0);
+        CHECK(stats.files_visited == 0 && stats.jpeg_files_found == 0);
+        CHECK(stats.photos_parsed == 0 && stats.skipped_files == 0 &&
+              stats.errors == 0);
+        CHECK(seen.photos == 0 && seen.warnings == 0);
+        CHECK(rmdir(album) == 0);
+        CHECK(unlink(link) == 0);
+    }
+    free(album);
+    free(link);
+}
+
 static void test_unreadable_file(const test_tree *tree)
 {
     char *path = NULL;
@@ -350,6 +374,7 @@ int main(void)
         test_flat(&tree);
         test_recursive(&tree);
         test_empty_and_stop(&tree);
+        test_non_regular_entries(&tree);
         test_unreadable_file(&tree);
         test_errors(&tree);
     } else {

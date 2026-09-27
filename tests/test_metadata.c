@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static int failures;
 
@@ -150,12 +151,64 @@ static void test_failures(void)
     photo_cleanup(&photo);
 }
 
+static void test_non_regular_and_empty(void)
+{
+    char directory[] = "photoc-metadata-XXXXXX";
+    if (mkdtemp(directory) == NULL) {
+        CHECK(false);
+        return;
+    }
+
+    char album[512];
+    char empty[512];
+    char link[512];
+    CHECK(snprintf(album, sizeof(album), "%s/album.jpg", directory) <
+          (int)sizeof(album));
+    CHECK(snprintf(empty, sizeof(empty), "%s/empty.jpg", directory) <
+          (int)sizeof(empty));
+    CHECK(snprintf(link, sizeof(link), "%s/link.jpg", directory) <
+          (int)sizeof(link));
+
+    Photo photo = {0};
+    CHECK(mkdir(album, 0700) == 0);
+    errno = 0;
+    CHECK(photo_load_metadata(album, &photo) == PHOTOC_METADATA_IO_ERROR);
+    CHECK(errno == EISDIR);
+    CHECK(photo.path == NULL);
+
+    FILE *file = fopen(empty, "wb");
+    CHECK(file != NULL);
+    if (file != NULL) {
+        CHECK(fclose(file) == 0);
+    }
+    errno = 0;
+    CHECK(photo_load_metadata(empty, &photo) == PHOTOC_METADATA_INVALID_JPEG);
+    CHECK(photo.path == NULL);
+
+    char *target = fixture("with_exif.jpg");
+    CHECK(target != NULL);
+    if (target != NULL) {
+        CHECK(symlink(target, link) == 0);
+        errno = 0;
+        CHECK(photo_load_metadata(link, &photo) == PHOTOC_METADATA_IO_ERROR);
+        CHECK(errno == EINVAL);
+        CHECK(photo.path == NULL);
+        CHECK(unlink(link) == 0);
+    }
+    free(target);
+    CHECK(unlink(empty) == 0);
+    CHECK(rmdir(album) == 0);
+    CHECK(rmdir(directory) == 0);
+    photo_cleanup(&photo);
+}
+
 int main(void)
 {
     test_with_exif();
     test_with_gps();
     test_without_exif();
     test_failures();
+    test_non_regular_and_empty();
     if (failures != 0) {
         fprintf(stderr, "%d metadata test failure(s)\n", failures);
         return 1;

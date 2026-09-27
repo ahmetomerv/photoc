@@ -78,6 +78,12 @@ elseif(CASE STREQUAL "invalid_jpeg")
     set(expected_exit 1)
     set(expected_stdout "z.jpg -> 2026/09/27/z.jpg\n")
     set(expected_stderr "photoc sort: 'broken.jpg': skipped: image decode error: invalid or truncated JPEG file\n")
+elseif(CASE STREQUAL "symlink")
+    file(COPY_FILE "${FIXTURE_DIR}/with_exif.jpg" "${directory}/a.jpg")
+    file(CREATE_LINK "${directory}/a.jpg" "${directory}/link.jpg" SYMBOLIC)
+    set(jpeg_count 1)
+    set(planned 1)
+    set(expected_stdout "a.jpg -> 2026/09/27/a.jpg\n")
 elseif(CASE STREQUAL "unchanged")
     file(MAKE_DIRECTORY "${directory}/2026/09/27")
     file(COPY_FILE "${FIXTURE_DIR}/with_exif.jpg" "${directory}/2026/09/27/a.jpg")
@@ -113,7 +119,7 @@ if(CASE STREQUAL "flat" OR CASE STREQUAL "recursive" OR
    CASE STREQUAL "missing_date" OR CASE STREQUAL "collision" OR
    CASE STREQUAL "duplicate" OR CASE STREQUAL "case_duplicate" OR
    CASE STREQUAL "parent_conflict" OR CASE STREQUAL "invalid_jpeg" OR
-   CASE STREQUAL "unchanged" OR CASE STREQUAL "empty")
+   CASE STREQUAL "unchanged" OR CASE STREQUAL "symlink" OR CASE STREQUAL "empty")
     string(APPEND expected_stdout
            "Summary: ${jpeg_count} JPEG, ${planned} planned, ${unchanged} unchanged, ${skipped} blocked, 0 applied, 0 rolled back\n")
 endif()

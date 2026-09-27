@@ -180,6 +180,39 @@ static void test_errors(void)
     errno = 0;
     CHECK(photoc_stats_add_photo(&aggregate, &photo) == -1 && errno == EOVERFLOW);
     CHECK(aggregate.total_photos == 0);
+    CHECK(aggregate.total_file_size == UINT64_MAX - 1);
+
+    aggregate.total_file_size = 0;
+    aggregate.total_photos = UINT64_MAX;
+    errno = 0;
+    CHECK(photoc_stats_add_photo(&aggregate, &photo) == -1 && errno == EOVERFLOW);
+    CHECK(aggregate.total_photos == UINT64_MAX);
+    CHECK(aggregate.photos_with_file_size == 0);
+
+    photoc_stats_cleanup(&aggregate);
+    add_photo(&aggregate, "Cam", 10, true, 100, 2.8, 50.0, NULL);
+    CHECK(aggregate.total_photos == 1);
+    CHECK(aggregate.camera_models.count == 1);
+    CHECK(aggregate.iso_values.count == 1);
+    aggregate.iso_values.items[0].count = UINT64_MAX;
+    Photo overflow = {0};
+    CHECK(photo_init(&overflow, "again.jpg") == 0);
+    overflow.camera_model = copy_text("Cam");
+    overflow.has_file_size = true;
+    overflow.file_size = 10;
+    overflow.has_iso = true;
+    overflow.iso = 100;
+    errno = 0;
+    CHECK(overflow.camera_model != NULL);
+    if (overflow.camera_model != NULL) {
+        CHECK(photoc_stats_add_photo(&aggregate, &overflow) == -1 &&
+              errno == EOVERFLOW);
+    }
+    CHECK(aggregate.total_photos == 1);
+    CHECK(aggregate.total_file_size == 10);
+    CHECK(aggregate.camera_models.items[0].count == 1);
+    CHECK(aggregate.iso_values.items[0].count == UINT64_MAX);
+    photo_cleanup(&overflow);
 
     photoc_stats_cleanup(&aggregate);
     photoc_stats_sort(NULL);
