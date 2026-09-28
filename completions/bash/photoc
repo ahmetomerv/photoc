@@ -1,0 +1,88 @@
+# Bash 3.2+ completion; source this file from ~/.bashrc.
+# Uses only Bash builtins, without invoking photoc or bash-completion.
+
+_photoc_complete()
+{
+    local current=${COMP_WORDS[COMP_CWORD]} command='' word
+    local pending='' ended=0 index paths=0 kind='file' candidates=''
+    COMPREPLY=()
+
+    # Find the first positional word, skipping option values. A path named
+    # after another command must not change the selected command.
+    for ((index = 1; index < COMP_CWORD; ++index)); do
+        word=${COMP_WORDS[index]}
+        if [[ -n $pending ]]; then
+            pending=''
+            continue
+        fi
+        if (( ! ended )); then
+            case $word in
+                --) ended=1; continue ;;
+                --quality|--target|--min-quality|--output-dir|--by|--gap|--format)
+                    pending=$word; continue ;;
+                -*) continue ;;
+            esac
+        fi
+        if [[ -z $command ]]; then
+            command=$word
+        else
+            ((paths += 1))
+        fi
+    done
+
+    case $pending in
+        --by) candidates='date session' ;;
+        --quality) candidates='60 70 75 80 85 90 95 100' ;;
+        --min-quality) candidates='20 30 40 50' ;;
+        --target) candidates='500KB 1MB 2MB 5MB' ;;
+        --gap) candidates='30m 60m 2h' ;;
+        --format) return 0 ;;
+        --output-dir) kind='directory' ;;
+    esac
+    if [[ -n $candidates ]]; then
+        while IFS= read -r word; do COMPREPLY+=("$word"); done \
+            < <(compgen -W "$candidates" -- "$current")
+        return 0
+    fi
+    if [[ -z $pending ]] && (( ! ended )) && [[ $current == -* ]]; then
+        candidates='-h --help -v --verbose -q --quiet'
+        case $command in
+            '') candidates="$candidates -V --version --json" ;;
+            compress) candidates="$candidates --quality --target --min-quality --recursive --output-dir" ;;
+            exif) candidates="$candidates --json" ;;
+            duplicates|stats) candidates="$candidates --recursive --json" ;;
+            rename) candidates="$candidates --format --recursive --apply" ;;
+            sort) candidates="$candidates --by --gap --recursive --apply" ;;
+            scrub) candidates="$candidates --gps --recursive --in-place" ;;
+        esac
+        while IFS= read -r word; do COMPREPLY+=("$word"); done \
+            < <(compgen -W "$candidates" -- "$current")
+        return 0
+    fi
+    if [[ -z $command && -z $pending ]]; then
+        while IFS= read -r word; do COMPREPLY+=("$word"); done \
+            < <(compgen -W 'compress exif duplicates stats rename sort focus scrub' -- "$current")
+        return 0
+    fi
+
+    if [[ -z $pending ]]; then
+        ((paths == 0)) || [[ $command == focus ]] || return 0
+        case $command in
+            duplicates|stats|rename|sort) kind='directory' ;;
+            compress|exif|focus|scrub) ;;
+            *) return 0 ;;
+        esac
+    fi
+    # Read one match per line so filenames containing spaces remain intact.
+    # Readline's filenames mode quotes matches and handles directory slashes.
+    if [[ $kind == directory ]]; then
+        while IFS= read -r word; do COMPREPLY+=("$word"); done \
+            < <(compgen -d -- "$current")
+    else
+        while IFS= read -r word; do COMPREPLY+=("$word"); done \
+            < <(compgen -f -- "$current")
+    fi
+    return 0
+}
+
+complete -o filenames -F _photoc_complete photoc

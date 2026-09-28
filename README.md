@@ -56,16 +56,29 @@ ctest --test-dir build --output-on-failure
 ./build/photoc --version
 ```
 
-Run `./build/photoc` directly, or install the binary into your user bin directory:
+Run `./build/photoc` directly, or install the binary and man page for your user:
 
 ```sh
-mkdir -p "$HOME/.local/bin"
-install -m 755 build/photoc "$HOME/.local/bin/photoc"
+cmake --install build --prefix "$HOME/.local"
 ```
 
 Add `~/.local/bin` to your `PATH` if needed. The examples below assume `photoc`
 is on `PATH`; otherwise use `./build/photoc`. Keep the dependency libraries
 installed when using the binary.
+
+The default install locations are `bin/photoc` and `share/man/man1/photoc.1`
+under the prefix. Configure `CMAKE_INSTALL_BINDIR` or `CMAKE_INSTALL_MANDIR`
+to use a different layout. Read the [man page](man/photoc.1) with `man photoc`,
+or directly from the checkout with `man ./man/photoc.1`. If your manual search
+path does not include the user prefix, use
+`man -M "$HOME/.local/share/man" photoc`.
+
+### Shell completions
+
+Optional scripts for **zsh, bash, and fish** complete commands, applicable
+options, common option values, and paths. See
+[completion installation](completions/README.md) for per-user setup. They use
+native shell facilities and add no runtime dependency.
 
 ## Quick start
 

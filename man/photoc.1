@@ -1,0 +1,500 @@
+.TH PHOTOC 1 "September 28, 2026" "photoc" "User Commands"
+.SH NAME
+photoc \- Unix-style photography tools for the terminal
+.SH SYNOPSIS
+.B photoc
+.RI [ global-options ]
+.I command
+.RI [ arguments ]
+.br
+.B photoc
+.I command
+.B \-\-help
+.br
+.B photoc \-\-help
+.br
+.B photoc \-\-version
+.SH DESCRIPTION
+.B photoc
+is a command-line toolkit for photographers working with local files and
+repeatable shell workflows.
+It inspects metadata, summarizes collections, finds exact duplicates,
+renames and organizes photos, compresses copies, and removes EXIF GPS tags.
+Normal output goes to standard output; diagnostics go to standard error.
+.PP
+macOS and Linux are the initial supported platforms.
+Image and metadata operations currently recognize JPEG files with
+.B .jpg
+or
+.B .jpeg
+extensions, ignoring case.
+The
+.B duplicates
+command compares regular files of any type.
+The
+.B focus
+command is not implemented.
+.PP
+Directory operations scan one directory level by default.
+.B \-\-recursive
+includes nested directories where supported.
+Symlinks are not followed during scans.
+Quote paths containing spaces.
+Use
+.B \-\-
+to end option parsing before a path beginning with a dash.
+Option values must be separate arguments; combined short flags and
+.B \-\-option=value
+syntax are not supported.
+.SH COMMANDS
+.SS compress
+.B photoc compress
+.I file|directory
+.RI [ "\-\-quality 1-100" ]
+.RI [ \-\-recursive ]
+.RI [ "\-\-output-dir directory" ]
+.br
+.B photoc compress
+.I file|directory
+.BI "\-\-target " size
+.RI [ "\-\-min-quality 1-100" ]
+.RI [ \-\-recursive ]
+.RI [ "\-\-output-dir directory" ]
+.PP
+Re-encode JPEGs into new copies using lossy compression.
+Quality defaults to 80.
+.B \-\-target
+searches for the highest quality fitting the requested size, with a default
+minimum quality of 20.
+.B \-\-quality
+and
+.B \-\-target
+cannot be combined;
+.B \-\-min-quality
+requires
+.BR \-\-target .
+Sizes are positive integers in bytes, optionally suffixed by
+.BR B ,
+.BR KB ,
+.BR MB ,
+.BR GB ,
+.BR KiB ,
+.BR MiB ,
+or
+.BR GiB .
+Suffixes are case-sensitive.
+Decimal units use powers of 1000; binary units use powers of 1024.
+.PP
+Output names insert
+.B .compressed
+before the original extension, preserving extension case.
+Without
+.BR \-\-output-dir ,
+copies are placed beside sources.
+An output directory preserves paths relative to the input directory.
+.B \-\-recursive
+requires directory input.
+Existing outputs fail single-file operations and are skipped in directory mode.
+Directory scans skip existing
+.B .compressed
+copies.
+.PP
+Report original/output sizes, chosen quality, and savings.
+Re-encoding can increase file size.
+An unreachable target writes a best-effort copy at the minimum quality and
+returns status 1.
+EXIF, including GPS, is retained where possible.
+ICC profiles, XMP, and other original JPEG marker segments are not copied.
+.SS exif
+.B photoc exif
+.I file
+.RI [ \-\-json ]
+.PP
+Inspect one JPEG without modifying it.
+Report filename/path, file size, dimensions, camera make/model, ISO, aperture,
+exposure time, focal length, capture timestamp, and available GPS coordinates.
+Missing fields are unavailable in terminal output and null in JSON.
+Exposure time uses seconds; focal length uses millimeters.
+Capture time is the recorded EXIF DateTimeOriginal string, without timezone
+conversion or a filesystem-date fallback.
+.PP
+JSON contains
+.BR file ,
+.BR image ,
+.BR camera ,
+.BR exposure ,
+.BR date ,
+and
+.B location
+objects.
+The
+.B has_gps
+field is true only when both coordinates can be decoded as valid values.
+False does not prove that all location tags are absent.
+.SS duplicates
+.B photoc duplicates
+.I directory
+.RI [ \-\-recursive ]
+.RI [ \-\-json ]
+.PP
+Report exact duplicate groups for regular files of any type.
+Filter candidates by size and leading content, then compare SHA-256 digests.
+No files are deleted or changed.
+Visually similar images, or images with different metadata or encoding, are
+not exact duplicates.
+.PP
+Report duplicate-group count, all files in those groups, and potential savings
+assuming one retained copy per group.
+Groups and paths have deterministic ordering.
+Hard-linked paths can be counted separately; savings describe logical file
+bytes, not guaranteed freed disk space.
+File read failures are warned about and skipped; readable groups can still be
+reported with exit status 1.
+.PP
+JSON contains
+.BR directory ,
+.BR recursive ,
+.BR duplicate_group_count ,
+.BR duplicate_file_count ,
+.BR potential_savings_bytes ,
+and
+.BR groups .
+Each group contains
+.BR file_size_bytes ,
+.BR sha256 ,
+and
+.BR paths .
+.SS stats
+.B photoc stats
+.I directory
+.RI [ \-\-recursive ]
+.RI [ \-\-json ]
+.PP
+Summarize parsed JPEGs, total/average file size, earliest/latest valid capture
+dates, and camera-model, ISO, aperture, and focal-length distributions.
+Missing fields are omitted from distributions.
+Sort counts by descending frequency, then camera-model lexical order or
+ascending numeric value for ties.
+Most-used values are the first entries in those sorted distributions.
+Percentages use all parsed photos as the denominator, so a distribution can
+sum to less than 100 percent.
+.PP
+JPEGs without EXIF still contribute photo counts and file sizes.
+Individual broken or unreadable JPEGs are warned about and counted as errors.
+These per-file warnings alone do not change a successful exit status.
+Inspect the scan summary for completeness.
+.PP
+JSON contains
+.BR scan ,
+.BR storage ,
+.BR capture_dates ,
+and
+.B distributions
+objects.
+The photo count is
+.BR scan.photos_parsed ;
+the file-error count is
+.BR scan.errors .
+Empty distributions are arrays; unavailable dates and average size are null.
+.SS rename
+.B photoc rename
+.I directory
+.BI "\-\-format " template
+.RI [ \-\-recursive ]
+.RI [ \-\-apply ]
+.PP
+Preview JPEG renames using a filename template.
+Files remain in their original directories.
+Only
+.B \-\-apply
+authorizes changes after the entire plan passes preflight.
+There is no separate dry-run flag.
+.PP
+Placeholders are
+.BR {date} ,
+.BR {datetime} ,
+.BR {camera} ,
+.BR {make} ,
+.BR {iso} ,
+.BR {aperture} ,
+.BR {focal} ,
+.BR {sequence} ,
+.BR {original} ,
+and
+.BR {ext} .
+Date and datetime use
+.B YYYY-MM-DD
+and
+.BR YYYY-MM-DD_HH-MM-SS .
+Camera is the model; original is the basename without its final extension.
+Extension omits the dot and preserves source casing.
+Sequence starts at 0001 in lexical source-path order across the scan.
+Unsafe filename characters become underscores.
+Use doubled braces for literal braces.
+.PP
+Missing required metadata, invalid JPEGs, existing destinations, and duplicate
+proposed destinations block entries.
+Any blocked entry prevents all changes with
+.BR \-\-apply .
+Dry runs still show safe rows and return status 1 when entries are blocked.
+Report source-to-destination rows and planned/unchanged/blocked/applied/
+rolled-back counts.
+.SS sort
+.B photoc sort
+.I directory
+.B \-\-by date|session
+.RI [ "\-\-gap duration" ]
+.RI [ \-\-recursive ]
+.RI [ \-\-apply ]
+.PP
+Preview moves into directories under the input root while preserving filenames.
+Date mode uses
+.BR YYYY/MM/DD/ .
+Session mode uses
+.BR session-001/ ,
+.BR session-002/ ,
+and so on, ordered by capture time with source-path ties.
+.PP
+A session continues when the gap from the previous photo does not exceed the
+threshold.
+The default is 60 minutes.
+.B \-\-gap
+accepts nonnegative integer minutes or hours, such as
+.B 30m
+or
+.BR 2h ,
+and is valid only with session mode.
+An exact-threshold gap remains in the same session.
+IDs can change when the scanned set or gap changes.
+.PP
+Missing/invalid capture dates are blocked, without filesystem-date fallback.
+Existing destinations, duplicate planned destinations, and unsafe parent
+directories also block moves.
+Any blocked entry prevents all moves with
+.BR \-\-apply .
+Dry run creates no directories.
+Apply creates needed directories and uses exclusive moves; no copy-and-delete
+fallback is provided across filesystems.
+Report plan rows and summary counts as for
+.BR rename .
+.SS focus
+.B photoc focus
+.IR photo ...
+.PP
+Reserved for sharpness analysis.
+The command is not implemented and returns status 3 without reading photos
+or producing scores.
+Help works, but the displayed argument syntax is planned.
+There is no focus JSON report.
+.SS scrub
+.B photoc scrub
+.I file|directory
+.B \-\-gps
+.RI [ \-\-recursive ]
+.RI [ \-\-in-place ]
+.PP
+Remove EXIF GPS directory entries and the GPS pointer.
+By default, write a new copy with
+.B .scrubbed
+inserted before the original extension.
+An existing copy destination causes failure without overwriting it.
+Files without EXIF GPS are skipped without creating a copy.
+Directory scans skip existing
+.B .scrubbed
+copies.
+.B \-\-recursive
+requires directory input.
+.PP
+JPEG image bytes are preserved without recompression.
+Ordinary non-GPS EXIF is retained where possible; unusual MakerNotes may change.
+Location data in XMP, MakerNotes, filenames, or visible content is outside the
+removal scope.
+Report processed, skipped, failed, and successfully GPS-removed file counts.
+.PP
+.B \-\-in-place
+replaces each original only after writing, syncing, and verifying a temporary
+JPEG beside it.
+It creates no backup.
+Symlinks, hard-linked files, differently owned files, and changed sources are
+refused.
+POSIX permission bits and group ownership are preserved; ACLs and extended
+attributes are not copied.
+.SH GLOBAL OPTIONS
+Global options may appear before or after the command.
+.TP
+.BR \-h ", " \-\-help
+Print global help, or command help when a command is supplied.
+Exit successfully without executing the command.
+.TP
+.BR \-V ", " \-\-version
+Print the version.
+Cannot be combined with a command or
+.BR \-\-help .
+.TP
+.BR \-v ", " \-\-verbose
+Recognized as a request for detailed output; currently does not change output.
+.TP
+.BR \-q ", " \-\-quiet
+Recognized as a request for reduced output; currently does not change output.
+Cannot be combined with verbose.
+.TP
+.B \-\-json
+Print structured JSON for
+.BR exif ,
+.BR stats ,
+and
+.BR duplicates .
+Optional metadata is null, presence fields are booleans, and numbers remain
+numeric.
+No human-readable decorations are printed on standard output.
+Warnings and errors remain on standard error; no JSON error envelope is emitted.
+Other implemented commands reject this option with status 2.
+.B focus
+still returns status 3.
+.SH SAFETY
+.B rename
+and
+.B sort
+preview by default.
+Apply checks the whole plan before changing files and never overwrites an
+existing destination.
+An apply failure triggers rollback attempts, but concurrent filesystem changes
+or interruption can prevent full restoration.
+They are not crash-safe transactions.
+.PP
+.B compress
+and default
+.B scrub
+write new files immediately and preserve originals.
+Temporary JPEGs are verified before finalizing without overwriting destinations.
+Directory operations can retain earlier successful outputs after later failures.
+.B scrub \-\-in-place
+is explicit replacement with no backup or directory-wide rollback.
+Keep backups and avoid concurrent changes when modifying important collections.
+.SH EXAMPLES
+Inspect a JPEG and save machine-readable metadata:
+.PP
+.nf
+photoc exif photo.jpg
+photoc exif photo.jpg \-\-json > metadata.json
+.fi
+.PP
+Summarize a collection and report exact duplicates:
+.PP
+.nf
+photoc stats ./photos \-\-recursive
+photoc duplicates ./photos \-\-recursive \-\-json
+.fi
+.PP
+Write compressed copies:
+.PP
+.nf
+photoc compress photo.jpg \-\-quality 75
+photoc compress photo.jpg \-\-target 2MB \-\-min-quality 30
+photoc compress ./photos \-\-recursive \-\-output-dir ./compressed
+.fi
+.PP
+Preview renames, then apply the reviewed naming scheme:
+.PP
+.nf
+photoc rename ./photos \-\-format "{date}_{camera}_{sequence}.{ext}"
+photoc rename ./photos \-\-format "{date}_{camera}_{sequence}.{ext}" \-\-apply
+.fi
+.PP
+Preview date or session folders:
+.PP
+.nf
+photoc sort ./photos \-\-by date \-\-recursive
+photoc sort ./photos \-\-by session \-\-gap 30m
+.fi
+.PP
+Remove EXIF GPS tags from a copy; explicit replacement requires a backup:
+.PP
+.nf
+photoc scrub photo.jpg \-\-gps
+photoc scrub photo.jpg \-\-gps \-\-in-place
+.fi
+.PP
+View help for the unimplemented focus command:
+.PP
+.nf
+photoc focus \-\-help
+.fi
+.PP
+Inspect a path beginning with a dash:
+.PP
+.nf
+photoc exif \-\- \-photo.jpg
+.fi
+.SH FILES
+.B photoc
+does not currently read a configuration file or maintain a photo database.
+.TP
+.I *.compressed.jpg, *.compressed.jpeg
+New compression outputs, with original extension casing retained.
+.TP
+.I *.scrubbed.jpg, *.scrubbed.jpeg
+GPS-scrubbed copies beside originals, with extension casing retained.
+.TP
+.I YYYY/MM/DD/
+Date-sort destination directories beneath the supplied scan root.
+.TP
+.I session-NNN/
+Session-sort destination directories beneath the supplied scan root.
+.TP
+Temporary JPEGs
+Created beside destinations for compression and metadata writing;
+in-place scrub uses the source directory.
+.TP
+.I docs/
+Command guides and JSON schemas in the source repository.
+.TP
+.I prefix/share/man/man1/photoc.1
+Default installed manual location.
+CMake's install prefix and install-directory settings can change this path.
+.SH EXIT STATUSES
+.TP
+.B 0
+Success, including empty collections, unchanged plans, missing optional EXIF,
+and allowed skips.
+.B stats
+can return success with per-file warnings recorded in its scan summary.
+.TP
+.B 1
+Operational failure, including unsupported input formats, invalid JPEGs,
+I/O or output errors, blocked rename/sort plans, failed modifications, or
+compression targets not met.
+Partial reports or successful copies/modifications may already exist.
+.B duplicates
+returns this status after individual file-read warnings.
+.TP
+.B 2
+Invalid usage: unknown command/option, missing arguments or values,
+invalid option values, or incompatible options.
+.TP
+.B 3
+Command not implemented; currently used by
+.BR focus .
+.SH BUGS
+Image and metadata operations are JPEG-only.
+Metadata summaries are not complete EXIF dumps, and metadata rewriting does
+not guarantee preservation of every proprietary tag.
+EXIF GPS removal is not removal of every possible location trace.
+Capture timestamps are treated as recorded local times without timezone handling.
+.PP
+Report reproducible bugs at:
+.UR https://github.com/ahmetomerv/photoc/issues
+.UE
+.PP
+Include the
+.B photoc \-\-version
+output, operating system, exact invocation, exit status, and relevant diagnostics.
+Use a small synthetic or privacy-reviewed fixture when needed; avoid publishing
+private photos or GPS information.
+.SH PROJECT URL
+.UR https://github.com/ahmetomerv/photoc
+.UE
+.SH SEE ALSO
+.BR photoc\ \-\-help ,
+the source repository's README and command guides under
+.IR docs/ .

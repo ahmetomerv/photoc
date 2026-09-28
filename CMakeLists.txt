@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.21)
 
 project(photoc VERSION 0.1.0 LANGUAGES C)
 
+include(GNUInstallDirs)
+
 option(PHOTOC_SANITIZERS
     "Build with AddressSanitizer and UndefinedBehaviorSanitizer"
     OFF)
@@ -124,6 +126,9 @@ target_include_directories(photoc PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/generated"
 )
 
+install(TARGETS photoc RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(FILES man/photoc.1 DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
+
 include(CTest)
 
 option(PHOTOC_BENCHMARKS "Build optional concurrency benchmarks" OFF)
@@ -134,6 +139,53 @@ if(PHOTOC_BENCHMARKS)
 endif()
 
 if(BUILD_TESTING)
+    if(UNIX)
+        add_test(
+            NAME installation
+            COMMAND "${CMAKE_COMMAND}"
+                "-DBUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+                "-DMAN_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/man/photoc.1"
+                "-DBINDIR=${CMAKE_INSTALL_BINDIR}"
+                "-DMANDIR=${CMAKE_INSTALL_MANDIR}"
+                "-DCONFIG=$<CONFIG>"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_install.cmake"
+        )
+    endif()
+    find_program(PHOTOC_MANDOC_EXECUTABLE NAMES mandoc)
+    if(PHOTOC_MANDOC_EXECUTABLE)
+        add_test(NAME man_page_lint
+            COMMAND "${PHOTOC_MANDOC_EXECUTABLE}" -T lint -W warning
+                "${CMAKE_CURRENT_SOURCE_DIR}/man/photoc.1")
+    endif()
+
+    # Completions use native shells; none is required to build or run photoc.
+    foreach(shell IN ITEMS bash zsh fish)
+        find_program(PHOTOC_${shell}_EXECUTABLE NAMES ${shell})
+        if(PHOTOC_${shell}_EXECUTABLE)
+            if(shell STREQUAL "bash")
+                set(completion_file "completions/bash/photoc")
+                set(completion_shell_flags --noprofile --norc)
+            elseif(shell STREQUAL "zsh")
+                set(completion_file "completions/zsh/_photoc")
+                set(completion_shell_flags -f)
+            else()
+                set(completion_file "completions/fish/photoc.fish")
+                set(completion_shell_flags --no-config)
+            endif()
+            add_test(
+                NAME "completion_${shell}"
+                COMMAND "${PHOTOC_${shell}_EXECUTABLE}"
+                    ${completion_shell_flags}
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_completion_${shell}.${shell}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/${completion_file}"
+                    "${CMAKE_CURRENT_BINARY_DIR}"
+            )
+            set_tests_properties("completion_${shell}" PROPERTIES TIMEOUT 20)
+        else()
+            message(STATUS "${shell} not found; its optional completion test is not registered")
+        endif()
+    endforeach()
+
     add_executable(test_thread_pool tests/test_thread_pool.c)
     photoc_configure_c_target(test_thread_pool)
     target_link_libraries(test_thread_pool PRIVATE photoc_core)

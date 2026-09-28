@@ -1,0 +1,83 @@
+#compdef photoc
+# Native zsh completion; install in a directory in $fpath before compinit.
+
+local command='' word pending=0 ended=0 index
+local -a command_descriptions specs
+command_descriptions=(
+    'compress:Re-encode JPEGs by quality or target size'
+    'exif:Inspect JPEG metadata'
+    'duplicates:Find exact duplicate files'
+    'stats:Summarize JPEG collections'
+    'rename:Preview or apply JPEG renames'
+    'sort:Preview or apply JPEG sorting'
+    'focus:Planned sharpness analysis (not implemented)'
+    'scrub:Remove EXIF GPS tags'
+)
+
+for ((index = 2; index < CURRENT; ++index)); do
+    word=$words[index]
+    if ((pending)); then
+        pending=0
+        continue
+    fi
+    if ((! ended)); then
+        case $word in
+            --) ended=1; continue ;;
+            --quality|--target|--min-quality|--output-dir|--by|--gap|--format)
+                pending=1; continue ;;
+            -*) continue ;;
+        esac
+    fi
+    command=$word
+    break
+done
+
+specs=(
+    '(-h --help)'{-h,--help}'[Show help]'
+    '(-v --verbose -q --quiet)'{-v,--verbose}'[Request detailed output]'
+    '(-v --verbose -q --quiet)'{-q,--quiet}'[Request reduced output]'
+    '1:command:{_describe command command_descriptions}'
+)
+case $command in
+    '')
+        specs+=('(-V --version)'{-V,--version}'[Show version]' '--json[Request JSON where supported]') ;;
+    compress)
+        specs+=(
+            '(--target --min-quality)--quality[JPEG quality (default 80)]:quality:(60 70 75 80 85 90 95 100)'
+            '(--quality)--target[Desired maximum size]:size:(500KB 1MB 2MB 5MB)'
+            '(--quality)--min-quality[Minimum target quality (default 20)]:quality:(20 30 40 50)'
+            '--recursive[Include nested directories]'
+            '--output-dir[Destination directory]:directory:_files -/'
+            '2:JPEG file or directory:_files'
+        ) ;;
+    exif)
+        specs+=('--json[Print structured JSON]' '2:JPEG file:_files') ;;
+    duplicates|stats)
+        specs+=('--recursive[Include nested directories]' '--json[Print structured JSON]' '2:directory:_files -/') ;;
+    rename)
+        specs+=(
+            '--format[Filename template]:template:'
+            '--recursive[Include nested directories]'
+            '--apply[Apply renames after preflight]'
+            '2:directory:_files -/'
+        ) ;;
+    sort)
+        specs+=(
+            '--by[Grouping mode]:mode:(date session)'
+            '--gap[Session gap (default 60m)]:duration:(30m 60m 2h)'
+            '--recursive[Include nested directories]'
+            '--apply[Apply moves after preflight]'
+            '2:directory:_files -/'
+        ) ;;
+    focus)
+        specs+=('*:JPEG file (command not implemented):_files') ;;
+    scrub)
+        specs+=(
+            '--gps[Remove EXIF GPS tags]'
+            '--recursive[Include nested directories]'
+            '--in-place[Replace originals without a backup]'
+            '2:JPEG file or directory:_files'
+        ) ;;
+esac
+
+_arguments -S "${specs[@]}"
