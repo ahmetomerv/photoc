@@ -1,0 +1,140 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: darwin-arm64
+            arch: arm64
+          - runner: macos-15-intel
+            platform: darwin-x86_64
+            arch: x86_64
+          - runner: ubuntu-22.04
+            platform: linux-x86_64
+            arch: x86_64
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_PLATFORM: ${{ matrix.platform }}
+      RELEASE_ARCH: ${{ matrix.arch }}
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate tag and runner architecture
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Expected a stable version tag: vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          test "$(uname -m)" = "$RELEASE_ARCH"
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config libexif-dev libturbojpeg0-dev \
+            python3 zsh fish mandoc
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install cmake pkgconf libexif jpeg-turbo fish
+          echo "PKG_CONFIG_PATH=$(brew --prefix libexif)/lib/pkgconfig:$(brew --prefix jpeg-turbo)/lib/pkgconfig" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: |
+          cmake_args=(-S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON)
+          if [[ "$RUNNER_OS" = macOS ]]; then
+            cmake_args+=(-DCMAKE_OSX_ARCHITECTURES="$RELEASE_ARCH" -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0)
+          fi
+          cmake "${cmake_args[@]}"
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package binaries and checksums
+        run: >-
+          python3 scripts/package-release.py package
+          --tag "$RELEASE_TAG" --platform "$RELEASE_PLATFORM"
+          --binary build/photoc --output dist
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download all release assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+
+      - name: Verify assets and combine checksums
+        run: python3 scripts/package-release.py checksums --tag "$RELEASE_TAG" --directory dist
+
+      - name: Publish after all assets are uploaded
+        run: |
+          if state=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft'); then
+            if [[ "$state" != true ]]; then
+              echo "Release $RELEASE_TAG is already published; refusing to replace its assets." >&2
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft \
+              --title "photoc $RELEASE_TAG" --generate-notes --notes-file docs/release-notes.md
+          fi
+          gh release upload "$RELEASE_TAG" dist/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false

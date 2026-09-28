@@ -152,7 +152,11 @@ if(BUILD_TESTING)
             add_test(NAME release_uninstaller
                 COMMAND "${Python3_EXECUTABLE}"
                     "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_uninstaller.py")
-            set_tests_properties(release_installer release_uninstaller PROPERTIES TIMEOUT 60)
+            add_test(NAME release_packaging
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_RELEASE_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_release_packaging.py")
+            set_tests_properties(release_installer release_uninstaller release_packaging
+                PROPERTIES TIMEOUT 60)
         else()
             message(STATUS "Python 3 not found; offline install/uninstall tests are not registered")
         endif()

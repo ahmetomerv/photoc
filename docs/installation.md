@@ -2,8 +2,9 @@
 
 ## GitHub releases
 
-**Release binaries are not published yet.** Until the assets described below are
-available, [build from source](../README.md#build-from-source). The installer
+The [version-tag workflow](releasing.md) publishes binaries and archives once
+all three builds pass. If a release or platform asset is not available,
+[build from source](../README.md#build-from-source). The installer
 reports missing releases or assets as errors; it does not fall back to an
 unverified download or build.
 
@@ -43,6 +44,9 @@ and cannot contain `:` because that separates entries in `PATH`.
   cannot run (for example, because of missing runtime libraries), installation
   fails with an error. Release-specific runtime requirements belong in the
   release notes; the installer does not install libraries.
+  Current release builds target macOS 15+ or glibc-based Linux with glibc 2.35+.
+  Runtime packages are `brew install libexif jpeg-turbo` on macOS, or
+  `sudo apt install libexif12 libturbojpeg` on Ubuntu.
 - Creates the final filename atomically without replacing existing files,
   directories, or symlinks, including entries created during installation.
 - Records the installed binary's SHA-256 digest and device/inode identity in
@@ -117,7 +121,7 @@ by a package manager or another installation.
 
 ## Release asset contract
 
-Publish these **direct executables**, not archives, as assets on a release:
+The release workflow publishes these **direct executables** for the installer:
 
 | Platform | Asset |
 | --- | --- |
@@ -136,5 +140,6 @@ The installer downloads both assets from
 `https://github.com/ahmetomerv/photoc/releases/download/<tag>/`. It expects a
 64-digit hexadecimal digest followed by the exact asset filename. Checksums
 detect download corruption; the manifest is fetched from the same release,
-not an independent signature. Release publishing is not automated by this
-installer or CI.
+not an independent signature. The release workflow also attaches versioned
+`photoc-<version>-<platform>.tar.gz` archives and individual platform checksum
+manifests. See [releasing.md](releasing.md) for the complete layout and workflow.

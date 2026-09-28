@@ -33,8 +33,9 @@ sh scripts/install.sh
 sh scripts/install.sh --version v0.1.0 --install-dir "$HOME/bin"
 ```
 
-**Release binaries are not published yet.** Build from source until they are
-available. See [installer usage and release asset names](docs/installation.md)
+Release assets become available after a version-tagged build succeeds; build
+from source if no suitable release is available. See
+[installer usage and release asset names](docs/installation.md)
 for downloading the script, PATH setup, requirements, and upgrade behavior.
 The installer refuses to replace an existing file or symlink.
 
@@ -243,7 +244,7 @@ Planned work, without release dates:
 
 - Expose the existing sharpness metric through `focus`, with human and JSON
   output. Sharpness measures edge variation, not artistic quality.
-- Improve installation and release packaging.
+- Broaden release compatibility and add package-manager distribution.
 - Evaluate additional image formats while retaining safe file handling.
 
 ## Contributing

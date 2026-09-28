@@ -5,6 +5,7 @@
 /build-tsan/
 /cmake-build-*/
 /out/
+/dist/
 /benchmarks/data/
 *.o
 *.obj

@@ -155,3 +155,18 @@ and preservation of existing files. Uninstall tests also cover the receipt,
 file identity checks, previews, and preservation of modified or untracked
 files and user configuration. CTest runs both suites when Python 3 is available;
 Ubuntu CI also runs ShellCheck. Neither tool is a runtime dependency.
+
+## Releases
+
+Version tags trigger native macOS arm64, macOS x86_64, and Linux x86_64 builds,
+tests, packaging, and GitHub release publication. Follow
+[docs/releasing.md](docs/releasing.md) for version matching, asset names,
+runtime requirements, and retry behavior. Packaging tests run with:
+
+```sh
+python3 tests/test_release_packaging.py
+```
+
+The normal CI workflow does not publish releases; the separate Release
+workflow grants write permission only to its publish job. Homebrew publication
+is not configured.
