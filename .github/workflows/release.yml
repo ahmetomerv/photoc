@@ -137,4 +137,8 @@ jobs:
               --title "photoc $RELEASE_TAG" --generate-notes --notes-file docs/release-notes.md
           fi
           gh release upload "$RELEASE_TAG" dist/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false
+          notes="$RUNNER_TEMP/photoc-release-notes.md"
+          gh release view "$RELEASE_TAG" --json body --jq '.body' > "$notes"
+          printf '\n\n## Licenses\n\n' >> "$notes"
+          cat LICENSE THIRD_PARTY_NOTICES.md licenses/libexif/COPYING >> "$notes"
+          gh release edit "$RELEASE_TAG" --notes-file "$notes" --draft=false

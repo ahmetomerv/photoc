@@ -44,12 +44,15 @@ Each archive has one `photoc-<version>-<platform>/` directory containing:
 
 - `bin/photoc` and `share/man/man1/photoc.1`.
 - `completions/`, `docs/`, README, license, and contributor guidance.
+- `THIRD_PARTY_NOTICES.md` and `licenses/` with dependency license texts.
 - `VERSION`, recording the packaged version.
 - `scripts/install.sh` and `scripts/uninstall.sh`.
 
 Archives preserve executable permissions and use normalized timestamps and
 ownership. This makes packaging repeatable for identical input files; native
 builds and changing system dependencies are not promised to be reproducible.
+The release body includes the dependency notices for raw executable downloads.
+Review these against the installed dependency versions before each release.
 
 ## Publication and retries
 

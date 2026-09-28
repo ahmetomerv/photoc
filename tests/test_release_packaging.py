@@ -51,10 +51,18 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertEqual((self.output / raw).stat().st_mode & 0o777, 0o755)
         base = archive.removesuffix(".tar.gz")
         with tarfile.open(self.output / archive) as bundle:
-            for name in ("bin/photoc", "VERSION", "LICENSE", "README.md", "share/man/man1/photoc.1",
+            for name in ("bin/photoc", "VERSION", "LICENSE", "THIRD_PARTY_NOTICES.md",
+                         "CODE_OF_CONDUCT.md", "SECURITY.md",
+                         "licenses/libexif/COPYING", "licenses/libjpeg-turbo/README.ijg",
+                         "licenses/libjpeg-turbo/LICENSE-3.2.0.md",
+                         "licenses/libjpeg-turbo/LICENSE-2.1.2.md",
+                         "README.md", "share/man/man1/photoc.1",
                          "completions/bash/photoc", "completions/zsh/_photoc",
                          "completions/fish/photoc.fish", "docs/exif.md", "scripts/uninstall.sh"):
                 self.assertTrue(bundle.getmember(base + "/" + name).isfile(), name)
+                if name == "THIRD_PARTY_NOTICES.md" or name.startswith("licenses/"):
+                    self.assertEqual(bundle.extractfile(base + "/" + name).read(),
+                                     (ROOT / name).read_bytes())
             self.assertEqual(bundle.extractfile(base + "/VERSION").read(), (ROOT / "VERSION").read_bytes())
             binary_member = bundle.getmember(base + "/bin/photoc")
             self.assertEqual(binary_member.mode, 0o755)

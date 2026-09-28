@@ -129,6 +129,8 @@ target_include_directories(photoc PRIVATE
 
 install(TARGETS photoc RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(FILES man/photoc.1 DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
+install(FILES LICENSE THIRD_PARTY_NOTICES.md DESTINATION "${CMAKE_INSTALL_DOCDIR}")
+install(DIRECTORY licenses DESTINATION "${CMAKE_INSTALL_DOCDIR}")
 
 include(CTest)
 
@@ -147,6 +149,9 @@ if(BUILD_TESTING)
             COMMAND /bin/sh -n "${CMAKE_CURRENT_SOURCE_DIR}/scripts/uninstall.sh")
         find_package(Python3 QUIET COMPONENTS Interpreter)
         if(Python3_Interpreter_FOUND)
+            add_test(NAME output_failure
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_OUTPUT_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_output_failure.py")
             add_test(NAME release_installer
                 COMMAND "${Python3_EXECUTABLE}"
                     "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_installer.py")
@@ -177,6 +182,8 @@ if(BUILD_TESTING)
                 "-DMAN_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/man/photoc.1"
                 "-DBINDIR=${CMAKE_INSTALL_BINDIR}"
                 "-DMANDIR=${CMAKE_INSTALL_MANDIR}"
+                "-DDOCDIR=${CMAKE_INSTALL_DOCDIR}"
+                "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
                 "-DCONFIG=$<CONFIG>"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/check_install.cmake"
         )
@@ -220,6 +227,11 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_thread_pool)
     target_link_libraries(test_thread_pool PRIVATE photoc_core)
     add_test(NAME thread_pool COMMAND test_thread_pool)
+
+    add_executable(test_rename_rollback tests/test_rename_rollback.c)
+    photoc_configure_c_target(test_rename_rollback)
+    target_link_libraries(test_rename_rollback PRIVATE photoc_core)
+    add_test(NAME rename_rollback_safety COMMAND test_rename_rollback)
 
     add_executable(test_concurrency tests/test_concurrency.c)
     photoc_configure_c_target(test_concurrency)
@@ -295,6 +307,14 @@ if(BUILD_TESTING)
         PHOTOC_METADATA_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
     )
     add_test(NAME jpeg_safe_write COMMAND test_jpeg_write)
+
+    add_executable(test_jpeg_temp_failure tests/test_jpeg_temp_failure.c)
+    photoc_configure_c_target(test_jpeg_temp_failure)
+    target_link_libraries(test_jpeg_temp_failure PRIVATE photoc_core)
+    target_compile_definitions(test_jpeg_temp_failure PRIVATE
+        PHOTOC_METADATA_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+    )
+    add_test(NAME jpeg_temp_failure_safety COMMAND test_jpeg_temp_failure)
 
     add_executable(test_image tests/test_image.c)
     photoc_configure_c_target(test_image)

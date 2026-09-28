@@ -57,8 +57,9 @@ if [ ! -e "$binary" ] && [ ! -L "$binary" ] &&
     printf 'No tracked photoc installation in %s.\n' "$install_dir"
     exit 0
 fi
-[ -f "$receipt" ] && [ ! -L "$receipt" ] \
-    || die "no regular ownership receipt in $install_dir; nothing was removed"
+if [ ! -f "$receipt" ] || [ -L "$receipt" ]; then
+    die "no regular ownership receipt in $install_dir; nothing was removed"
+fi
 
 for tool in uname awk stat mktemp mv rm rmdir; do
     command -v "$tool" >/dev/null 2>&1 || die "required tool not found: $tool"
@@ -158,12 +159,14 @@ if [ "$has_binary" -eq 1 ]; then
         || die "executable changed during uninstall; staged files were preserved"
 fi
 staged_receipt=$quarantine/.photoc-install-receipt
-[ -f "$staged_receipt" ] && [ ! -L "$staged_receipt" ] \
-    || die "receipt changed during uninstall; staged files were preserved"
+if [ ! -f "$staged_receipt" ] || [ -L "$staged_receipt" ]; then
+    die "receipt changed during uninstall; staged files were preserved"
+fi
 staged_identity=$(file_identity "$staged_receipt") || die "cannot identify staged receipt"
 staged_hash=$(hash_file "$staged_receipt") || die "cannot read staged receipt"
-[ "$staged_identity" = "$receipt_identity" ] && [ "$staged_hash" = "$receipt_hash" ] \
-    || die "receipt changed during uninstall; staged files were preserved"
+if [ "$staged_identity" != "$receipt_identity" ] || [ "$staged_hash" != "$receipt_hash" ]; then
+    die "receipt changed during uninstall; staged files were preserved"
+fi
 
 if [ "$has_binary" -eq 1 ]; then
     rm -- "$quarantine/photoc" || die "cannot remove staged executable"

@@ -97,6 +97,9 @@ stage_dir=
 cleanup() {
     # Roll back our receipt if publishing the binary failed. Keep receipts for
     # completed installs, including a signal just after the binary was linked.
+    # shellcheck disable=SC3013
+    # -ef is supported by macOS /bin/sh and Linux dash/bash; older ShellCheck
+    # versions predate its inclusion in POSIX.1-2024. Keep the inode check.
     if [ -n "$stage_dir" ] && [ ! -L "$receipt" ] &&
        [ "$receipt" -ef "$stage_dir/.photoc-install-receipt" ] &&
        ! [ "$destination" -ef "$stage_dir/photoc" ]; then

@@ -598,6 +598,7 @@ static photoc_jpeg_edit_result write_with_exif(const char *source_path,
     char *parent = NULL;
     char *temporary = NULL;
     FILE *output = NULL;
+    bool temporary_created = false;
     if (result == PHOTOC_JPEG_EDIT_OK) {
         result = destination_directory(destination_path, &parent);
     }
@@ -613,6 +614,7 @@ static photoc_jpeg_edit_result write_with_exif(const char *source_path,
             result = PHOTOC_JPEG_EDIT_IO_ERROR;
             saved_errno = errno;
         } else {
+            temporary_created = true;
             output = fdopen(descriptor, "wb");
             if (output == NULL) {
                 saved_errno = errno;
@@ -680,9 +682,11 @@ static photoc_jpeg_edit_result write_with_exif(const char *source_path,
                                   temporary, destination_path)) != 0) {
             result = PHOTOC_JPEG_EDIT_IO_ERROR;
             saved_errno = errno;
+        } else if (result == PHOTOC_JPEG_EDIT_OK) {
+            temporary_created = false;
         }
     }
-    if (temporary != NULL) {
+    if (temporary_created) {
         unlink(temporary);
     }
     exif_mem_free(exif->memory, exif_bytes);
@@ -742,12 +746,14 @@ photoc_jpeg_write_encoded(const char *destination_path,
 
     photoc_jpeg_edit_result result = PHOTOC_JPEG_EDIT_OK;
     int saved_errno = 0;
+    bool temporary_created = false;
     int descriptor = mkstemp(temporary);
     if (descriptor < 0) {
         result = PHOTOC_JPEG_EDIT_IO_ERROR;
         saved_errno = errno;
         goto cleanup;
     }
+    temporary_created = true;
     FILE *file = fdopen(descriptor, "wb");
     if (file == NULL) {
         result = PHOTOC_JPEG_EDIT_IO_ERROR;
@@ -791,13 +797,17 @@ photoc_jpeg_write_encoded(const char *destination_path,
         result = photoc_jpeg_write_with_exif(temporary, destination_path, exif);
     } else if (photoc_fs_rename_noreplace(temporary, destination_path) != 0) {
         result = PHOTOC_JPEG_EDIT_IO_ERROR;
+    } else {
+        temporary_created = false;
     }
     if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
         saved_errno = errno;
     }
 
 cleanup:
-    unlink(temporary);
+    if (temporary_created) {
+        unlink(temporary);
+    }
     free(temporary);
     if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
         errno = saved_errno;

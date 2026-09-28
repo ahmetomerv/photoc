@@ -199,6 +199,10 @@ same file and rejects tags or binaries that disagree with it.
 3. Commit the version change, then create and push an annotated tag whose name
    is `v` followed by the canonical version:
 
+   Before tagging, require green CI for the reviewed commit on macOS and Ubuntu,
+   including the Linux sanitizer job. Review `THIRD_PARTY_NOTICES.md` and the
+   included license texts against the dependency versions used for the release.
+
    ```sh
    version=$(python3 scripts/package-release.py version)
    git add VERSION

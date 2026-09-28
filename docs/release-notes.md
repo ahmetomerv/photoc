@@ -13,7 +13,8 @@ binaries are not developer-signed or notarized. Other CPUs and Linux systems
 without glibc should build from source.
 
 Archives contain `bin/photoc`, its man page, shell completions, documentation,
-and the MIT license. `SHA256SUMS` covers all archives and raw executables;
+the MIT license, and third-party notices and license texts. `SHA256SUMS` covers
+all archives and raw executables;
 `SHA256SUMS-<platform>` covers that platform's archive and executable. Verify
 downloaded files with `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
 `sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that directory.

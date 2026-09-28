@@ -71,9 +71,10 @@ def package(tag, platform, binary, output):
         man = bundle / "share/man/man1/photoc.1"
         man.parent.mkdir(parents=True)
         shutil.copyfile(ROOT / "man/photoc.1", man)
-        for name in ("VERSION", "LICENSE", "README.md", "CONTRIBUTING.md", "AGENTS.md"):
+        for name in ("VERSION", "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md",
+                     "CONTRIBUTING.md", "AGENTS.md", "CODE_OF_CONDUCT.md", "SECURITY.md"):
             shutil.copyfile(ROOT / name, bundle / name)
-        for name in ("docs", "completions"):
+        for name in ("docs", "completions", "licenses"):
             shutil.copytree(ROOT / name, bundle / name)
         (bundle / "scripts").mkdir()
         for name in ("install.sh", "uninstall.sh"):

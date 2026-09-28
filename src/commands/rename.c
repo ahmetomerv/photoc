@@ -379,10 +379,10 @@ static void print_plan(const rename_plan *plan, const char *root,
     }
 }
 
-static int source_matches(const rename_entry *entry)
+static int source_matches(const rename_entry *entry, const char *path)
 {
     struct stat source_info;
-    if (lstat(entry->source, &source_info) != 0) {
+    if (lstat(path, &source_info) != 0) {
         return -1;
     }
     if (!S_ISREG(source_info.st_mode) ||
@@ -402,8 +402,9 @@ static void rollback_applied(rename_plan *plan, const char *root,
         if (!entry->applied) {
             continue;
         }
-        if (photoc_fs_rename_noreplace(entry->destination, entry->source) ==
-            0) {
+        if (source_matches(entry, entry->destination) == 0 &&
+            photoc_fs_rename_noreplace(entry->destination, entry->source) ==
+                0) {
             entry->applied = false;
             --summary->applied;
             ++summary->rolled_back;
@@ -425,7 +426,7 @@ static int apply_plan(rename_plan *plan, const char *root,
         if (strcmp(entry->source, entry->destination) == 0) {
             continue;
         }
-        if (source_matches(entry) != 0 ||
+        if (source_matches(entry, entry->source) != 0 ||
             photoc_fs_rename_noreplace(entry->source, entry->destination) !=
                 0) {
             int saved_errno = errno;

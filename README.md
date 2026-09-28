@@ -92,8 +92,9 @@ Add `~/.local/bin` to your `PATH` if needed. The examples below assume `photoc`
 is on `PATH`; otherwise use `./build/photoc`. Keep the dependency libraries
 installed when using the binary.
 
-The default install locations are `bin/photoc` and `share/man/man1/photoc.1`
-under the prefix. Configure `CMAKE_INSTALL_BINDIR` or `CMAKE_INSTALL_MANDIR`
+The default install locations are `bin/photoc`, `share/man/man1/photoc.1`,
+and license notices under `share/doc/photoc` beneath the prefix.
+Configure `CMAKE_INSTALL_BINDIR`, `CMAKE_INSTALL_MANDIR`, or `CMAKE_INSTALL_DOCDIR`
 to use a different layout. Read the [man page](man/photoc.1) with `man photoc`,
 or directly from the checkout with `man ./man/photoc.1`. If your manual search
 path does not include the user prefix, use
@@ -265,8 +266,11 @@ Shared C APIs and ownership rules are documented in [include/photoc](include/pho
 Please follow the [code of conduct](CODE_OF_CONDUCT.md). For file corruption,
 unsafe overwrites, or suspected vulnerabilities, use the private reporting
 guidance in [SECURITY.md](SECURITY.md).
+See the [first-release audit](docs/release-audit.md) for verification results,
+remaining limits, and release gates.
 
 ## License
 
 photoc's source is licensed under the [MIT License](LICENSE).
-Dependencies retain their own licenses.
+Dependencies retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+This software is based in part on the work of the Independent JPEG Group.
