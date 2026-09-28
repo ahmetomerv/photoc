@@ -7,7 +7,7 @@
 [![Tests / CI](https://img.shields.io/github/actions/workflow/status/ahmetomerv/photoc/ci.yml?branch=main&event=push&label=tests%20%2F%20CI)](https://github.com/ahmetomerv/photoc/actions/workflows/ci.yml)
 [![Release / CD](https://img.shields.io/github/actions/workflow/status/ahmetomerv/photoc/release.yml?event=push&label=release%20%2F%20CD)](https://github.com/ahmetomerv/photoc/actions/workflows/release.yml)
 
-**Unix-style photography tools for the terminal.**
+**Photography tools for the terminal.**
 
 `photoc` is a command-line toolkit for photographers who work with local collections, shell scripts, and repeatable workflows. Inspect metadata, summarize a shoot, find exact duplicates, organize filenames and folders, compress JPEG copies, or remove EXIF GPS tags.
 
@@ -28,29 +28,25 @@ from source if no suitable release is available. See
 for downloading the script, PATH setup, requirements, and upgrade behavior.
 The installer refuses to replace an existing file or symlink.
 
-### Source dependencies
+### Before building
 
-Build from source using a C17 compiler (Clang or GCC), CMake **3.21+**,
-`pkg-config`, [libexif](https://libexif.github.io/), and
-[libjpeg-turbo](https://libjpeg-turbo.org/) with its TurboJPEG development files.
-Dependencies are installed through the system package manager, not vendored.
+Install the required packages for your system:
 
-**macOS — Homebrew**
+**macOS (Homebrew)**
 
-Install Xcode Command Line Tools if needed (`xcode-select --install`), then:
+If needed, install Apple's command-line tools with `xcode-select --install`, then run:
 
 ```sh
 brew install cmake pkgconf libexif jpeg-turbo
 ```
 
-**Debian / Ubuntu**
+**Ubuntu / Debian**
 
 ```sh
 sudo apt install build-essential git cmake pkg-config libexif-dev libturbojpeg0-dev
 ```
 
-Other Linux distributions need the equivalent development packages for libexif
-and TurboJPEG.
+On other Linux distributions, install the equivalent packages.
 
 ### Build from source
 
