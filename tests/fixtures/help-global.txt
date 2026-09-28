@@ -1,4 +1,4 @@
-photoc - command-line toolkit for photographers
+photoc - Command-line tools for photographers.
 
 Usage: photoc [global options] <command> [args]
        photoc <command> --help

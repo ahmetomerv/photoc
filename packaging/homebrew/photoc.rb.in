@@ -1,5 +1,5 @@
 class Photoc < Formula
-  desc "Unix-style photography tools for the terminal"
+  desc "Command-line tools for photographers"
   homepage "https://github.com/ahmetomerv/photoc"
   url "https://github.com/ahmetomerv/photoc/archive/refs/tags/v@VERSION@.tar.gz"
   sha256 "@SHA256@"

@@ -7,7 +7,7 @@
 [![Tests / CI](https://img.shields.io/github/actions/workflow/status/ahmetomerv/photoc/ci.yml?branch=main&event=push&label=tests%20%2F%20CI)](https://github.com/ahmetomerv/photoc/actions/workflows/ci.yml)
 [![Release / CD](https://img.shields.io/github/actions/workflow/status/ahmetomerv/photoc/release.yml?event=push&label=release%20%2F%20CD)](https://github.com/ahmetomerv/photoc/actions/workflows/release.yml)
 
-**Photography tools for the terminal.**
+**Command-line tools for photographers.**
 
 `photoc` is a command-line toolkit for photographers who work with local collections, shell scripts, and repeatable workflows. Inspect metadata, summarize a shoot, find exact duplicates, organize filenames and folders, compress JPEG copies, or remove EXIF GPS tags.
 

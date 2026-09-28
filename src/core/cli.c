@@ -393,7 +393,7 @@ static const photoc_command *find_command(const char *name)
 
 static void print_global_help(void)
 {
-    puts("photoc - command-line toolkit for photographers");
+    puts("photoc - Command-line tools for photographers.");
     puts("");
     puts("Usage: photoc [global options] <command> [args]");
     puts("       photoc <command> --help");
