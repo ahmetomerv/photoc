@@ -100,6 +100,30 @@ or directly from the checkout with `man ./man/photoc.1`. If your manual search
 path does not include the user prefix, use
 `man -M "$HOME/.local/share/man" photoc`.
 
+### Updating after local changes
+
+After editing the source, run these commands from the repository root:
+
+```sh
+cmake --build build --parallel 2
+ctest --test-dir build --output-on-failure
+```
+
+Rebuilding updates `./build/photoc`, which you can run immediately. The installed
+copy is separate: after the tests pass, update a source installation with:
+
+```sh
+cmake --install build --prefix "$HOME/.local"
+```
+
+Use the same installation prefix as before. With this prefix, the updated
+executable is `$HOME/.local/bin/photoc`. Check which copy your shell runs with
+`command -v photoc`.
+
+If you change CMake options or dependencies, rerun the configure command from
+[Build from source](#build-from-source), including your chosen options, before
+rebuilding.
+
 ### Shell completions
 
 Optional scripts for **zsh, bash, and fish** complete commands, applicable
