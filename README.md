@@ -163,12 +163,6 @@ For **bash or zsh**, run this line now and add it to your shell startup file
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-For **fish**:
-
-```fish
-fish_add_path "$HOME/.local/bin"
-```
-
 Use your chosen directory instead if you installed somewhere else. If you
 built from source and prefer to skip installation, replace `photoc` in the
 examples with `./build/photoc` while working from the repository root.

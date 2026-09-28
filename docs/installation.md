@@ -62,14 +62,11 @@ and cannot contain `:` because that separates entries in `PATH`.
   [completion instructions](../completions/README.md).
 
 If the destination is absent from `PATH`, the installer prints the exact setup
-line for bash/zsh and fish. For the default location:
+line for bash/zsh. For the default location:
 
 ```sh
 # bash/zsh: add to ~/.bashrc or ~/.zshrc, then open a new shell
 export PATH="$HOME/.local/bin:$PATH"
-
-# fish
-fish_add_path "$HOME/.local/bin"
 ```
 
 ## Upgrading

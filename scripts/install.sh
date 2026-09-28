@@ -201,6 +201,5 @@ case ":${PATH:-}:" in
         quoted_dir=$(printf '%s' "$install_dir" | sed "s/'/'\\\\''/g")
         printf 'Add this line to your shell startup file (for example ~/.zshrc or ~/.bashrc):\n'
         printf "  export PATH='%s':\"\$PATH\"\n" "$quoted_dir"
-        printf 'For fish, use: fish_add_path '\''%s'\''\n' "$quoted_dir"
         ;;
 esac
