@@ -84,14 +84,17 @@ containing spaces.
 
 | Command | Purpose | Default behavior |
 | --- | --- | --- |
-| `compress` | Re-encode JPEGs by quality or target size | Write new copies |
-| `exif` | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
-| `duplicates` | Report SHA-256 duplicate groups and potential savings | Read only; JSON supported |
-| `stats` | Summarize storage, capture dates, and camera/exposure distributions | Read only; JSON supported |
-| `rename` | Rename JPEGs using metadata templates | Dry run; `--apply` to rename |
-| `sort` | Organize JPEGs by capture date or session | Dry run; `--apply` to move |
-| `focus` | Planned sharpness analysis | Not implemented; exit status 3 |
-| `scrub` | Remove EXIF GPS tags from JPEGs | Write new copies |
+| [`compress`](docs/compress.md) | Re-encode JPEGs by quality or target size | Write new copies |
+| [`exif`](docs/exif.md) | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
+| [`duplicates`](docs/duplicates.md) | Report SHA-256 duplicate groups and potential savings | Read only; JSON supported |
+| [`stats`](docs/stats.md) | Summarize storage, capture dates, and camera/exposure distributions | Read only; JSON supported |
+| [`rename`](docs/rename.md) | Rename JPEGs using metadata templates | Dry run; `--apply` to rename |
+| [`sort`](docs/sort.md) | Organize JPEGs by capture date or session | Dry run; `--apply` to move |
+| [`focus`](docs/focus.md) | Planned sharpness analysis | Not implemented; exit status 3 |
+| [`scrub`](docs/scrub.md) | Remove EXIF GPS tags from JPEGs | Write new copies |
+
+Follow each command link for syntax, options, examples, edge cases, safety
+notes, and JSON schemas where supported.
 
 ### Examples
 
