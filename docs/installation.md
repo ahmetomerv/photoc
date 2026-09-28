@@ -99,8 +99,10 @@ uninstaller as described below. Use `sh uninstall-photoc.sh`,
 For a custom directory, pass the same `--install-dir` to every install and
 uninstall command, then run the executable from that directory to verify it.
 The installer will not overwrite an existing copy. If the uninstaller reports
-a modified file or an installation without a receipt, follow the manual/source
-installation guidance below before proceeding.
+an installation without a receipt, follow the
+[source/manual uninstall steps](#uninstalling-a-source-or-manual-installation)
+before proceeding. If a tracked release's executable was modified, review that
+change before removing anything; the receipt no longer verifies it.
 
 You can select a version by adding `--version v0.1.0` to the install command.
 To return to an earlier release, uninstall the current tracked copy and install
@@ -156,10 +158,68 @@ to stderr. Restore those files to their original locations manually before
 retrying; the script does not overwrite a replacement file during recovery.
 
 **CMake, manual, and earlier installations without this receipt are untracked.**
-The script refuses to remove them. For a source install, review the corresponding
-`build/install_manifest.txt` and the current files before manually removing
-any entries. The receipt does not authorize deleting a file that was replaced
-by a package manager or another installation.
+The script refuses to remove them. Follow the steps below instead. The receipt
+does not authorize deleting a file that was replaced by a package manager or
+another installation.
+
+## Uninstalling a source or manual installation
+
+An installation made with `cmake --install` has no `.photoc-install-receipt`.
+Running either `sh scripts/uninstall.sh` or a downloaded `uninstall-photoc.sh`
+therefore reports `no regular ownership receipt` and removes nothing. Both are
+the same release uninstaller; downloading it again will not add the missing
+receipt.
+
+For a source installation:
+
+1. Check the executable your shell finds:
+
+   ```sh
+   command -v photoc
+   ```
+
+2. From the source checkout, review the install manifest in the build directory
+   you used:
+
+   ```sh
+   cat build/install_manifest.txt
+   ```
+
+   If you used another build directory, change `build` in this path. The
+   manifest records that build tree's most recent installation; check that
+   its paths match the installation you want to remove. If it is missing,
+   review your original install prefix and CMake layout instead.
+
+3. For the README's `cmake --install build --prefix "$HOME/.local"` example,
+   confirm the executable is `$HOME/.local/bin/photoc`, then remove it:
+
+   ```sh
+   rm "$HOME/.local/bin/photoc"
+   ```
+
+   For a custom prefix or `CMAKE_INSTALL_BINDIR`, use the actual installed path.
+   Remove it only if it still belongs to this installation. If a package
+   manager or another installer replaced it, use that installation's removal
+   method.
+
+4. For a full uninstall, review the other files in the manifest and remove
+   only the files belonging to this source installation. The default man page
+   can be removed with:
+
+   ```sh
+   rm "$HOME/.local/share/man/man1/photoc.1"
+   ```
+
+   Run this only if the manifest and your chosen layout confirm that path.
+   License notices normally live under `$HOME/.local/share/doc/photoc`;
+   review the manifest before removing those individual files. Keep directories
+   that contain unrelated files, and keep completion/PATH settings if you plan
+   to install another version.
+
+These steps remove installed files, leaving the source checkout and build
+directory available. Running `./build/photoc` without `cmake --install` creates
+no installed copy. For a manually copied executable, check `command -v photoc`
+and remove only the copy you placed there; there may be no CMake manifest.
 
 ## Release asset contract
 

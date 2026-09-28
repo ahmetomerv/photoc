@@ -119,6 +119,38 @@ Run these steps in your terminal:
    This installs the executable, man page, and license notices under
    `$HOME/.local`. Keep the dependency libraries installed so photoc can run.
 
+#### Uninstall a source installation
+
+`cmake --install` does not create the ownership receipt used by
+`scripts/uninstall.sh`. That script handles release installations made by
+`install.sh`; for a source installation, it reports
+`no regular ownership receipt` and removes nothing.
+
+1. Check which executable your shell uses and review the installed file list
+   from the build directory you used:
+
+   ```sh
+   command -v photoc
+   cat build/install_manifest.txt
+   ```
+
+2. If you installed with the `$HOME/.local` prefix above and the executable
+   is `$HOME/.local/bin/photoc`, remove that installed copy:
+
+   ```sh
+   rm "$HOME/.local/bin/photoc"
+   ```
+
+   Use the actual installed path if you chose a different prefix or layout.
+   Check that it still belongs to your source installation before removing it.
+
+This removes only the installed executable. For a full uninstall, review and
+remove the installed man page and license files listed in the manifest too.
+Your source code and `build/` directory remain available. If you only ran
+`./build/photoc` without installing it, there is no installed copy to remove.
+See [source uninstall details](docs/installation.md#uninstalling-a-source-or-manual-installation)
+for custom paths and remaining files.
+
 ### Add photoc to your PATH
 
 The examples below use `photoc` directly. If your shell cannot find it, add
@@ -243,8 +275,9 @@ unchanged executable and that receipt. It leaves configuration, shell setup,
 completions, man pages, and unrelated files in place.
 
 Source and manual installations without a receipt cannot be removed by this
-script. See [uninstall details](docs/installation.md#uninstalling-a-tracked-release-installation)
-for how to review and remove those installations.
+script. Follow [Uninstall a source installation](#uninstall-a-source-installation)
+or the [source/manual uninstall guide](docs/installation.md#uninstalling-a-source-or-manual-installation)
+instead.
 
 ## Quick start
 
