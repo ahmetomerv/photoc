@@ -23,6 +23,14 @@ diagnostics go to stderr. Selected commands also provide JSON for scripts.
 
 ## Installation
 
+### Homebrew tap
+
+A formula for building tagged source, including the man page and shell
+completions, is prepared for an independent tap. Once the tap is published,
+install with `brew install <owner>/tap/photoc`. See
+[tap setup and installation](docs/homebrew.md). No homebrew-core inclusion is
+assumed.
+
 ### GitHub releases
 
 `scripts/install.sh` installs a checksum-verified release binary for macOS

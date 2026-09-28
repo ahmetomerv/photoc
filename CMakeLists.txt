@@ -162,7 +162,10 @@ if(BUILD_TESTING)
                     "PHOTOC_VERSION_TEST_CMAKE=${CMAKE_COMMAND}"
                     "PHOTOC_VERSION_TEST_COMPILER=${CMAKE_C_COMPILER}"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_versioning.py")
-            set_tests_properties(release_installer release_uninstaller release_packaging versioning
+            add_test(NAME homebrew_formula
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_homebrew_formula.py")
+            set_tests_properties(release_installer release_uninstaller release_packaging versioning homebrew_formula
                 PROPERTIES TIMEOUT 60)
         else()
             message(STATUS "Python 3 not found; release script and versioning tests are not registered")

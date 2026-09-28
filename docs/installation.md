@@ -1,5 +1,12 @@
 # Installing photoc
 
+## Homebrew tap
+
+See [Homebrew tap setup](homebrew.md) for the source-build formula, dependency
+handling, man page/completion installation, and `brew install <owner>/tap/photoc`.
+A published tap and source tag are required. Homebrew installations are upgraded
+and removed with `brew upgrade` and `brew uninstall`.
+
 ## GitHub releases
 
 The [version-tag workflow](releasing.md) publishes binaries and archives once

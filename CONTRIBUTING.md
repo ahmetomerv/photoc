@@ -220,4 +220,7 @@ python3 tests/test_versioning.py
 
 The normal CI workflow does not publish releases; the separate Release
 workflow grants write permission only to its publish job. Homebrew publication
-is not configured.
+is manual through an independent tap; follow the [tap guide](docs/homebrew.md)
+to generate its formula from a tagged source archive and verify it with
+`brew style`, `brew audit --strict`, and `brew test`. The formula generator has
+offline checks in `python3 tests/test_homebrew_formula.py`, also run by CTest.
