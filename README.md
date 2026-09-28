@@ -262,6 +262,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, sanitizers, and static analysi
 [AGENTS.md](AGENTS.md) for repository conventions, and
 [benchmarks/README.md](benchmarks/README.md) for reproducible performance checks.
 Shared C APIs and ownership rules are documented in [include/photoc](include/photoc).
+Please follow the [code of conduct](CODE_OF_CONDUCT.md). For file corruption,
+unsafe overwrites, or suspected vulnerabilities, use the private reporting
+guidance in [SECURITY.md](SECURITY.md).
 
 ## License
 

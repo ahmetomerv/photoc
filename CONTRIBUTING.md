@@ -2,6 +2,11 @@
 
 Thanks for helping build `photoc`.
 
+Follow the [code of conduct](CODE_OF_CONDUCT.md). Use the bug/feature templates
+for public issues and the pull request template to describe changes and checks.
+Report suspected vulnerabilities or data-safety defects through
+[SECURITY.md](SECURITY.md) before sharing details publicly.
+
 1. Keep changes focused and avoid adding dependencies without a clear need.
 2. Use C17 and follow the existing source layout: routing in `src/core/`, command implementations in `src/commands/`, and tests in `tests/`.
 3. Build and run the tests before submitting a change:
