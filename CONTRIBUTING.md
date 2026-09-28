@@ -82,3 +82,17 @@ Thanks for helping build `photoc`.
    AddressSanitizer cannot be enabled together. Reproducible worker-count
    benchmarks are documented in [`benchmarks/README.md`](benchmarks/README.md).
 8. Describe what changed and how it was tested in your pull request.
+
+## Continuous integration
+
+[GitHub Actions CI](.github/workflows/ci.yml) runs on pushes, pull requests,
+and manual dispatches. Release builds configure CMake, compile with warnings
+enabled, and run CTest on Ubuntu 24.04 and macOS 15. A separate Ubuntu Clang
+Debug build enables AddressSanitizer and UndefinedBehaviorSanitizer, including
+leak detection on Linux.
+
+CI installs libexif, TurboJPEG, and native test tools so completion and man-page
+checks run alongside the C and CLI tests. It does not cache dependencies or
+publish releases. The sanitizer build can be reproduced locally with
+`sh scripts/build-and-test-sanitizers.sh`; leak detection depends on platform
+support.
