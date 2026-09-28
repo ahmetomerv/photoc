@@ -23,6 +23,23 @@ diagnostics go to stderr. Selected commands also provide JSON for scripts.
 
 ## Installation
 
+### GitHub releases
+
+`scripts/install.sh` installs a checksum-verified release binary for macOS
+arm64, macOS x86_64, or Linux x86_64 to `$HOME/.local/bin`, without `sudo`:
+
+```sh
+sh scripts/install.sh
+sh scripts/install.sh --version v0.1.0 --install-dir "$HOME/bin"
+```
+
+**Release binaries are not published yet.** Build from source until they are
+available. See [installer usage and release asset names](docs/installation.md)
+for downloading the script, PATH setup, requirements, and upgrade behavior.
+The installer refuses to replace an existing file or symlink.
+
+### Source dependencies
+
 Build from source using a C17 compiler (Clang or GCC), CMake **3.21+**,
 `pkg-config`, [libexif](https://libexif.github.io/), and
 [libjpeg-turbo](https://libjpeg-turbo.org/) with its TurboJPEG development files.

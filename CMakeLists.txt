@@ -140,6 +140,17 @@ endif()
 
 if(BUILD_TESTING)
     if(UNIX)
+        add_test(NAME installer_shell_syntax
+            COMMAND /bin/sh -n "${CMAKE_CURRENT_SOURCE_DIR}/scripts/install.sh")
+        find_package(Python3 QUIET COMPONENTS Interpreter)
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME release_installer
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_installer.py")
+            set_tests_properties(release_installer PROPERTIES TIMEOUT 60)
+        else()
+            message(STATUS "Python 3 not found; offline release installer tests are not registered")
+        endif()
         add_test(
             NAME installation
             COMMAND "${CMAKE_COMMAND}"

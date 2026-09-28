@@ -133,3 +133,21 @@ checks run alongside the C and CLI tests. It does not cache dependencies or
 publish releases. The sanitizer build can be reproduced locally with
 `sh scripts/build-and-test-sanitizers.sh`; leak detection depends on platform
 support.
+
+## Release installer checks
+
+The release installer is POSIX shell and installs only checksum-verified release
+binaries. Its asset contract is in [installation documentation](docs/installation.md).
+Before changing it, run:
+
+```sh
+sh -n scripts/install.sh
+shellcheck --shell=sh scripts/install.sh
+python3 tests/test_installer.py
+```
+
+The Python test uses only the standard library, mocks GitHub downloads and
+platform detection, and installs into temporary directories. It covers all
+supported platforms, checksum and download failures, PATH guidance, cleanup,
+and preservation of existing files. CTest runs it when Python 3 is available;
+Ubuntu CI also runs ShellCheck. Neither tool is a runtime dependency.
