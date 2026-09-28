@@ -15,6 +15,7 @@ typedef struct {
     bool apply;
     bool gps;
     bool in_place;
+    bool only_blurry;
     const char *command;
     const char *first_argument;
     const char *format;
@@ -24,6 +25,7 @@ typedef struct {
     const char *target;
     const char *min_quality;
     const char *output_dir;
+    const char *threshold;
     size_t argument_count;
 } photoc_cli_options;
 
@@ -35,7 +37,7 @@ typedef enum {
 } photoc_parse_status;
 
 /* command, first_argument, format, sort_by, gap, quality, target,
-   min_quality, output_dir, and error_arg
+   min_quality, output_dir, threshold, and error_arg
    borrow argv strings. */
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,
@@ -49,5 +51,10 @@ bool photoc_parse_gap_minutes(const char *text, uint32_t *minutes);
 /* Positive integer bytes, optionally suffixed B, KB, MB, GB (decimal) or
    KiB, MiB, GiB (binary). Leaves *bytes unchanged on invalid/overflow. */
 bool photoc_parse_size_bytes(const char *text, uint64_t *bytes);
+
+/* Finite, nonnegative decimal value, optionally using scientific notation.
+   Rejects whitespace, hexadecimal notation, NaN, infinity and range errors.
+   Leaves *value unchanged on invalid input. */
+bool photoc_parse_nonnegative_double(const char *text, double *value);
 
 #endif

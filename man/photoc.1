@@ -33,7 +33,7 @@ The
 command compares regular files of any type.
 The
 .B focus
-command is not implemented.
+command compares JPEG sharpness scores as a review aid.
 .PP
 Directory operations scan one directory level by default.
 .B \-\-recursive
@@ -279,12 +279,23 @@ Report plan rows and summary counts as for
 .BR rename .
 .SS focus
 .B photoc focus
-.IR photo ...
+.I file|directory
+.RI [ \-\-recursive ]
+.RI [ \-\-threshold " value" ]
+.RI [ \-\-only\-blurry ]
 .PP
-Reserved for sharpness analysis.
-The command is not implemented and returns status 3 without reading photos
-or producing scores.
-Help works, but the displayed argument syntax is planned.
+Report JPEG sharpness scores, sorted from lowest to highest with path ordering
+for ties. Scores are variance of a Laplacian on grayscale pixels, using scaled
+JPEG decoding with a maximum analysis dimension of 1024.
+Scores strictly below
+.B \-\-threshold
+(default 100; finite and nonnegative) are labeled "possibly blurry".
+.B \-\-only\-blurry
+filters rows; summary counts and minimum/average/maximum cover all analyzed JPEGs.
+The threshold is a review hint, not proof of blur or artistic quality.
+Noise, texture, subject matter, and JPEG artifacts affect the score.
+Missing EXIF is valid; directory scans skip non-JPEG files and continue past
+unreadable or invalid JPEGs, returning status 1 if any JPEG fails.
 There is no focus JSON report.
 .SS scrub
 .B photoc scrub
@@ -349,8 +360,6 @@ numeric.
 No human-readable decorations are printed on standard output.
 Warnings and errors remain on standard error; no JSON error envelope is emitted.
 Other implemented commands reject this option with status 2.
-.B focus
-still returns status 3.
 .SH SAFETY
 .B rename
 and
@@ -415,10 +424,10 @@ photoc scrub photo.jpg \-\-gps
 photoc scrub photo.jpg \-\-gps \-\-in-place
 .fi
 .PP
-View help for the unimplemented focus command:
+Review possible low-sharpness photos:
 .PP
 .nf
-photoc focus \-\-help
+photoc focus ./photos \-\-recursive \-\-threshold 100 \-\-only\-blurry
 .fi
 .PP
 Inspect a path beginning with a dash:
@@ -473,8 +482,7 @@ Invalid usage: unknown command/option, missing arguments or values,
 invalid option values, or incompatible options.
 .TP
 .B 3
-Command not implemented; currently used by
-.BR focus .
+Reserved for commands that are not implemented.
 .SH BUGS
 Image and metadata operations are JPEG-only.
 Metadata summaries are not complete EXIF dumps, and metadata rewriting does

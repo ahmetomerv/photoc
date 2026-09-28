@@ -1,6 +1,9 @@
 #include "photoc/parse.h"
 
+#include <errno.h>
+#include <math.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 bool photoc_parse_gap_minutes(const char *text, uint32_t *minutes)
@@ -69,6 +72,29 @@ bool photoc_parse_size_bytes(const char *text, uint64_t *bytes)
     return true;
 }
 
+bool photoc_parse_nonnegative_double(const char *text, double *value)
+{
+    if (text == NULL || value == NULL || text[0] == '\0' || text[0] == '-') {
+        return false;
+    }
+    for (const char *cursor = text; *cursor != '\0'; ++cursor) {
+        if ((*cursor < '0' || *cursor > '9') && *cursor != '.' &&
+            *cursor != 'e' && *cursor != 'E' && *cursor != '+' &&
+            *cursor != '-') {
+            return false;
+        }
+    }
+    errno = 0;
+    char *end = NULL;
+    double parsed = strtod(text, &end);
+    if (end == text || *end != '\0' || errno == ERANGE || !isfinite(parsed) ||
+        parsed < 0.0) {
+        return false;
+    }
+    *value = parsed;
+    return true;
+}
+
 enum {
     CMD_COMPRESS = 1u << 0,
     CMD_EXIF = 1u << 1,
@@ -79,7 +105,7 @@ enum {
     CMD_FOCUS = 1u << 6,
     CMD_SCRUB = 1u << 7,
     CMD_RECURSIVE = CMD_COMPRESS | CMD_DUPLICATES | CMD_STATS | CMD_RENAME |
-                    CMD_SORT | CMD_SCRUB,
+                    CMD_SORT | CMD_FOCUS | CMD_SCRUB,
     CMD_APPLY = CMD_RENAME | CMD_SORT
 };
 
@@ -108,7 +134,9 @@ static const photoc_flag flags[] = {{"-h", 0, false},
                                     {"--output-dir", CMD_COMPRESS, true},
                                     {"--by", CMD_SORT, true},
                                     {"--gap", CMD_SORT, true},
-                                    {"--format", CMD_RENAME, true}};
+                                    {"--format", CMD_RENAME, true},
+                                    {"--threshold", CMD_FOCUS, true},
+                                    {"--only-blurry", CMD_FOCUS, false}};
 
 static const photoc_flag *find_flag(const char *name)
 {
@@ -225,6 +253,8 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
             options->gps = true;
         } else if (strcmp(name, "--in-place") == 0) {
             options->in_place = true;
+        } else if (strcmp(name, "--only-blurry") == 0) {
+            options->only_blurry = true;
         }
         return PHOTOC_PARSE_OK;
     }
@@ -244,6 +274,8 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
         slot = &options->gap;
     } else if (strcmp(name, "--format") == 0) {
         slot = &options->format;
+    } else if (strcmp(name, "--threshold") == 0) {
+        slot = &options->threshold;
     }
     if (slot == NULL) {
         *error_arg = name;

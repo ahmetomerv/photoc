@@ -10,7 +10,7 @@ Commands:
   stats        Summarize JPEG collections
   rename       Preview or apply JPEG renames
   sort         Preview or apply JPEG sorting
-  focus        Assess image focus
+  focus        Compare JPEG sharpness scores
   scrub        Remove EXIF GPS metadata from JPEGs
 
 Global options:
@@ -22,5 +22,5 @@ Global options:
 
 Exif and stats inspect JPEG files; duplicates compares file bytes.
 Rename and sort preview by default; compress and scrub write copies.
-Other commands are planned.
+Focus scores JPEG sharpness as a review aid, not a blur verdict.
 Run 'photoc <command> --help' for usage and examples.

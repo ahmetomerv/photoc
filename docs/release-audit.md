@@ -3,6 +3,9 @@
 Audited **0.1.0** on **2026-09-28**, starting from commit `b0e34ea`, with the
 release fixes in this working tree. No commands or options were added.
 
+This is a historical audit snapshot. `focus` has since been implemented;
+see [its current documentation](focus.md) for supported options and limitations.
+
 ## Release status
 
 The identified defects below are fixed and covered by local checks. **Require
@@ -55,9 +58,9 @@ or executions safe.
 
 ## Remaining known limitations
 
-- **Scope:** image operations are JPEG-only. `focus` remains a stub returning
-  3; verbose/quiet flags do not change output. JSON exists only for exif,
-  stats, and duplicates. Stable SemVer tags only; no prerelease packaging.
+- **Scope at audit time:** image operations were JPEG-only and `focus` was a
+  stub returning 3. Verbose/quiet flags do not change output. JSON exists only
+  for exif, stats, and duplicates. Stable SemVer tags only; no prerelease packaging.
 - **Concurrent changes and recovery:** run modifying commands only on stable,
   user-controlled directories. Identity checks are not locks. In-place scrub
   still has a check-to-rename window that can replace an intervening change;

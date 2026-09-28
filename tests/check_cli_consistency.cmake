@@ -27,7 +27,7 @@ foreach(command IN ITEMS compress exif duplicates stats rename sort focus scrub)
     endif()
 endforeach()
 
-foreach(command IN ITEMS compress rename sort scrub)
+foreach(command IN ITEMS compress rename sort focus scrub)
     execute_process(
         COMMAND "${PHOTOC}" "${command}" --json
         RESULT_VARIABLE result

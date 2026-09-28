@@ -105,7 +105,22 @@ static const photoc_help_option sort_options[] = {
     {"--apply", "Move files after the whole plan passes preflight"},
     {NULL, NULL}};
 
-static const char *const focus_examples[] = {"photoc focus photo.jpg", NULL};
+static const char *const focus_examples[] = {
+    "photoc focus photo.jpg", "photoc focus ~/Pictures --recursive",
+    "photoc focus ~/Pictures --threshold 100 --only-blurry", NULL};
+
+static const photoc_help_option focus_options[] = {
+    {"--recursive", "Include nested directories"},
+    {"--threshold <value>", "Nonnegative review cutoff (default: 100)"},
+    {"--only-blurry", "List only scores below the threshold"},
+    {NULL, NULL}};
+
+static const char *const focus_notes[] = {
+    "Rows are sorted by score ascending, then path; summaries include all "
+    "analyzed JPEGs.",
+    "Possibly blurry is a review hint, not certainty; no universal cutoff "
+    "exists.",
+    "Noise, texture, subject matter, and JPEG artifacts affect scores.", NULL};
 
 static const char *const scrub_examples[] = {
     "photoc scrub photo.jpg --gps", "photoc scrub ~/Pictures --gps --recursive",
@@ -290,6 +305,29 @@ static int run_sort(const photoc_cli_options *options)
                                mode, gap_minutes, options->apply);
 }
 
+static int run_focus(const photoc_cli_options *options)
+{
+    static const char usage[] =
+        "focus <file|directory> [--recursive] [--threshold <value>] "
+        "[--only-blurry]";
+    if (options->argument_count != 1) {
+        usage_error("focus", "expected exactly one JPEG file or directory",
+                    usage);
+        return PHOTOC_EXIT_USAGE;
+    }
+    double threshold = PHOTOC_FOCUS_DEFAULT_THRESHOLD;
+    if (options->threshold != NULL &&
+        !photoc_parse_nonnegative_double(options->threshold, &threshold)) {
+        command_error("focus",
+                      "invalid threshold '%s'; use a finite nonnegative "
+                      "number\n",
+                      options->threshold);
+        return PHOTOC_EXIT_USAGE;
+    }
+    return photoc_command_focus(options->first_argument, options->recursive,
+                                threshold, options->only_blurry);
+}
+
 static int run_scrub(const photoc_cli_options *options)
 {
     static const char usage[] =
@@ -327,8 +365,10 @@ static const photoc_command commands[] = {
      "<directory> --by date|session [--gap <duration>] [--recursive] [--apply]",
      "Status: dry-run by default; --apply moves files after preflight",
      sort_examples, sort_options, NULL, true, false, run_sort},
-    {"focus", "Assess image focus", "<photo>...", "Status: not implemented",
-     focus_examples, NULL, NULL, false, false, NULL},
+    {"focus", "Compare JPEG sharpness scores",
+     "<file|directory> [--recursive] [--threshold <value>] [--only-blurry]",
+     "Status: available for JPEG files (read-only)", focus_examples,
+     focus_options, focus_notes, true, false, run_focus},
     {"scrub", "Remove EXIF GPS metadata from JPEGs",
      "<file|directory> --gps [--recursive] [--in-place]",
      "Status: writes .scrubbed copies by default; --in-place replaces "
@@ -370,7 +410,7 @@ static void print_global_help(void)
     puts("Exif and stats inspect JPEG files; duplicates compares file bytes.");
     puts(
         "Rename and sort preview by default; compress and scrub write copies.");
-    puts("Other commands are planned.");
+    puts("Focus scores JPEG sharpness as a review aid, not a blur verdict.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
 

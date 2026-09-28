@@ -25,6 +25,13 @@ int photoc_command_rename(const char *directory, const char *format,
 int photoc_command_sort(const char *directory, bool recursive,
                         photoc_sort_mode mode, uint32_t gap_minutes,
                         bool apply);
+
+#define PHOTOC_FOCUS_DEFAULT_THRESHOLD 100.0
+
+/* Read-only JPEG analysis. Threshold is a finite, nonnegative review cutoff,
+   not proof of blur. path is borrowed for the duration of this call. */
+int photoc_command_focus(const char *path, bool recursive, double threshold,
+                         bool only_blurry);
 int photoc_command_scrub(const char *path, bool recursive, bool in_place);
 
 #endif

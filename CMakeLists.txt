@@ -107,6 +107,7 @@ add_executable(photoc
     src/commands/compress.c
     src/commands/duplicates.c
     src/commands/exif.c
+    src/commands/focus.c
     src/commands/rename.c
     src/commands/scrub.c
     src/commands/sort.c
@@ -152,6 +153,10 @@ if(BUILD_TESTING)
             add_test(NAME output_failure
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_OUTPUT_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_output_failure.py")
+            add_test(NAME focus_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")
+            set_tests_properties(focus_cli PROPERTIES TIMEOUT 60)
             add_test(NAME release_installer
                 COMMAND "${Python3_EXECUTABLE}"
                     "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_installer.py")
@@ -269,6 +274,11 @@ if(BUILD_TESTING)
     target_include_directories(test_parse_gap PRIVATE include)
     add_test(NAME gap_parser COMMAND test_parse_gap)
 
+    add_executable(test_parse_threshold tests/test_parse_threshold.c src/core/parse.c)
+    photoc_configure_c_target(test_parse_threshold)
+    target_include_directories(test_parse_threshold PRIVATE include)
+    add_test(NAME threshold_parser COMMAND test_parse_threshold)
+
     add_executable(test_quality_search tests/test_quality_search.c)
     photoc_configure_c_target(test_quality_search)
     target_link_libraries(test_quality_search PRIVATE photoc_core)
@@ -380,7 +390,7 @@ if(BUILD_TESTING)
     endforeach()
 
     foreach(command IN ITEMS focus)
-        add_cli_test("command_${command}" stub "${command}")
+        add_cli_test("command_${command}" focus_usage "${command}")
         add_cli_test("command_${command}_help" command_help "${command}")
     endforeach()
     add_cli_test(command_exif_help command_help exif)

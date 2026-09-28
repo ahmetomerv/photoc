@@ -40,7 +40,7 @@ for name in compress rename sort focus scrub
     query "photoc $name --"
     lacks --json
 end
-for name in compress duplicates stats rename sort scrub
+for name in compress duplicates stats rename sort focus scrub
     query "photoc $name --rec"
     has --recursive
 end
@@ -48,6 +48,12 @@ query 'photoc rename --'
 has --format; has --apply; lacks --gps
 query 'photoc scrub --'
 has --gps; has --in-place; lacks --apply
+query 'photoc focus --'
+has --threshold; has --only-blurry; lacks --apply; lacks --json
+query 'photoc --threshold 100 focus --only'
+has --only-blurry
+query 'photoc focus Photo'
+has 'Photo album/'; has 'Photo image.JPG'
 query 'photoc compress --'
 for flag in --quality --target --min-quality --output-dir
     has $flag

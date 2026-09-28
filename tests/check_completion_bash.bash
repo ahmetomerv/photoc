@@ -52,7 +52,7 @@ for name in compress rename sort focus scrub; do
     query photoc "$name" --
     lacks --json
 done
-for name in compress duplicates stats rename sort scrub; do
+for name in compress duplicates stats rename sort focus scrub; do
     query photoc "$name" --rec
     has --recursive
 done
@@ -62,6 +62,16 @@ query photoc sort --
 has --by; has --gap; has --apply
 query photoc scrub --
 has --gps; has --in-place; lacks --apply
+query photoc focus --
+has --threshold; has --only-blurry; lacks --apply; lacks --json
+query photoc --threshold 100 focus --only
+has --only-blurry
+query photoc focus ./ --threshold ''
+[[ ${#COMPREPLY[@]} == 0 ]]
+query photoc focus 'Photo'
+has 'Photo album'; has 'Photo image.JPG'
+query photoc focus ./ ''
+[[ ${#COMPREPLY[@]} == 0 ]]
 query photoc compress --
 for flag in --quality --target --min-quality --output-dir; do has "$flag"; done
 query photoc sort ./ --by ''

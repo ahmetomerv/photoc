@@ -15,7 +15,7 @@ function __fish_photoc_command
                 case --
                     set ended 1
                     continue
-                case --quality --target --min-quality --output-dir --by --gap --format
+                case --quality --target --min-quality --output-dir --by --gap --format --threshold
                     set pending 1
                     continue
                 case '-*'
@@ -40,7 +40,7 @@ end
 function __fish_photoc_path
     set -l tokens (commandline -opc)
     # Option arguments have their own rules; do not offer input paths there.
-    not contains -- $tokens[-1] --quality --target --min-quality --output-dir --by --gap --format
+    not contains -- $tokens[-1] --quality --target --min-quality --output-dir --by --gap --format --threshold
 end
 
 complete -c photoc -f
@@ -50,7 +50,7 @@ complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/de
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a stats -d 'Summarize JPEG collections'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a rename -d 'Preview or apply JPEG renames'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a sort -d 'Preview or apply JPEG sorting'
-complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a focus -d 'Planned sharpness analysis (not implemented)'
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a focus -d 'Compare JPEG sharpness scores'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a scrub -d 'Remove EXIF GPS tags'
 
 complete -c photoc -n __fish_photoc_options -s h -l help -d 'Show help'
@@ -58,7 +58,7 @@ complete -c photoc -n __fish_photoc_options -s v -l verbose -d 'Request detailed
 complete -c photoc -n __fish_photoc_options -s q -l quiet -d 'Request reduced output'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -s V -l version -d 'Show version'
 complete -c photoc -n '__fish_photoc_options; and begin; not __fish_photoc_command >/dev/null; or __fish_photoc_using_command exif stats duplicates; end' -l json -d 'Print structured JSON where supported'
-complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command compress duplicates stats rename sort scrub' -l recursive -d 'Include nested directories'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command compress duplicates stats rename sort focus scrub' -l recursive -d 'Include nested directories'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command rename sort' -l apply -d 'Apply the plan after preflight'
 
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command compress' -l quality -x -a '60 70 75 80 85 90 95 100' -d 'JPEG quality (default 80)'
@@ -68,6 +68,8 @@ complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command co
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command rename' -l format -x -d 'Filename template'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command sort' -l by -x -a 'date session' -d 'Grouping mode'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command sort' -l gap -x -a '30m 60m 2h' -d 'Session gap (default 60m)'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command focus' -l threshold -x -d 'Review cutoff (default 100)'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command focus' -l only-blurry -d 'List only scores below the threshold'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command scrub' -l gps -d 'Remove EXIF GPS tags'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command scrub' -l in-place -d 'Replace originals without a backup'
 

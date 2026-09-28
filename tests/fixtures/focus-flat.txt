@@ -1,0 +1,12 @@
+JPEG sharpness (lowest scores first)
+Filename	Sharpness score
+@PATH@	0.000	possibly blurry
+
+Photos analyzed: 1
+Possibly blurry: 1 (score < 100)
+Files skipped: 0
+Files failed: 0
+Minimum score: 0.000
+Average score: 0.000
+Maximum score: 0.000
+Scores are a review aid, not proof of blur or artistic quality.

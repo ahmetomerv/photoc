@@ -18,8 +18,8 @@ diagnostics go to stderr. Selected commands also provide JSON for scripts.
   case-insensitive). RAW, HEIC, and other image formats are not supported yet.
 - `duplicates` compares regular files of **any type**, by exact file contents.
   It does not detect visually similar images.
-- `focus` is **not implemented**. A shared sharpness metric exists, but there is
-  no working focus command or focus JSON output yet.
+- `focus` reports JPEG sharpness scores as a review aid. Low scores can indicate
+  blur or a low-detail subject; they do not measure artistic quality.
 
 ## Installation
 
@@ -169,7 +169,7 @@ containing spaces.
 | [`stats`](docs/stats.md) | Summarize storage, capture dates, and camera/exposure distributions | Read only; JSON supported |
 | [`rename`](docs/rename.md) | Rename JPEGs using metadata templates | Dry run; `--apply` to rename |
 | [`sort`](docs/sort.md) | Organize JPEGs by capture date or session | Dry run; `--apply` to move |
-| [`focus`](docs/focus.md) | Planned sharpness analysis | Not implemented; exit status 3 |
+| [`focus`](docs/focus.md) | Compare JPEG sharpness scores | Read only; lowest scores first |
 | [`scrub`](docs/scrub.md) | Remove EXIF GPS tags from JPEGs | Write new copies |
 
 Follow each command link for syntax, options, examples, edge cases, safety
@@ -193,8 +193,8 @@ photoc rename ./photos --format "{date}_{camera}_{sequence}.{ext}"
 photoc sort ./photos --by date --recursive
 photoc sort ./photos --by session --gap 30m
 
-# Planned syntax only: currently reports "not implemented".
 photoc focus photo.jpg
+photoc focus ./photos --recursive --threshold 100 --only-blurry
 
 # Create photo.scrubbed.jpg with EXIF GPS tags removed.
 photoc scrub photo.jpg --gps
@@ -275,8 +275,8 @@ are recognized but do not change output yet.
 
 Planned work, without release dates:
 
-- Expose the existing sharpness metric through `focus`, with human and JSON
-  output. Sharpness measures edge variation, not artistic quality.
+- Add JSON output for `focus`. Sharpness measures edge variation, not artistic
+  quality.
 - Broaden release compatibility and add package-manager distribution.
 - Evaluate additional image formats while retaining safe file handling.
 

@@ -10,7 +10,7 @@ command_descriptions=(
     'stats:Summarize JPEG collections'
     'rename:Preview or apply JPEG renames'
     'sort:Preview or apply JPEG sorting'
-    'focus:Planned sharpness analysis (not implemented)'
+    'focus:Compare JPEG sharpness scores'
     'scrub:Remove EXIF GPS tags'
 )
 
@@ -23,7 +23,7 @@ for ((index = 2; index < CURRENT; ++index)); do
     if ((! ended)); then
         case $word in
             --) ended=1; continue ;;
-            --quality|--target|--min-quality|--output-dir|--by|--gap|--format)
+            --quality|--target|--min-quality|--output-dir|--by|--gap|--format|--threshold)
                 pending=1; continue ;;
             -*) continue ;;
         esac
@@ -70,7 +70,12 @@ case $command in
             '2:directory:_files -/'
         ) ;;
     focus)
-        specs+=('*:JPEG file (command not implemented):_files') ;;
+        specs+=(
+            '--recursive[Include nested directories]'
+            '--threshold[Review cutoff (default 100)]:threshold:'
+            '--only-blurry[List only scores below the threshold]'
+            '2:JPEG file or directory:_files'
+        ) ;;
     scrub)
         specs+=(
             '--gps[Remove EXIF GPS tags]'
