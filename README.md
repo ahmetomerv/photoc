@@ -9,39 +9,13 @@
 
 **Unix-style photography tools for the terminal.**
 
-`photoc` is a command-line toolkit written in C17 for photographers who work
-with local collections, shell scripts, and repeatable workflows. Inspect
-metadata, summarize a shoot, find exact duplicates, organize filenames and
-folders, compress JPEG copies, or remove EXIF GPS tags.
-
-The philosophy is simple: focused commands, readable output, small
-dependencies, and explicit file changes. Normal output goes to stdout;
-diagnostics go to stderr. Selected commands also provide JSON for scripts.
-
-## Platforms and scope
-
-- **macOS and Linux** are the initial supported platforms.
-- Image and metadata operations currently support **JPEG** (`.jpg` and `.jpeg`,
-  case-insensitive). RAW, HEIC, and other image formats are not supported yet.
-- `duplicates` compares regular files of **any type**, by exact file contents.
-  It does not detect visually similar images.
-- `focus` reports JPEG sharpness scores as a review aid. Low scores can indicate
-  blur or a low-detail subject; they do not measure artistic quality.
+`photoc` is a command-line toolkit for photographers who work with local collections, shell scripts, and repeatable workflows. Inspect metadata, summarize a shoot, find exact duplicates, organize filenames and folders, compress JPEG copies, or remove EXIF GPS tags.
 
 ## Installation
 
-### Homebrew tap
-
-A formula for building tagged source, including the man page and shell
-completions, is prepared for an independent tap. Once the tap is published,
-install with `brew install <owner>/tap/photoc`. See
-[tap setup and installation](docs/homebrew.md). No homebrew-core inclusion is
-assumed.
-
 ### GitHub releases
 
-`scripts/install.sh` installs a checksum-verified release binary for macOS
-arm64, macOS x86_64, or Linux x86_64 to `$HOME/.local/bin`, without `sudo`:
+`scripts/install.sh` installs a checksum-verified release binary for macOS arm64, macOS x86_64, or Linux x86_64 to `$HOME/.local/bin`, without `sudo`:
 
 ```sh
 sh scripts/install.sh
@@ -278,13 +252,6 @@ Exit statuses: **0** success, **1** operational failure, **2** invalid usage,
 **3** unimplemented command. `stats` can finish successfully with per-file
 warnings; its scan summary records those errors. `--verbose` and `--quiet`
 are recognized but do not change output yet.
-
-## Roadmap
-
-Planned work, without release dates:
-
-- Broaden release compatibility and add package-manager distribution.
-- Evaluate additional image formats while retaining safe file handling.
 
 ## Contributing
 
