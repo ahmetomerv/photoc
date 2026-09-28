@@ -36,7 +36,8 @@ static void load_item(size_t index, void *user_data)
 {
     scan_context *context = user_data;
     scan_item *item = &context->items[index];
-    if (item->path == NULL) return;
+    if (item->path == NULL)
+        return;
     item->result = photo_load_metadata(item->path, &item->photo);
     item->system_errno = item->result == PHOTOC_METADATA_IO_ERROR ? errno : 0;
 }
@@ -55,7 +56,8 @@ static int flush_batch(scan_context *context)
 {
     size_t jpeg_count = 0;
     for (size_t i = 0; i < context->count; ++i) {
-        if (context->items[i].path != NULL) ++jpeg_count;
+        if (context->items[i].path != NULL)
+            ++jpeg_count;
     }
     if (jpeg_count >= SCAN_POOL_START_MIN && context->workers != 1 &&
         !context->pool_attempted) {
@@ -64,14 +66,15 @@ static int flush_batch(scan_context *context)
         /* Resource-constrained hosts can still complete the scan serially. */
     }
     if (jpeg_count >= SCAN_PARALLEL_MIN && context->pool != NULL) {
-        if (photoc_thread_pool_run(context->pool, context->count,
-                                  load_item, context) != 0) {
+        if (photoc_thread_pool_run(context->pool, context->count, load_item,
+                                   context) != 0) {
             context->error = errno;
             clear_batch(context);
             return -1;
         }
     } else {
-        for (size_t i = 0; i < context->count; ++i) load_item(i, context);
+        for (size_t i = 0; i < context->count; ++i)
+            load_item(i, context);
     }
 
     int result = 0;
@@ -129,9 +132,11 @@ static bool scan_entry(const char *path, photoc_fs_type type, void *user_data)
 }
 
 int photoc_scan_directory_with_workers(const char *directory, bool recursive,
-                          size_t workers, photoc_scan_photo_fn on_photo,
-                          photoc_scan_warning_fn on_warning,
-                          void *user_data, photoc_scan_stats *stats)
+                                       size_t workers,
+                                       photoc_scan_photo_fn on_photo,
+                                       photoc_scan_warning_fn on_warning,
+                                       void *user_data,
+                                       photoc_scan_stats *stats)
 {
     if (directory == NULL || directory[0] == '\0' || on_photo == NULL ||
         stats == NULL || workers > PHOTOC_MAX_WORKERS) {
@@ -139,17 +144,19 @@ int photoc_scan_directory_with_workers(const char *directory, bool recursive,
         return -1;
     }
     *stats = (photoc_scan_stats){0};
-    scan_context context = {
-        .on_photo = on_photo, .on_warning = on_warning,
-        .user_data = user_data, .stats = stats, .workers = workers
-    };
-    int result = recursive ?
-        photoc_fs_walk_recursive(directory, scan_entry, &context) :
-        photoc_fs_walk(directory, scan_entry, &context);
+    scan_context context = {.on_photo = on_photo,
+                            .on_warning = on_warning,
+                            .user_data = user_data,
+                            .stats = stats,
+                            .workers = workers};
+    int result = recursive
+                     ? photoc_fs_walk_recursive(directory, scan_entry, &context)
+                     : photoc_fs_walk(directory, scan_entry, &context);
     int saved_errno = errno;
     if (context.error == 0 && result != 1) {
         int batch_result = flush_batch(&context);
-        if (batch_result != 0) result = batch_result;
+        if (batch_result != 0)
+            result = batch_result;
     }
     clear_batch(&context);
     photoc_thread_pool_destroy(context.pool);
@@ -157,15 +164,16 @@ int photoc_scan_directory_with_workers(const char *directory, bool recursive,
         errno = context.error;
         return -1;
     }
-    if (result == -1) errno = saved_errno;
+    if (result == -1)
+        errno = saved_errno;
     return result;
 }
 
 int photoc_scan_directory(const char *directory, bool recursive,
                           photoc_scan_photo_fn on_photo,
-                          photoc_scan_warning_fn on_warning,
-                          void *user_data, photoc_scan_stats *stats)
+                          photoc_scan_warning_fn on_warning, void *user_data,
+                          photoc_scan_stats *stats)
 {
-    return photoc_scan_directory_with_workers(directory, recursive, 0,
-                          on_photo, on_warning, user_data, stats);
+    return photoc_scan_directory_with_workers(directory, recursive, 0, on_photo,
+                                              on_warning, user_data, stats);
 }

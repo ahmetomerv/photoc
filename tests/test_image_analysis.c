@@ -7,20 +7,18 @@
 
 static int failures;
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);  \
-            ++failures;                                                         \
-        }                                                                       \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);    \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 static void test_grayscale(void)
 {
-    unsigned char rgb[] = {
-        0, 0, 0, 255, 255, 255, 255, 0, 0,
-        0, 255, 0, 0, 0, 255
-    };
+    unsigned char rgb[] = {0, 0, 0,   255, 255, 255, 255, 0,
+                           0, 0, 255, 0,   0,   0,   255};
     photoc_image input = {5, 1, 15, sizeof(rgb), rgb};
     photoc_gray_image gray = {0};
     CHECK(photoc_gray_from_rgb(&input, 1, &gray) == PHOTOC_ANALYSIS_OK);
@@ -73,8 +71,7 @@ static void test_sampling(void)
 
     uint8_t dummy = 0;
     photoc_image large = {5000, 5000, 15000, 75000000, &dummy};
-    CHECK(photoc_gray_from_rgb(&large, 1, &gray) ==
-          PHOTOC_ANALYSIS_TOO_LARGE);
+    CHECK(photoc_gray_from_rgb(&large, 1, &gray) == PHOTOC_ANALYSIS_TOO_LARGE);
     CHECK(gray.pixels == NULL);
 }
 
@@ -82,7 +79,8 @@ static void test_laplacian(void)
 {
     photoc_gray_image gray = {5, 5, 25, calloc(25, 1)};
     CHECK(gray.pixels != NULL);
-    if (gray.pixels == NULL) return;
+    if (gray.pixels == NULL)
+        return;
     gray.pixels[12] = 255;
     photoc_laplacian_image lap = {0};
     CHECK(photoc_gray_laplacian(&gray, &lap) == PHOTOC_ANALYSIS_OK);
@@ -90,8 +88,10 @@ static void test_laplacian(void)
     if (lap.values != NULL) {
         for (size_t i = 0; i < lap.value_count; ++i) {
             int16_t expected = 0;
-            if (i == 12) expected = 1020;
-            if (i == 7 || i == 11 || i == 13 || i == 17) expected = -255;
+            if (i == 12)
+                expected = 1020;
+            if (i == 7 || i == 11 || i == 13 || i == 17)
+                expected = -255;
             CHECK(lap.values[i] == expected);
         }
         double variance = -1.0;

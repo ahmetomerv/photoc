@@ -4,10 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef enum {
-    PHOTOC_SORT_BY_DATE,
-    PHOTOC_SORT_BY_SESSION
-} photoc_sort_mode;
+typedef enum { PHOTOC_SORT_BY_DATE, PHOTOC_SORT_BY_SESSION } photoc_sort_mode;
 
 int photoc_command_unimplemented(const char *name);
 typedef struct {

@@ -21,14 +21,13 @@ typedef struct {
     uint64_t files_hashed;
     uint64_t files_skipped;
     uint64_t errors;
-    uint64_t duplicate_files; /* All files in groups of two or more. */
+    uint64_t duplicate_files;   /* All files in groups of two or more. */
     uint64_t potential_savings; /* One retained copy per group. */
 } photoc_duplicates_result;
 
 /* A borrowed path and errno from a file-size or hashing failure. */
-typedef void (*photoc_duplicates_warning_fn)(const char *path,
-                                              int system_errno,
-                                              void *user_data);
+typedef void (*photoc_duplicates_warning_fn)(const char *path, int system_errno,
+                                             void *user_data);
 
 /* Examines regular files, regardless of extension. Full SHA-256 is used only
    for files that share both a size and a leading content prefix with another
@@ -48,9 +47,10 @@ int photoc_duplicates_find(const char *directory, bool recursive,
    (thread_pool.h) are invalid. Small workloads and thread startup failures
    run serially. Warnings run on the caller, never on a worker. */
 int photoc_duplicates_find_with_workers(const char *directory, bool recursive,
-                           size_t workers,
-                           photoc_duplicates_warning_fn on_warning,
-                           void *user_data, photoc_duplicates_result *result);
+                                        size_t workers,
+                                        photoc_duplicates_warning_fn on_warning,
+                                        void *user_data,
+                                        photoc_duplicates_result *result);
 
 void photoc_duplicates_cleanup(photoc_duplicates_result *result);
 

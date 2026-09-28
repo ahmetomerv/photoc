@@ -69,8 +69,8 @@ static int add_count(photoc_stats_counts *counts, const char *value,
             errno = EOVERFLOW;
             return -1;
         }
-        photoc_stats_count *items = realloc(counts->items,
-                                            capacity * sizeof(*items));
+        photoc_stats_count *items =
+            realloc(counts->items, capacity * sizeof(*items));
         if (items == NULL) {
             free(copy);
             return -1;
@@ -79,10 +79,7 @@ static int add_count(photoc_stats_counts *counts, const char *value,
         counts->capacity = capacity;
     }
     counts->items[counts->count++] = (photoc_stats_count){
-        .value = copy,
-        .numeric_value = numeric_value,
-        .count = 1
-    };
+        .value = copy, .numeric_value = numeric_value, .count = 1};
     return 0;
 }
 
@@ -134,10 +131,11 @@ int photoc_stats_add_photo(photoc_stats_aggregate *aggregate,
         return -1;
     }
 
-    const bool add_camera = photo->camera_model != NULL &&
-                            photo->camera_model[0] != '\0';
+    const bool add_camera =
+        photo->camera_model != NULL && photo->camera_model[0] != '\0';
     const bool add_iso = photo->has_iso && photo->iso != 0;
-    const bool add_aperture = photo->has_aperture && isfinite(photo->aperture) &&
+    const bool add_aperture = photo->has_aperture &&
+                              isfinite(photo->aperture) &&
                               photo->aperture > 0.0;
     const bool add_focal = photo->has_focal_length &&
                            isfinite(photo->focal_length) &&
@@ -146,26 +144,25 @@ int photoc_stats_add_photo(photoc_stats_aggregate *aggregate,
     char aperture_label[64];
     char focal_label[64];
     if (add_iso) {
-        int length = snprintf(iso_label, sizeof(iso_label), "%" PRIu32,
-                              photo->iso);
+        int length =
+            snprintf(iso_label, sizeof(iso_label), "%" PRIu32, photo->iso);
         if (length < 0 || (size_t)length >= sizeof(iso_label)) {
             errno = EOVERFLOW;
             return -1;
         }
     }
-    if (add_aperture &&
-        format_numeric_label(photo->aperture, aperture_label,
-                             sizeof(aperture_label)) != 0) {
+    if (add_aperture && format_numeric_label(photo->aperture, aperture_label,
+                                             sizeof(aperture_label)) != 0) {
         return -1;
     }
-    if (add_focal &&
-        format_numeric_label(photo->focal_length, focal_label,
-                             sizeof(focal_label)) != 0) {
+    if (add_focal && format_numeric_label(photo->focal_length, focal_label,
+                                          sizeof(focal_label)) != 0) {
         return -1;
     }
-    if ((add_camera &&
-         reject_full_bucket(&aggregate->camera_models, photo->camera_model) != 0) ||
-        (add_iso && reject_full_bucket(&aggregate->iso_values, iso_label) != 0) ||
+    if ((add_camera && reject_full_bucket(&aggregate->camera_models,
+                                          photo->camera_model) != 0) ||
+        (add_iso &&
+         reject_full_bucket(&aggregate->iso_values, iso_label) != 0) ||
         (add_aperture &&
          reject_full_bucket(&aggregate->apertures, aperture_label) != 0) ||
         (add_focal &&
@@ -181,7 +178,8 @@ int photoc_stats_add_photo(photoc_stats_aggregate *aggregate,
         add_count(&aggregate->iso_values, iso_label, (double)photo->iso) != 0) {
         return -1;
     }
-    if (add_aperture && add_numeric(&aggregate->apertures, photo->aperture) != 0) {
+    if (add_aperture &&
+        add_numeric(&aggregate->apertures, photo->aperture) != 0) {
         return -1;
     }
     if (add_focal &&

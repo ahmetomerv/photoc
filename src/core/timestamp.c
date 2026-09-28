@@ -39,9 +39,8 @@ bool photoc_timestamp_is_valid(const char *text)
         two_digits(text + 17) > 59) {
         return false;
     }
-    static const unsigned int days_in_month[12] = {
-        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
-    };
+    static const unsigned int days_in_month[12] = {31, 28, 31, 30, 31, 30,
+                                                   31, 31, 30, 31, 30, 31};
     unsigned int maximum = days_in_month[month - 1];
     if (month == 2 && leap_year(year)) {
         maximum = 29;
@@ -60,18 +59,15 @@ bool photoc_timestamp_to_seconds(const char *text, uint64_t *seconds)
     unsigned int month = two_digits(text + 5);
     unsigned int day = two_digits(text + 8);
     unsigned int years_before = year - 1;
-    uint64_t days = (uint64_t)years_before * 365u +
-                    years_before / 4u - years_before / 100u +
-                    years_before / 400u;
+    uint64_t days = (uint64_t)years_before * 365u + years_before / 4u -
+                    years_before / 100u + years_before / 400u;
     static const unsigned int days_before_month[12] = {
-        0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
-    };
+        0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
     days += days_before_month[month - 1] + day - 1;
     if (month > 2 && leap_year(year)) {
         ++days;
     }
     *seconds = days * 86400u + (uint64_t)two_digits(text + 11) * 3600u +
-               (uint64_t)two_digits(text + 14) * 60u +
-               two_digits(text + 17);
+               (uint64_t)two_digits(text + 14) * 60u + two_digits(text + 17);
     return true;
 }

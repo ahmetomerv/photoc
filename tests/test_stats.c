@@ -8,13 +8,13 @@
 
 static int failures;
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,     \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,      \
                     #condition, errno);                                        \
-            ++failures;                                                         \
-        }                                                                       \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 static char *copy_text(const char *value)
@@ -85,8 +85,7 @@ static void test_aggregation(void)
               "2025:01:01 00:00:00");
     add_photo(&aggregate, "Alpha", 200, true, 100, 4.0, 35.0,
               "2024:12:31 23:59:59");
-    add_photo(&aggregate, "Beta", 300, true, 200, 2.8, 35.0,
-              "invalid date");
+    add_photo(&aggregate, "Beta", 300, true, 200, 2.8, 35.0, "invalid date");
     add_photo(&aggregate, "Alpha", 400, true, 100, 4.0, 50.0,
               "2026:05:10 12:30:00");
     add_photo(&aggregate, "Gamma", 500, true, 400, 2.8, 85.0, NULL);
@@ -159,7 +158,8 @@ static void test_one_photo_and_missing_exif(void)
     CHECK(photoc_stats_average_file_size(&aggregate, &average));
     CHECK(average == 512.0);
     CHECK(!aggregate.has_capture_dates);
-    CHECK(aggregate.camera_models.count == 0 && aggregate.iso_values.count == 0);
+    CHECK(aggregate.camera_models.count == 0 &&
+          aggregate.iso_values.count == 0);
     CHECK(aggregate.apertures.count == 0 && aggregate.focal_lengths.count == 0);
     photoc_stats_cleanup(&aggregate);
 }
@@ -178,14 +178,16 @@ static void test_errors(void)
     CHECK(photoc_stats_add_photo(&aggregate, NULL) == -1 && errno == EINVAL);
     aggregate.total_file_size = UINT64_MAX - 1;
     errno = 0;
-    CHECK(photoc_stats_add_photo(&aggregate, &photo) == -1 && errno == EOVERFLOW);
+    CHECK(photoc_stats_add_photo(&aggregate, &photo) == -1 &&
+          errno == EOVERFLOW);
     CHECK(aggregate.total_photos == 0);
     CHECK(aggregate.total_file_size == UINT64_MAX - 1);
 
     aggregate.total_file_size = 0;
     aggregate.total_photos = UINT64_MAX;
     errno = 0;
-    CHECK(photoc_stats_add_photo(&aggregate, &photo) == -1 && errno == EOVERFLOW);
+    CHECK(photoc_stats_add_photo(&aggregate, &photo) == -1 &&
+          errno == EOVERFLOW);
     CHECK(aggregate.total_photos == UINT64_MAX);
     CHECK(aggregate.photos_with_file_size == 0);
 

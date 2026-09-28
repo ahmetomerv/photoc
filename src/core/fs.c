@@ -216,8 +216,7 @@ const char *photoc_fs_relative(const char *root, const char *path)
     }
 
     size_t path_length = strlen(path);
-    if (path_length < root_length ||
-        memcmp(path, root, root_length) != 0) {
+    if (path_length < root_length || memcmp(path, root, root_length) != 0) {
         return path;
     }
     /* "/" is a prefix of every absolute path. Any other root must end at a
@@ -362,8 +361,7 @@ int photoc_fs_rename_noreplace(const char *source, const char *destination)
 #if defined(__APPLE__)
     return renamex_np(source, destination, RENAME_EXCL);
 #elif defined(__linux__)
-    return renameat2(AT_FDCWD, source, AT_FDCWD, destination,
-                     RENAME_NOREPLACE);
+    return renameat2(AT_FDCWD, source, AT_FDCWD, destination, RENAME_NOREPLACE);
 #else
     errno = ENOTSUP;
     return -1;
@@ -382,12 +380,11 @@ int photoc_fs_renameat_noreplace(int source_directory, const char *source_name,
         return -1;
     }
 #if defined(__APPLE__)
-    return renameatx_np(source_directory, source_name,
-                        destination_directory, destination_name, RENAME_EXCL);
+    return renameatx_np(source_directory, source_name, destination_directory,
+                        destination_name, RENAME_EXCL);
 #elif defined(__linux__)
-    return renameat2(source_directory, source_name,
-                     destination_directory, destination_name,
-                     RENAME_NOREPLACE);
+    return renameat2(source_directory, source_name, destination_directory,
+                     destination_name, RENAME_NOREPLACE);
 #else
     errno = ENOTSUP;
     return -1;
@@ -414,7 +411,8 @@ static int walk_directory(const char *directory, bool recursive,
             }
             break;
         }
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0) {
             continue;
         }
 

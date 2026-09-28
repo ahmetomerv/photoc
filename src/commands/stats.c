@@ -44,11 +44,10 @@ static void print_counts(const char *heading, const photoc_stats_counts *counts,
         return;
     }
     for (size_t i = 0; i < counts->count; ++i) {
-        double percent = 100.0 * (double)counts->items[i].count /
-                         (double)total_photos;
+        double percent =
+            100.0 * (double)counts->items[i].count / (double)total_photos;
         printf("  %s%s%s: %" PRIu64 " (%.1f%%)\n", prefix,
-               counts->items[i].value, suffix, counts->items[i].count,
-               percent);
+               counts->items[i].value, suffix, counts->items[i].count, percent);
     }
 }
 
@@ -79,8 +78,7 @@ static void print_json_counts(const photoc_stats_counts *counts,
             photoc_json_write_string(stdout, item->value);
         }
         printf(", \"count\": %" PRIu64 ", \"percentage_of_photos\": %.15g}",
-               item->count,
-               100.0 * (double)item->count / (double)total_photos);
+               item->count, 100.0 * (double)item->count / (double)total_photos);
     }
     fputc(']', stdout);
 }
@@ -113,13 +111,16 @@ static void print_json(const char *directory, bool recursive,
         fputs("null", stdout);
     }
     fputs("\n  },\n  \"capture_dates\": {\n    \"earliest\": ", stdout);
-    photoc_json_write_string(stdout, aggregate->has_capture_dates ?
-                             aggregate->earliest_capture : NULL);
+    photoc_json_write_string(stdout, aggregate->has_capture_dates
+                                         ? aggregate->earliest_capture
+                                         : NULL);
     fputs(",\n    \"latest\": ", stdout);
-    photoc_json_write_string(stdout, aggregate->has_capture_dates ?
-                             aggregate->latest_capture : NULL);
+    photoc_json_write_string(stdout, aggregate->has_capture_dates
+                                         ? aggregate->latest_capture
+                                         : NULL);
     fputs("\n  },\n  \"distributions\": {\n    \"camera_models\": ", stdout);
-    print_json_counts(&aggregate->camera_models, aggregate->total_photos, false);
+    print_json_counts(&aggregate->camera_models, aggregate->total_photos,
+                      false);
     fputs(",\n    \"iso\": ", stdout);
     print_json_counts(&aggregate->iso_values, aggregate->total_photos, true);
     fputs(",\n    \"apertures\": ", stdout);
@@ -145,19 +146,20 @@ static void print_human(const char *directory, bool recursive,
     } else {
         puts("  Average file size: Unavailable");
     }
-    printf("  Earliest capture: %s\n", aggregate->has_capture_dates ?
-           aggregate->earliest_capture : "Unavailable");
-    printf("  Latest capture: %s\n", aggregate->has_capture_dates ?
-           aggregate->latest_capture : "Unavailable");
+    printf("  Earliest capture: %s\n", aggregate->has_capture_dates
+                                           ? aggregate->earliest_capture
+                                           : "Unavailable");
+    printf("  Latest capture: %s\n", aggregate->has_capture_dates
+                                         ? aggregate->latest_capture
+                                         : "Unavailable");
     print_top("Most-used camera", &aggregate->camera_models, "", "");
     print_top("Most-used ISO", &aggregate->iso_values, "", "");
     print_top("Most-used aperture", &aggregate->apertures, "f/", "");
-    print_top("Most-used focal length", &aggregate->focal_lengths,
-              "", " mm");
+    print_top("Most-used focal length", &aggregate->focal_lengths, "", " mm");
     printf("  Files: %" PRIu64 " visited, %" PRIu64 " JPEG, %" PRIu64
-           " skipped, %" PRIu64 " %s\n", scan->files_visited,
-           scan->jpeg_files_found, scan->skipped_files, scan->errors,
-           scan->errors == 1 ? "error" : "errors");
+           " skipped, %" PRIu64 " %s\n",
+           scan->files_visited, scan->jpeg_files_found, scan->skipped_files,
+           scan->errors, scan->errors == 1 ? "error" : "errors");
 
     puts("\nDistributions (share of parsed photos)");
     print_counts("Camera models", &aggregate->camera_models, "", "",
@@ -179,9 +181,10 @@ int photoc_command_stats(const char *directory, bool recursive, bool json)
                                        report_warning, &context, &scan);
     if (result != 0) {
         int saved_errno = result == 1 ? context.aggregation_errno : errno;
-        photoc_error_kind kind = result == 1 ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO;
-        const char *detail = result == 1 ? "unable to summarize photos" :
-                             "unable to read directory";
+        photoc_error_kind kind =
+            result == 1 ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO;
+        const char *detail = result == 1 ? "unable to summarize photos"
+                                         : "unable to read directory";
         photoc_error_report("stats", PHOTOC_ERR_NOTE_NONE, kind, directory,
                             detail, saved_errno);
         photoc_stats_cleanup(&context.aggregate);

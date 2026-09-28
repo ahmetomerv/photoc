@@ -4,12 +4,12 @@
 
 static int failures;
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);  \
-            ++failures;                                                         \
-        }                                                                       \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);    \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 static void test_ordering(uint32_t max_dimension)
@@ -18,19 +18,24 @@ static void test_ordering(uint32_t max_dimension)
     double blurred = -1.0;
     double flat = -1.0;
     CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/sharp.jpg",
-                                      max_dimension, &sharp) == PHOTOC_IMAGE_OK);
+                                      max_dimension,
+                                      &sharp) == PHOTOC_IMAGE_OK);
     CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/blurred.jpg",
-                                      max_dimension, &blurred) == PHOTOC_IMAGE_OK);
+                                      max_dimension,
+                                      &blurred) == PHOTOC_IMAGE_OK);
     CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/flat.jpg",
                                       max_dimension, &flat) == PHOTOC_IMAGE_OK);
     if (!(sharp > blurred && blurred > flat && flat >= 0.0)) {
-        fprintf(stderr, "Unexpected score order at %u pixels: sharp=%.3f blurred=%.3f flat=%.3f\n",
+        fprintf(stderr,
+                "Unexpected score order at %u pixels: sharp=%.3f blurred=%.3f "
+                "flat=%.3f\n",
                 max_dimension, sharp, blurred, flat);
         ++failures;
     }
     double repeated = -1.0;
     CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/sharp.jpg",
-                                      max_dimension, &repeated) == PHOTOC_IMAGE_OK);
+                                      max_dimension,
+                                      &repeated) == PHOTOC_IMAGE_OK);
     CHECK(repeated == sharp);
 }
 
@@ -70,14 +75,17 @@ static void test_errors(void)
           PHOTOC_IMAGE_INVALID_ARGUMENT);
     CHECK(photoc_sharpness_score_jpeg("", 1024, &score) ==
           PHOTOC_IMAGE_INVALID_ARGUMENT);
+    CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/sharp.jpg", 0,
+                                      &score) == PHOTOC_IMAGE_INVALID_ARGUMENT);
     CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/sharp.jpg",
-                                      0, &score) == PHOTOC_IMAGE_INVALID_ARGUMENT);
-    CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/sharp.jpg",
-                                      1024, NULL) == PHOTOC_IMAGE_INVALID_ARGUMENT);
+                                      1024,
+                                      NULL) == PHOTOC_IMAGE_INVALID_ARGUMENT);
     CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/invalid.jpg",
-                                      1024, &score) == PHOTOC_IMAGE_INVALID_JPEG);
-    CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/unsupported.png",
-                                      1024, &score) == PHOTOC_IMAGE_INVALID_JPEG);
+                                      1024,
+                                      &score) == PHOTOC_IMAGE_INVALID_JPEG);
+    CHECK(photoc_sharpness_score_jpeg(
+              PHOTOC_SHARPNESS_FIXTURES "/unsupported.png", 1024, &score) ==
+          PHOTOC_IMAGE_INVALID_JPEG);
     CHECK(photoc_sharpness_score_jpeg(PHOTOC_SHARPNESS_FIXTURES "/missing.jpg",
                                       1024, &score) == PHOTOC_IMAGE_IO_ERROR);
     CHECK(score == -17.0);

@@ -25,10 +25,9 @@ enum { PATH_ARENA_CHUNK = 65536 };
 
 /* SHA-256 of an empty message (FIPS 180-4). */
 static const unsigned char empty_sha256[PHOTOC_SHA256_DIGEST_SIZE] = {
-    0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8,
-    0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c,
-    0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55
-};
+    0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4,
+    0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b,
+    0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55};
 
 typedef struct {
     char *path;
@@ -114,7 +113,8 @@ static char *path_arena_copy(path_arena *arena, const char *path)
             capacity *= 2;
         }
         if (arena->chunk_count == arena->chunk_capacity) {
-            size_t next = arena->chunk_capacity == 0 ? 4 : arena->chunk_capacity * 2;
+            size_t next =
+                arena->chunk_capacity == 0 ? 4 : arena->chunk_capacity * 2;
             if (next < arena->chunk_capacity ||
                 next > SIZE_MAX / sizeof(*arena->chunks)) {
                 errno = EOVERFLOW;
@@ -170,8 +170,7 @@ static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
             context->error = EOVERFLOW;
             return false;
         }
-        file_record *files = realloc(context->files,
-                                     capacity * sizeof(*files));
+        file_record *files = realloc(context->files, capacity * sizeof(*files));
         if (files == NULL) {
             context->error = errno;
             return false;
@@ -184,7 +183,8 @@ static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
         context->error = errno;
         return false;
     }
-    context->files[context->count++] = (file_record){.path = copy, .size = size};
+    context->files[context->count++] =
+        (file_record){.path = copy, .size = size};
     return true;
 }
 
@@ -294,8 +294,9 @@ static void hash_size_group(find_context *context, size_t start, size_t end)
         return;
     }
 
-    size_t prefix_cap = size < DUPLICATE_PREFIX_BYTES ?
-                        (size_t)size : (size_t)DUPLICATE_PREFIX_BYTES;
+    size_t prefix_cap = size < DUPLICATE_PREFIX_BYTES
+                            ? (size_t)size
+                            : (size_t)DUPLICATE_PREFIX_BYTES;
     prefix_entry *entries = calloc(count, sizeof(*entries));
     unsigned char *prefix_bytes = malloc(count * prefix_cap);
     if (entries == NULL || prefix_bytes == NULL) {
@@ -314,12 +315,10 @@ static void hash_size_group(find_context *context, size_t start, size_t end)
             warn_file(context, file->path, errno);
             continue;
         }
-        entries[readable++] = (prefix_entry){
-            .index = start + i,
-            .prefix = prefix,
-            .length = length,
-            .path = file->path
-        };
+        entries[readable++] = (prefix_entry){.index = start + i,
+                                             .prefix = prefix,
+                                             .length = length,
+                                             .path = file->path};
     }
 
     if (readable > 1) {
@@ -403,19 +402,23 @@ static void hash_candidates(find_context *context, size_t workers)
     if (workers != 1 && count >= 4 && bytes >= UINT64_C(1048576) &&
         count <= SIZE_MAX / sizeof(*jobs)) {
         jobs = malloc(count * sizeof(*jobs));
-        if (jobs != NULL) pool = photoc_thread_pool_create(workers);
+        if (jobs != NULL)
+            pool = photoc_thread_pool_create(workers);
     }
     if (pool != NULL) {
         size_t next = 0;
         for (size_t i = 0; i < context->count; ++i) {
-            if (context->files[i].needs_hash) jobs[next++] = &context->files[i];
+            if (context->files[i].needs_hash)
+                jobs[next++] = &context->files[i];
         }
         if (photoc_thread_pool_run(pool, count, hash_task, jobs) != 0) {
-            for (size_t i = 0; i < count; ++i) hash_one(jobs[i]);
+            for (size_t i = 0; i < count; ++i)
+                hash_one(jobs[i]);
         }
     } else {
         for (size_t i = 0; i < context->count; ++i) {
-            if (context->files[i].needs_hash) hash_one(&context->files[i]);
+            if (context->files[i].needs_hash)
+                hash_one(&context->files[i]);
         }
     }
     photoc_thread_pool_destroy(pool);
@@ -424,9 +427,12 @@ static void hash_candidates(find_context *context, size_t workers)
        order. No worker shares a digest buffer with another worker. */
     for (size_t i = 0; i < context->count; ++i) {
         file_record *file = &context->files[i];
-        if (!file->needs_hash) continue;
-        if (file->hashed) ++context->result->files_hashed;
-        else warn_file(context, file->path, file->hash_error);
+        if (!file->needs_hash)
+            continue;
+        if (file->hashed)
+            ++context->result->files_hashed;
+        else
+            warn_file(context, file->path, file->hash_error);
     }
 }
 
@@ -450,8 +456,8 @@ static int append_group(find_context *context, size_t start, size_t count)
     photoc_duplicates_result *result = context->result;
     uint64_t size = context->files[start].size;
     if (count > UINT64_MAX - result->duplicate_files ||
-        (size != 0 && count - 1 >
-         (UINT64_MAX - result->potential_savings) / size)) {
+        (size != 0 &&
+         count - 1 > (UINT64_MAX - result->potential_savings) / size)) {
         errno = EOVERFLOW;
         return -1;
     }
@@ -460,15 +466,15 @@ static int append_group(find_context *context, size_t start, size_t count)
         return -1;
     }
     if (result->group_count == context->group_capacity) {
-        size_t capacity = context->group_capacity == 0 ?
-                          16 : context->group_capacity * 2;
+        size_t capacity =
+            context->group_capacity == 0 ? 16 : context->group_capacity * 2;
         if (capacity < context->group_capacity ||
             capacity > SIZE_MAX / sizeof(*result->groups)) {
             errno = EOVERFLOW;
             return -1;
         }
-        photoc_duplicate_group *groups = realloc(
-            result->groups, capacity * sizeof(*groups));
+        photoc_duplicate_group *groups =
+            realloc(result->groups, capacity * sizeof(*groups));
         if (groups == NULL) {
             return -1;
         }
@@ -495,8 +501,7 @@ static int append_group(find_context *context, size_t start, size_t count)
         }
     }
     result->groups[result->group_count++] = (photoc_duplicate_group){
-        .file_size = size, .paths = paths, .count = count
-    };
+        .file_size = size, .paths = paths, .count = count};
     memcpy(result->groups[result->group_count - 1].sha256,
            context->files[start].digest, PHOTOC_SHA256_DIGEST_SIZE);
     result->duplicate_files += (uint64_t)count;
@@ -510,13 +515,12 @@ static int assemble_groups(find_context *context)
         qsort(context->files, context->count, sizeof(*context->files),
               compare_digest);
     }
-    for (size_t start = 0; start < context->count &&
-                           context->files[start].hashed;) {
+    for (size_t start = 0;
+         start < context->count && context->files[start].hashed;) {
         size_t end = start + 1;
         while (end < context->count && context->files[end].hashed &&
                context->files[end].size == context->files[start].size &&
-               memcmp(context->files[end].digest,
-                      context->files[start].digest,
+               memcmp(context->files[end].digest, context->files[start].digest,
                       PHOTOC_SHA256_DIGEST_SIZE) == 0) {
             ++end;
         }
@@ -529,9 +533,10 @@ static int assemble_groups(find_context *context)
 }
 
 int photoc_duplicates_find_with_workers(const char *directory, bool recursive,
-                           size_t workers,
-                           photoc_duplicates_warning_fn on_warning,
-                           void *user_data, photoc_duplicates_result *result)
+                                        size_t workers,
+                                        photoc_duplicates_warning_fn on_warning,
+                                        void *user_data,
+                                        photoc_duplicates_result *result)
 {
     if (result == NULL || directory == NULL || directory[0] == '\0' ||
         workers > PHOTOC_MAX_WORKERS) {
@@ -540,11 +545,10 @@ int photoc_duplicates_find_with_workers(const char *directory, bool recursive,
     }
     *result = (photoc_duplicates_result){0};
     find_context context = {
-        .result = result, .on_warning = on_warning, .user_data = user_data
-    };
-    int walk_result = recursive ?
-        photoc_fs_walk_recursive(directory, collect_file, &context) :
-        photoc_fs_walk(directory, collect_file, &context);
+        .result = result, .on_warning = on_warning, .user_data = user_data};
+    int walk_result =
+        recursive ? photoc_fs_walk_recursive(directory, collect_file, &context)
+                  : photoc_fs_walk(directory, collect_file, &context);
     int saved_errno = walk_result == 1 ? context.error : errno;
     if (walk_result == 0) {
         if (context.count > 1) {
@@ -573,5 +577,5 @@ int photoc_duplicates_find(const char *directory, bool recursive,
                            void *user_data, photoc_duplicates_result *result)
 {
     return photoc_duplicates_find_with_workers(directory, recursive, 0,
-                           on_warning, user_data, result);
+                                               on_warning, user_data, result);
 }

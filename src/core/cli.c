@@ -38,118 +38,96 @@ static const char *const compress_examples[] = {
     "photoc compress photo.jpg",
     "photoc compress photo.jpg --quality 80",
     "photoc compress photo.jpg --target 2MB --min-quality 30",
-    "photoc compress ~/Pictures --recursive --quality 75 --output-dir ~/Compressed",
-    NULL
-};
+    "photoc compress ~/Pictures --recursive --quality 75 --output-dir "
+    "~/Compressed",
+    NULL};
 
 static const photoc_help_option compress_options[] = {
     {"--quality <1-100>", "JPEG quality (default: 80)"},
-    {"--target <size>", "Maximum output size; searches quality 20-100 by default"},
+    {"--target <size>",
+     "Maximum output size; searches quality 20-100 by default"},
     {"--min-quality <n>", "Minimum quality for --target (default: 20)"},
     {"--recursive", "Include nested directories"},
-    {"--output-dir <dir>", "Put copies in this directory; preserve relative paths"},
-    {NULL, NULL}
-};
+    {"--output-dir <dir>",
+     "Put copies in this directory; preserve relative paths"},
+    {NULL, NULL}};
 
 static const char *const compress_notes[] = {
-    "Output: photo.compressed.jpg; existing outputs are skipped in directory mode.",
+    "Output: photo.compressed.jpg; existing outputs are skipped in directory "
+    "mode.",
     "Sizes use bytes, KB/MB/GB (decimal), or KiB/MiB/GiB (binary).",
     "An unreachable target writes at minimum quality and returns failure.",
-    "EXIF is preserved where possible, including GPS coordinates.",
-    NULL
-};
+    "EXIF is preserved where possible, including GPS coordinates.", NULL};
 
 static const char *const exif_examples[] = {
-    "photoc exif photo.jpg",
-    "photoc exif photo.jpg --json",
-    NULL
-};
+    "photoc exif photo.jpg", "photoc exif photo.jpg --json", NULL};
 
 static const photoc_help_option exif_options[] = {
-    {"--json", "Print structured JSON"},
-    {NULL, NULL}
-};
+    {"--json", "Print structured JSON"}, {NULL, NULL}};
 
 static const char *const duplicates_examples[] = {
-    "photoc duplicates ~/Pictures",
-    "photoc duplicates ~/Pictures --recursive",
-    "photoc duplicates ~/Pictures --json",
-    NULL
-};
+    "photoc duplicates ~/Pictures", "photoc duplicates ~/Pictures --recursive",
+    "photoc duplicates ~/Pictures --json", NULL};
 
 static const photoc_help_option scan_options[] = {
     {"--recursive", "Include nested directories"},
     {"--json", "Print structured JSON"},
-    {NULL, NULL}
-};
+    {NULL, NULL}};
 
 static const char *const stats_examples[] = {
-    "photoc stats ~/Pictures",
-    "photoc stats ~/Pictures --recursive",
-    "photoc stats ~/Pictures --json",
-    NULL
-};
+    "photoc stats ~/Pictures", "photoc stats ~/Pictures --recursive",
+    "photoc stats ~/Pictures --json", NULL};
 
 static const char *const rename_examples[] = {
     "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\"",
-    "photoc rename ~/Pictures --format \"{original}_{sequence}.{ext}\" --recursive",
-    "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\" --apply",
-    NULL
-};
+    "photoc rename ~/Pictures --format \"{original}_{sequence}.{ext}\" "
+    "--recursive",
+    "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\" "
+    "--apply",
+    NULL};
 
 static const photoc_help_option rename_options[] = {
     {"--format <template>", "Required filename template"},
     {"--recursive", "Include nested directories"},
     {"--apply", "Rename files after the whole plan passes preflight"},
-    {NULL, NULL}
-};
+    {NULL, NULL}};
 
 static const char *const sort_examples[] = {
     "photoc sort ~/Pictures --by date",
     "photoc sort ~/Pictures --by session --gap 30m",
     "photoc sort ~/Pictures --by session --gap 2h --recursive",
-    "photoc sort ~/Pictures --by date --apply",
-    NULL
-};
+    "photoc sort ~/Pictures --by date --apply", NULL};
 
 static const photoc_help_option sort_options[] = {
     {"--by date|session", "Required; group by date or capture-time session"},
     {"--gap <duration>", "Session gap (for example 30m or 2h; default 60m)"},
     {"--recursive", "Include nested directories"},
     {"--apply", "Move files after the whole plan passes preflight"},
-    {NULL, NULL}
-};
+    {NULL, NULL}};
 
-static const char *const focus_examples[] = {
-    "photoc focus photo.jpg",
-    NULL
-};
+static const char *const focus_examples[] = {"photoc focus photo.jpg", NULL};
 
 static const char *const scrub_examples[] = {
-    "photoc scrub photo.jpg --gps",
-    "photoc scrub ~/Pictures --gps --recursive",
-    "photoc scrub photo.jpg --gps --in-place",
-    NULL
-};
+    "photoc scrub photo.jpg --gps", "photoc scrub ~/Pictures --gps --recursive",
+    "photoc scrub photo.jpg --gps --in-place", NULL};
 
 static const photoc_help_option scrub_options[] = {
     {"--gps", "Required; remove EXIF GPS tags"},
     {"--recursive", "Include nested directories"},
     {"--in-place", "Replace each original after temporary-file verification"},
-    {NULL, NULL}
-};
+    {NULL, NULL}};
 
 static const char *const scrub_notes[] = {
     "Warning: --in-place replaces original files and creates no backup.",
     "It preserves mode bits; ACLs and extended attributes may change.",
     "Linked, symlinked, changed, or differently owned files are refused.",
-    NULL
-};
+    NULL};
 
 #if defined(__GNUC__)
 __attribute__((format(printf, 2, 3)))
 #endif
-static void command_error(const char *command, const char *format, ...)
+static void
+command_error(const char *command, const char *format, ...)
 {
     fprintf(stderr, "photoc %s: ", command);
     va_list args;
@@ -190,8 +168,8 @@ static int run_compress(const photoc_cli_options *options)
         "compress <file|directory> [--quality <1-100> | --target <size> "
         "[--min-quality <1-100>]] [--recursive] [--output-dir <directory>]";
     if (options->argument_count != 1) {
-        usage_error("compress",
-                    "expected exactly one JPEG file or directory", usage);
+        usage_error("compress", "expected exactly one JPEG file or directory",
+                    usage);
         return PHOTOC_EXIT_USAGE;
     }
     if (options->quality != NULL && options->target != NULL) {
@@ -203,10 +181,10 @@ static int run_compress(const photoc_cli_options *options)
         command_error("compress", "--min-quality requires --target\n");
         return PHOTOC_EXIT_USAGE;
     }
-    photoc_compress_options compress = {
-        .quality = 80, .min_quality = 20,
-        .recursive = options->recursive, .output_dir = options->output_dir
-    };
+    photoc_compress_options compress = {.quality = 80,
+                                        .min_quality = 20,
+                                        .recursive = options->recursive,
+                                        .output_dir = options->output_dir};
     if (options->quality != NULL &&
         !parse_quality_value(options->quality, &compress.quality)) {
         command_error("compress", "invalid quality '%s'; use 1-100\n",
@@ -215,8 +193,7 @@ static int run_compress(const photoc_cli_options *options)
     }
     if (options->min_quality != NULL &&
         !parse_quality_value(options->min_quality, &compress.min_quality)) {
-        command_error("compress",
-                      "invalid minimum quality '%s'; use 1-100\n",
+        command_error("compress", "invalid minimum quality '%s'; use 1-100\n",
                       options->min_quality);
         return PHOTOC_EXIT_USAGE;
     }
@@ -224,7 +201,8 @@ static int run_compress(const photoc_cli_options *options)
         !photoc_parse_size_bytes(options->target, &compress.target_bytes)) {
         command_error("compress",
                       "invalid target '%s'; use positive bytes or "
-                      "KB/MB/GB/KiB/MiB/GiB\n", options->target);
+                      "KB/MB/GB/KiB/MiB/GiB\n",
+                      options->target);
         return PHOTOC_EXIT_USAGE;
     }
     return photoc_command_compress(options->first_argument, &compress);
@@ -241,8 +219,7 @@ static int run_exif(const photoc_cli_options *options)
 
 static int run_duplicates(const photoc_cli_options *options)
 {
-    static const char usage[] =
-        "duplicates <directory> [--recursive] [--json]";
+    static const char usage[] = "duplicates <directory> [--recursive] [--json]";
     if (options->argument_count != 1) {
         usage_error("duplicates", "expected exactly one directory", usage);
         return PHOTOC_EXIT_USAGE;
@@ -303,9 +280,10 @@ static int run_sort(const photoc_cli_options *options)
     uint32_t gap_minutes = PHOTOC_SESSION_DEFAULT_GAP_MINUTES;
     if (options->gap != NULL &&
         !photoc_parse_gap_minutes(options->gap, &gap_minutes)) {
-        command_error("sort",
-                      "invalid gap '%s'; use minutes or hours such as 30m or 2h\n",
-                      options->gap);
+        command_error(
+            "sort",
+            "invalid gap '%s'; use minutes or hours such as 30m or 2h\n",
+            options->gap);
         return PHOTOC_EXIT_USAGE;
     }
     return photoc_command_sort(options->first_argument, options->recursive,
@@ -326,7 +304,8 @@ static int run_scrub(const photoc_cli_options *options)
 
 static const photoc_command commands[] = {
     {"compress", "Re-encode JPEGs by quality or target size",
-     "<file|directory> [--quality <1-100> | --target <size> [--min-quality <1-100>]] [--recursive] [--output-dir <directory>]",
+     "<file|directory> [--quality <1-100> | --target <size> [--min-quality "
+     "<1-100>]] [--recursive] [--output-dir <directory>]",
      "Status: available for JPEG files; writes .compressed copies",
      compress_examples, compress_options, compress_notes, true, false,
      run_compress},
@@ -338,9 +317,8 @@ static const photoc_command commands[] = {
      "Status: available for regular files (read-only)", duplicates_examples,
      scan_options, NULL, true, true, run_duplicates},
     {"stats", "Summarize JPEG collections",
-     "<directory> [--recursive] [--json]",
-     "Status: available for JPEG files", stats_examples, scan_options, NULL,
-     true, true, run_stats},
+     "<directory> [--recursive] [--json]", "Status: available for JPEG files",
+     stats_examples, scan_options, NULL, true, true, run_stats},
     {"rename", "Preview or apply JPEG renames",
      "<directory> --format <template> [--recursive] [--apply]",
      "Status: dry-run by default; --apply changes files after preflight",
@@ -353,9 +331,9 @@ static const photoc_command commands[] = {
      focus_examples, NULL, NULL, false, false, NULL},
     {"scrub", "Remove EXIF GPS metadata from JPEGs",
      "<file|directory> --gps [--recursive] [--in-place]",
-     "Status: writes .scrubbed copies by default; --in-place replaces originals",
-     scrub_examples, scrub_options, scrub_notes, true, false, run_scrub}
-};
+     "Status: writes .scrubbed copies by default; --in-place replaces "
+     "originals",
+     scrub_examples, scrub_options, scrub_notes, true, false, run_scrub}};
 
 static const photoc_command *find_command(const char *name)
 {
@@ -390,7 +368,8 @@ static void print_global_help(void)
     puts("      --json       Request JSON output where supported");
     puts("");
     puts("Exif and stats inspect JPEG files; duplicates compares file bytes.");
-    puts("Rename and sort preview by default; compress and scrub write copies.");
+    puts(
+        "Rename and sort preview by default; compress and scrub write copies.");
     puts("Other commands are planned.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
@@ -402,8 +381,8 @@ static void print_option(const photoc_help_option *option)
 
 static void print_command_help(const photoc_command *command)
 {
-    printf("Usage: photoc [global options] %s %s\n",
-           command->name, command->arguments);
+    printf("Usage: photoc [global options] %s %s\n", command->name,
+           command->arguments);
     printf("       photoc %s --help\n\n", command->name);
     puts(command->description);
     puts("");
@@ -433,11 +412,13 @@ static void report_parse_error(photoc_parse_status status, const char *command,
 {
     if (command == NULL) {
         if (status == PHOTOC_PARSE_UNKNOWN_OPTION) {
-            fprintf(stderr, "photoc: unknown option '%s'\n"
-                            "Try 'photoc --help' for available options.\n",
+            fprintf(stderr,
+                    "photoc: unknown option '%s'\n"
+                    "Try 'photoc --help' for available options.\n",
                     error_arg);
         } else if (status == PHOTOC_PARSE_MISSING_VALUE) {
-            fprintf(stderr, "photoc: option '%s' requires a value\n", error_arg);
+            fprintf(stderr, "photoc: option '%s' requires a value\n",
+                    error_arg);
         } else {
             fprintf(stderr, "photoc: option '%s' may be specified only once\n",
                     error_arg);
@@ -446,7 +427,8 @@ static void report_parse_error(photoc_parse_status status, const char *command,
     }
 
     if (status == PHOTOC_PARSE_UNKNOWN_OPTION) {
-        command_error(command, "unknown option '%s'\n"
+        command_error(command,
+                      "unknown option '%s'\n"
                       "Try 'photoc %s --help' for available options.\n",
                       error_arg, command);
     } else if (status == PHOTOC_PARSE_MISSING_VALUE) {
@@ -461,7 +443,8 @@ int photoc_run(int argc, char *argv[])
 {
     photoc_cli_options options;
     const char *error_arg;
-    photoc_parse_status status = photoc_parse_args(argc, argv, &options, &error_arg);
+    photoc_parse_status status =
+        photoc_parse_args(argc, argv, &options, &error_arg);
     const photoc_command *command = find_command(options.command);
 
     if (status != PHOTOC_PARSE_OK) {
@@ -476,13 +459,15 @@ int photoc_run(int argc, char *argv[])
     }
 
     if (options.verbose && options.quiet) {
-        fputs("photoc: --verbose and --quiet cannot be used together\n", stderr);
+        fputs("photoc: --verbose and --quiet cannot be used together\n",
+              stderr);
         return PHOTOC_EXIT_USAGE;
     }
 
     if (options.command != NULL && command == NULL) {
-        fprintf(stderr, "photoc: unknown command '%s'\n"
-                        "Try 'photoc --help' for available commands.\n",
+        fprintf(stderr,
+                "photoc: unknown command '%s'\n"
+                "Try 'photoc --help' for available commands.\n",
                 options.command);
         return PHOTOC_EXIT_USAGE;
     }
@@ -509,7 +494,8 @@ int photoc_run(int argc, char *argv[])
     if (command == NULL) {
         fputs("photoc: missing command\n"
               "Usage: photoc [global options] <command> [args]\n"
-              "Try 'photoc --help' for available commands.\n", stderr);
+              "Try 'photoc --help' for available commands.\n",
+              stderr);
         return PHOTOC_EXIT_USAGE;
     }
 

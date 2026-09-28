@@ -10,13 +10,20 @@
 const char *photoc_error_kind_name(photoc_error_kind kind)
 {
     switch (kind) {
-    case PHOTOC_ERR_USAGE: return "invalid input";
-    case PHOTOC_ERR_UNSUPPORTED: return "unsupported file";
-    case PHOTOC_ERR_IO: return "file I/O error";
-    case PHOTOC_ERR_METADATA: return "metadata error";
-    case PHOTOC_ERR_DECODE: return "image decode error";
-    case PHOTOC_ERR_COLLISION: return "collision";
-    case PHOTOC_ERR_INTERNAL: return "internal error";
+    case PHOTOC_ERR_USAGE:
+        return "invalid input";
+    case PHOTOC_ERR_UNSUPPORTED:
+        return "unsupported file";
+    case PHOTOC_ERR_IO:
+        return "file I/O error";
+    case PHOTOC_ERR_METADATA:
+        return "metadata error";
+    case PHOTOC_ERR_DECODE:
+        return "image decode error";
+    case PHOTOC_ERR_COLLISION:
+        return "collision";
+    case PHOTOC_ERR_INTERNAL:
+        return "internal error";
     }
     return "internal error";
 }
@@ -55,8 +62,8 @@ photoc_error_kind photoc_error_kind_for_image(photoc_image_result result)
     return PHOTOC_ERR_INTERNAL;
 }
 
-photoc_error_kind photoc_error_kind_for_jpeg_edit(photoc_jpeg_edit_result result,
-                                                  int err)
+photoc_error_kind
+photoc_error_kind_for_jpeg_edit(photoc_jpeg_edit_result result, int err)
 {
     switch (result) {
     case PHOTOC_JPEG_EDIT_INVALID_JPEG:
@@ -165,8 +172,8 @@ int photoc_error_metadata(const char *command, photoc_error_note note,
     const char *detail = photo_metadata_result_message(result);
     int err = result == PHOTOC_METADATA_IO_ERROR ? system_errno : 0;
     return photoc_error_report(command, note,
-                               photoc_error_kind_for_metadata(result),
-                               path, detail, err);
+                               photoc_error_kind_for_metadata(result), path,
+                               detail, err);
 }
 
 int photoc_error_image(const char *command, photoc_error_note note,
@@ -175,16 +182,16 @@ int photoc_error_image(const char *command, photoc_error_note note,
 {
     const char *detail = photoc_image_result_message(result);
     int err = result == PHOTOC_IMAGE_IO_ERROR ? system_errno : 0;
-    return photoc_error_report(command, note,
-                               photoc_error_kind_for_image(result),
-                               path, detail, err);
+    return photoc_error_report(
+        command, note, photoc_error_kind_for_image(result), path, detail, err);
 }
 
 int photoc_error_jpeg_edit(const char *command, photoc_error_note note,
                            const char *path, photoc_jpeg_edit_result result,
                            int system_errno)
 {
-    photoc_error_kind kind = photoc_error_kind_for_jpeg_edit(result, system_errno);
+    photoc_error_kind kind =
+        photoc_error_kind_for_jpeg_edit(result, system_errno);
     const char *detail = photoc_jpeg_edit_result_message(result);
     int err = 0;
     if (kind == PHOTOC_ERR_COLLISION) {

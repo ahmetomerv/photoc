@@ -19,13 +19,13 @@ void photoc_laplacian_cleanup(photoc_laplacian_image *image)
 }
 
 photoc_analysis_result photoc_gray_from_rgb(const photoc_image *input,
-                                             uint32_t sample_step,
-                                             photoc_gray_image *output)
+                                            uint32_t sample_step,
+                                            photoc_gray_image *output)
 {
     if (input == NULL || output == NULL || output->pixels != NULL ||
         output->width != 0 || output->height != 0 || output->pixel_count != 0 ||
-        sample_step == 0 || input->pixels == NULL ||
-        input->width == 0 || input->height == 0) {
+        sample_step == 0 || input->pixels == NULL || input->width == 0 ||
+        input->height == 0) {
         return PHOTOC_ANALYSIS_INVALID_ARGUMENT;
     }
 #if SIZE_MAX / 3 < UINT32_MAX
@@ -34,8 +34,7 @@ photoc_analysis_result photoc_gray_from_rgb(const photoc_image *input,
     }
 #endif
     size_t row_bytes = (size_t)input->width * 3;
-    if (input->stride < row_bytes ||
-        input->height > SIZE_MAX / input->stride ||
+    if (input->stride < row_bytes || input->height > SIZE_MAX / input->stride ||
         input->pixel_bytes < input->stride * (size_t)input->height) {
         return PHOTOC_ANALYSIS_INVALID_ARGUMENT;
     }
@@ -52,19 +51,20 @@ photoc_analysis_result photoc_gray_from_rgb(const photoc_image *input,
     for (uint32_t y = 0; y < height; ++y) {
         size_t source_row = (size_t)y * sample_step * input->stride;
         for (uint32_t x = 0; x < width; ++x) {
-            const uint8_t *rgb = input->pixels + source_row +
-                                 (size_t)x * sample_step * 3;
-            unsigned int weighted = 299u * rgb[0] + 587u * rgb[1] +
-                                    114u * rgb[2];
-            pixels[(size_t)y * width + x] = (uint8_t)((weighted + 500u) / 1000u);
+            const uint8_t *rgb =
+                input->pixels + source_row + (size_t)x * sample_step * 3;
+            unsigned int weighted =
+                299u * rgb[0] + 587u * rgb[1] + 114u * rgb[2];
+            pixels[(size_t)y * width + x] =
+                (uint8_t)((weighted + 500u) / 1000u);
         }
     }
     *output = (photoc_gray_image){width, height, count, pixels};
     return PHOTOC_ANALYSIS_OK;
 }
 
-photoc_analysis_result photoc_gray_laplacian(
-    const photoc_gray_image *input, photoc_laplacian_image *output)
+photoc_analysis_result photoc_gray_laplacian(const photoc_gray_image *input,
+                                             photoc_laplacian_image *output)
 {
     if (input == NULL || output == NULL || output->values != NULL ||
         output->width != 0 || output->height != 0 || output->value_count != 0 ||
@@ -95,13 +95,13 @@ photoc_analysis_result photoc_gray_laplacian(
             }
         }
     }
-    *output = (photoc_laplacian_image){input->width, input->height,
-                                       count, values};
+    *output =
+        (photoc_laplacian_image){input->width, input->height, count, values};
     return PHOTOC_ANALYSIS_OK;
 }
 
 photoc_analysis_result photoc_variance_i16(const int16_t *values, size_t count,
-                                            double *variance)
+                                           double *variance)
 {
     if (values == NULL || count == 0 || variance == NULL) {
         return PHOTOC_ANALYSIS_INVALID_ARGUMENT;
@@ -120,10 +120,15 @@ photoc_analysis_result photoc_variance_i16(const int16_t *values, size_t count,
 const char *photoc_analysis_result_message(photoc_analysis_result result)
 {
     switch (result) {
-    case PHOTOC_ANALYSIS_OK: return "analysis completed";
-    case PHOTOC_ANALYSIS_INVALID_ARGUMENT: return "invalid analysis argument";
-    case PHOTOC_ANALYSIS_TOO_LARGE: return "sampled image is too large";
-    case PHOTOC_ANALYSIS_NO_MEMORY: return "out of memory";
-    default: return "unknown analysis error";
+    case PHOTOC_ANALYSIS_OK:
+        return "analysis completed";
+    case PHOTOC_ANALYSIS_INVALID_ARGUMENT:
+        return "invalid analysis argument";
+    case PHOTOC_ANALYSIS_TOO_LARGE:
+        return "sampled image is too large";
+    case PHOTOC_ANALYSIS_NO_MEMORY:
+        return "out of memory";
+    default:
+        return "unknown analysis error";
     }
 }

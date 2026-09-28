@@ -67,8 +67,7 @@ static bool is_frame_marker(int value)
 {
     return (value >= 0xc0 && value <= 0xc3) ||
            (value >= 0xc5 && value <= 0xc7) ||
-           (value >= 0xc9 && value <= 0xcb) ||
-           (value >= 0xcd && value <= 0xcf);
+           (value >= 0xc9 && value <= 0xcb) || (value >= 0xcd && value <= 0xcf);
 }
 
 int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)
@@ -144,7 +143,8 @@ int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)
         } else if (current == 0xe1 && length >= 8) {
             unsigned char signature[6];
             if (fread(signature, 1, sizeof(signature), file) !=
-                sizeof(signature) || skip_bytes(file, length - 8) != 0) {
+                    sizeof(signature) ||
+                skip_bytes(file, length - 8) != 0) {
                 return invalid_or_io(file);
             }
             if (memcmp(signature, "Exif\0\0", sizeof(signature)) == 0) {

@@ -8,11 +8,12 @@
 #include <stddef.h>
 
 typedef struct {
-    uint64_t files_visited;    /* Regular files examined; directories excluded. */
-    uint64_t jpeg_files_found; /* Regular .jpg/.jpeg files, even if unreadable. */
-    uint64_t photos_parsed;    /* Successfully loaded JPEGs. */
-    uint64_t skipped_files;    /* Non-JPEG files and JPEGs that could not load. */
-    uint64_t errors;           /* JPEG load failures; a subset of skipped_files. */
+    uint64_t files_visited; /* Regular files examined; directories excluded. */
+    uint64_t
+        jpeg_files_found;   /* Regular .jpg/.jpeg files, even if unreadable. */
+    uint64_t photos_parsed; /* Successfully loaded JPEGs. */
+    uint64_t skipped_files; /* Non-JPEG files and JPEGs that could not load. */
+    uint64_t errors;        /* JPEG load failures; a subset of skipped_files. */
 } photoc_scan_stats;
 
 /* Photo and its strings are borrowed and valid only during the callback.
@@ -38,16 +39,18 @@ typedef void (*photoc_scan_warning_fn)(const char *path,
    callback is retained; user_data is borrowed. */
 int photoc_scan_directory(const char *directory, bool recursive,
                           photoc_scan_photo_fn on_photo,
-                          photoc_scan_warning_fn on_warning,
-                          void *user_data, photoc_scan_stats *stats);
+                          photoc_scan_warning_fn on_warning, void *user_data,
+                          photoc_scan_stats *stats);
 
 /* Same contract, with an explicit bounded worker count: zero uses the default,
    one is serial, and values above PHOTOC_MAX_WORKERS (thread_pool.h) are
    invalid. Small batches run serially; thread startup failure falls back to
    serial loading. No new CLI option is introduced. */
 int photoc_scan_directory_with_workers(const char *directory, bool recursive,
-                          size_t workers, photoc_scan_photo_fn on_photo,
-                          photoc_scan_warning_fn on_warning,
-                          void *user_data, photoc_scan_stats *stats);
+                                       size_t workers,
+                                       photoc_scan_photo_fn on_photo,
+                                       photoc_scan_warning_fn on_warning,
+                                       void *user_data,
+                                       photoc_scan_stats *stats);
 
 #endif

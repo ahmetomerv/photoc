@@ -34,7 +34,8 @@ static int probe_quality(int quality, uint64_t *size, void *user_data)
 {
     quality_probe_context *context = user_data;
     photoc_jpeg_buffer encoded = {0};
-    context->error = photoc_image_encode_jpeg(context->image, quality, &encoded);
+    context->error =
+        photoc_image_encode_jpeg(context->image, quality, &encoded);
     if (context->error != PHOTOC_IMAGE_OK) {
         errno = EIO;
         return -1;
@@ -117,10 +118,14 @@ static void report_target_miss(const char *path,
                                const photoc_quality_choice *choice)
 {
     if (choice->quality == options->min_quality) {
-        fprintf(stderr, "photoc compress: '%s': target cannot be reached without going below minimum quality %d (achieved %" PRIu64 " bytes)\n",
+        fprintf(stderr,
+                "photoc compress: '%s': target cannot be reached without going "
+                "below minimum quality %d (achieved %" PRIu64 " bytes)\n",
                 path, options->min_quality, choice->size);
     } else {
-        fprintf(stderr, "photoc compress: '%s': target not met at quality %d (achieved %" PRIu64 " bytes)\n",
+        fprintf(stderr,
+                "photoc compress: '%s': target not met at quality %d (achieved "
+                "%" PRIu64 " bytes)\n",
                 path, choice->quality, choice->size);
     }
 }
@@ -173,7 +178,8 @@ static int compress_file(const char *path, const char *destination,
     }
 
     photoc_jpeg_exif *exif = NULL;
-    photoc_jpeg_edit_result exif_result = photoc_jpeg_exif_load_copy(path, &exif);
+    photoc_jpeg_edit_result exif_result =
+        photoc_jpeg_exif_load_copy(path, &exif);
     if (exif_result != PHOTOC_JPEG_EDIT_OK &&
         exif_result != PHOTOC_JPEG_EDIT_NO_EXIF) {
         jpeg_error(path, exif_result);
@@ -200,15 +206,14 @@ static int compress_file(const char *path, const char *destination,
             return -1;
         }
         quality_probe_context context = {&image, overhead, PHOTOC_IMAGE_OK};
-        if (photoc_quality_search(options->target_bytes,
-                                  options->min_quality, probe_quality,
-                                  &context, choice) != 0) {
+        if (photoc_quality_search(options->target_bytes, options->min_quality,
+                                  probe_quality, &context, choice) != 0) {
             if (context.error != PHOTOC_IMAGE_OK) {
                 image_error(path, context.error);
             } else {
                 photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
-                                    errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
-                                    PHOTOC_ERR_IO,
+                                    errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                                    : PHOTOC_ERR_IO,
                                     path, "quality search failed", errno);
             }
             photoc_image_cleanup(&image);
@@ -225,8 +230,8 @@ static int compress_file(const char *path, const char *destination,
         return -1;
     }
 
-    photoc_jpeg_edit_result write_result = photoc_jpeg_write_encoded(
-        destination, &encoded, exif);
+    photoc_jpeg_edit_result write_result =
+        photoc_jpeg_write_encoded(destination, &encoded, exif);
     photoc_jpeg_buffer_cleanup(&encoded);
     photoc_jpeg_exif_free(exif);
     if (write_result != PHOTOC_JPEG_EDIT_OK) {
@@ -315,7 +320,8 @@ static int destination_for(const char *root, const char *source,
         relative = slash == NULL ? source : slash + 1;
     }
     char *base = NULL;
-    if (output_dir != NULL && photoc_fs_join(output_dir, relative, &base) != 0) {
+    if (output_dir != NULL &&
+        photoc_fs_join(output_dir, relative, &base) != 0) {
         return -1;
     }
     int result = output_path(base == NULL ? source : base, destination);
@@ -330,8 +336,9 @@ int photoc_command_compress(const char *path,
     const char *output_dir = options->output_dir;
     photoc_fs_type type;
     if (photoc_fs_get_type(path, &type) != 0) {
-        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                                   path, "unable to inspect path", errno);
+        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, path,
+                                   "unable to inspect path", errno);
     }
     if (type == PHOTOC_FS_FILE && recursive) {
         fputs("photoc compress: --recursive requires a directory\n", stderr);
@@ -339,39 +346,41 @@ int photoc_command_compress(const char *path,
     }
     if (type == PHOTOC_FS_OTHER ||
         (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path))) {
-        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
-                                   PHOTOC_ERR_UNSUPPORTED, path,
-                                   "expected a regular JPEG file or directory", 0);
+        return photoc_error_report(
+            "compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
+            "expected a regular JPEG file or directory", 0);
     }
     if (output_dir != NULL && output_dir[0] == '\0') {
-        fputs("photoc compress: --output-dir requires a nonempty directory\n", stderr);
+        fputs("photoc compress: --output-dir requires a nonempty directory\n",
+              stderr);
         return PHOTOC_EXIT_USAGE;
     }
     if (output_dir != NULL && photoc_fs_mkdirs(output_dir) != 0) {
-        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                                   output_dir, "cannot create output directory",
-                                   errno);
+        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, output_dir,
+                                   "cannot create output directory", errno);
     }
 
     if (type == PHOTOC_FS_FILE) {
         char *destination = NULL;
         if (destination_for(NULL, path, output_dir, &destination) != 0) {
             return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
-                                       errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
-                                       PHOTOC_ERR_IO,
+                                       errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                                       : PHOTOC_ERR_IO,
                                        path, "cannot build output path", errno);
         }
         uint64_t before = 0;
         uint64_t after = 0;
         photoc_quality_choice choice = {0};
-        int result = compress_file(path, destination, options, &before, &after,
-                                   &choice);
+        int result =
+            compress_file(path, destination, options, &before, &after, &choice);
         if (result == 0) {
             printf("Output: %s\nQuality: %d\n", destination, choice.quality);
             printf("Original size: %" PRIu64 " bytes\n", before);
             printf("Compressed size: %" PRIu64 " bytes\n", after);
             if (options->target_bytes != 0) {
-                printf("Target size: %" PRIu64 " bytes\n", options->target_bytes);
+                printf("Target size: %" PRIu64 " bytes\n",
+                       options->target_bytes);
                 printf("Target met: %s\n", choice.target_met ? "yes" : "no");
                 if (!choice.target_met) {
                     report_target_miss(path, options, &choice);
@@ -395,13 +404,14 @@ int photoc_command_compress(const char *path,
                                        PHOTOC_ERR_IO, NULL,
                                        "unable to write output", EIO);
         }
-        return result == 0 && choice.target_met ? PHOTOC_EXIT_SUCCESS :
-               PHOTOC_EXIT_FAILURE;
+        return result == 0 && choice.target_met ? PHOTOC_EXIT_SUCCESS
+                                                : PHOTOC_EXIT_FAILURE;
     }
 
     compress_walk walk = {.output_dir = output_dir, .input_dir = path};
-    int walk_result = recursive ? photoc_fs_walk_recursive(path, visit_file, &walk) :
-                                  photoc_fs_walk(path, visit_file, &walk);
+    int walk_result = recursive
+                          ? photoc_fs_walk_recursive(path, visit_file, &walk)
+                          : photoc_fs_walk(path, visit_file, &walk);
     size_t processed = 0;
     size_t skipped = walk.skipped;
     size_t failed = 0;
@@ -410,24 +420,23 @@ int photoc_command_compress(const char *path,
     uint64_t after_total = 0;
     if (walk_result != 0) {
         ++failed;
-        photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
-                            (walk.error == ENOMEM) ? PHOTOC_ERR_INTERNAL :
-                            PHOTOC_ERR_IO,
-                            path, "cannot read directory",
-                            walk.error != 0 ? walk.error : errno);
+        photoc_error_report(
+            "compress", PHOTOC_ERR_NOTE_NONE,
+            (walk.error == ENOMEM) ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO, path,
+            "cannot read directory", walk.error != 0 ? walk.error : errno);
     } else {
         if (walk.count > 1) {
             qsort(walk.paths, walk.count, sizeof(*walk.paths), compare_paths);
         }
         for (size_t i = 0; i < walk.count; ++i) {
             char *destination = NULL;
-            if (destination_for(path, walk.paths[i], output_dir, &destination) != 0) {
+            if (destination_for(path, walk.paths[i], output_dir,
+                                &destination) != 0) {
                 ++failed;
-                photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
-                                    errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
-                                    PHOTOC_ERR_IO,
-                                    walk.paths[i], "cannot build output path",
-                                    errno);
+                photoc_error_report(
+                    "compress", PHOTOC_ERR_NOTE_NONE,
+                    errno == ENOMEM ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO,
+                    walk.paths[i], "cannot build output path", errno);
                 continue;
             }
             uint64_t before = 0;
@@ -468,14 +477,17 @@ int photoc_command_compress(const char *path,
     printf("Bytes before: %" PRIu64 "\nBytes after: %" PRIu64 "\n",
            before_total, after_total);
     if (after_total <= before_total) {
-        printf("Total savings: %" PRIu64 " bytes\n", before_total - after_total);
+        printf("Total savings: %" PRIu64 " bytes\n",
+               before_total - after_total);
     } else {
-        printf("Total savings: -%" PRIu64 " bytes\n", after_total - before_total);
+        printf("Total savings: -%" PRIu64 " bytes\n",
+               after_total - before_total);
     }
     if (ferror(stdout)) {
-        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                                   NULL, "unable to write output", EIO);
+        return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, NULL,
+                                   "unable to write output", EIO);
     }
-    return failed == 0 && targets_not_met == 0 ? PHOTOC_EXIT_SUCCESS :
-           PHOTOC_EXIT_FAILURE;
+    return failed == 0 && targets_not_met == 0 ? PHOTOC_EXIT_SUCCESS
+                                               : PHOTOC_EXIT_FAILURE;
 }

@@ -43,20 +43,20 @@ typedef struct {
    result and must pass a zero-initialized or cleaned output struct. On error,
    the output is unchanged. The input remains borrowed and unchanged. */
 photoc_analysis_result photoc_gray_from_rgb(const photoc_image *input,
-                                             uint32_t sample_step,
-                                             photoc_gray_image *output);
+                                            uint32_t sample_step,
+                                            photoc_gray_image *output);
 
 /* Compute 4*center - left - right - above - below at interior pixels.
    Outputs zero at borders, including all pixels in images smaller than 3x3.
    The caller owns the result and must pass a zero-initialized or cleaned
    output struct. On error, the output is unchanged. */
-photoc_analysis_result photoc_gray_laplacian(
-    const photoc_gray_image *input, photoc_laplacian_image *output);
+photoc_analysis_result photoc_gray_laplacian(const photoc_gray_image *input,
+                                             photoc_laplacian_image *output);
 
 /* Population variance of count signed values using a stable one-pass mean.
    Requires count > 0; does not allocate memory. Output is unchanged on error. */
 photoc_analysis_result photoc_variance_i16(const int16_t *values, size_t count,
-                                            double *variance);
+                                           double *variance);
 
 void photoc_gray_cleanup(photoc_gray_image *image);
 void photoc_laplacian_cleanup(photoc_laplacian_image *image);

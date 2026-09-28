@@ -19,8 +19,8 @@ typedef enum {
 /* Checks placeholder names and brace syntax without requiring a Photo.
    An invalid or unknown placeholder sets error_offset to its opening brace;
    otherwise error_offset is SIZE_MAX. */
-photoc_template_result photoc_filename_template_validate(
-    const char *pattern, size_t *error_offset);
+photoc_template_result photoc_filename_template_validate(const char *pattern,
+                                                         size_t *error_offset);
 
 /* Expands a single filename; no filesystem operation is performed.
    {date} is YYYY-MM-DD and {datetime} is YYYY-MM-DD_HH-MM-SS from the
@@ -38,9 +38,10 @@ photoc_template_result photoc_filename_template_validate(
    string to free; on failure it is NULL. The output pointer must not already
    own memory. If error_offset is supplied, it receives the opening brace of
    an invalid/unknown/unavailable placeholder, or SIZE_MAX otherwise. */
-photoc_template_result photoc_filename_template_expand(
-    const char *pattern, const Photo *photo, uint64_t sequence,
-    unsigned int sequence_width, char **filename, size_t *error_offset);
+photoc_template_result
+photoc_filename_template_expand(const char *pattern, const Photo *photo,
+                                uint64_t sequence, unsigned int sequence_width,
+                                char **filename, size_t *error_offset);
 
 /* Static, human-readable result description. Never free it. */
 const char *photoc_template_result_message(photoc_template_result result);

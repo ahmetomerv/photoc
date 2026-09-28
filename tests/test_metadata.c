@@ -15,12 +15,12 @@ static int near(double actual, double expected)
     return difference > -0.00001 && difference < 0.00001;
 }
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);   \
-            ++failures;                                                         \
-        }                                                                       \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);    \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 static char *fixture(const char *name)
@@ -65,8 +65,7 @@ static void test_with_exif(void)
               strcmp(photo.capture_timestamp, "2026:09:27 12:34:56") == 0);
         CHECK(photo.has_iso && photo.iso == 200);
         CHECK(photo.has_aperture && near(photo.aperture, 2.8));
-        CHECK(photo.has_exposure_time &&
-              near(photo.exposure_time, 0.008));
+        CHECK(photo.has_exposure_time && near(photo.exposure_time, 0.008));
         CHECK(photo.has_focal_length && photo.focal_length == 50.0);
         CHECK(!photo.has_gps);
     }
@@ -126,13 +125,15 @@ static void test_failures(void)
     if (invalid != NULL && unsupported != NULL && missing != NULL) {
         CHECK(photo_load_metadata(invalid, &photo) ==
               PHOTOC_METADATA_INVALID_JPEG);
-        CHECK(strcmp(photo_metadata_result_message(PHOTOC_METADATA_INVALID_JPEG),
-                     "invalid or truncated JPEG file") == 0);
+        CHECK(
+            strcmp(photo_metadata_result_message(PHOTOC_METADATA_INVALID_JPEG),
+                   "invalid or truncated JPEG file") == 0);
         CHECK(photo.path == NULL);
         CHECK(photo_load_metadata(unsupported, &photo) ==
               PHOTOC_METADATA_UNSUPPORTED_FORMAT);
         CHECK(strstr(photo_metadata_result_message(
-                         PHOTOC_METADATA_UNSUPPORTED_FORMAT), ".jpg") != NULL);
+                         PHOTOC_METADATA_UNSUPPORTED_FORMAT),
+                     ".jpg") != NULL);
         CHECK(photo.path == NULL);
         errno = 0;
         CHECK(photo_load_metadata(missing, &photo) == PHOTOC_METADATA_IO_ERROR);

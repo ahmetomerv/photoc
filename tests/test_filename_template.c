@@ -8,12 +8,12 @@
 
 static int failures;
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);  \
-            ++failures;                                                         \
-        }                                                                       \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);    \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 static char *copy_text(const char *text)
@@ -65,12 +65,13 @@ static void expect_name(const char *pattern, const Photo *photo,
 }
 
 static void expect_error(const char *pattern, const Photo *photo,
-                         photoc_template_result expected, size_t expected_offset)
+                         photoc_template_result expected,
+                         size_t expected_offset)
 {
     char *name = NULL;
     size_t offset = 0;
-    photoc_template_result result = photoc_filename_template_expand(
-        pattern, photo, 7, 4, &name, &offset);
+    photoc_template_result result =
+        photoc_filename_template_expand(pattern, photo, 7, 4, &name, &offset);
     CHECK(result == expected);
     CHECK(name == NULL);
     CHECK(offset == expected_offset);
@@ -87,8 +88,7 @@ static void test_expansion(Photo *photo)
     expect_name("{sequence}", photo, 42, 0, "42");
     expect_name("{sequence}", photo, 42, 2, "42");
     expect_name("{sequence}", photo, 42, 5, "00042");
-    expect_name("{sequence}", photo, UINT64_MAX, 20,
-                "18446744073709551615");
+    expect_name("{sequence}", photo, UINT64_MAX, 20, "18446744073709551615");
     expect_name("{{{original}}}", photo, 1, 0, "{My Shot}");
     expect_name("literal", photo, 1, 0, "literal");
     expect_name("{original}.{ext}", photo, 1, 0, "My Shot.JpEg");
@@ -109,11 +109,11 @@ static void test_sanitization(Photo *photo)
 static void test_errors(Photo *photo)
 {
     size_t validation_offset = 0;
-    CHECK(photoc_filename_template_validate("{date}_{camera}",
-          &validation_offset) == PHOTOC_TEMPLATE_OK);
+    CHECK(photoc_filename_template_validate(
+              "{date}_{camera}", &validation_offset) == PHOTOC_TEMPLATE_OK);
     CHECK(validation_offset == SIZE_MAX);
-    CHECK(photoc_filename_template_validate("x{unknown}",
-          &validation_offset) == PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER);
+    CHECK(photoc_filename_template_validate("x{unknown}", &validation_offset) ==
+          PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER);
     CHECK(validation_offset == 1);
     CHECK(photoc_filename_template_validate("x{date", &validation_offset) ==
           PHOTOC_TEMPLATE_INVALID_TEMPLATE);
@@ -171,7 +171,8 @@ static void test_errors(Photo *photo)
     CHECK(photoc_filename_template_expand("x", photo, 1, 0, NULL, NULL) ==
           PHOTOC_TEMPLATE_INVALID_ARGUMENT);
     CHECK(strstr(photoc_template_result_message(
-          PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER), "unknown placeholder") != NULL);
+                     PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER),
+                 "unknown placeholder") != NULL);
 }
 
 static void test_long_value(Photo *photo)
@@ -187,8 +188,8 @@ static void test_long_value(Photo *photo)
     photo->camera_model = long_model;
 
     char *name = NULL;
-    CHECK(photoc_filename_template_expand("{camera}.{ext}", photo, 1, 0,
-                                          &name, NULL) == PHOTOC_TEMPLATE_OK);
+    CHECK(photoc_filename_template_expand("{camera}.{ext}", photo, 1, 0, &name,
+                                          NULL) == PHOTOC_TEMPLATE_OK);
     if (name != NULL) {
         CHECK(strlen(name) == 8197);
         CHECK(strcmp(name + 8192, ".JpEg") == 0);

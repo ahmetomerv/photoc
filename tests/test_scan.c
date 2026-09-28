@@ -15,13 +15,13 @@
 
 static int failures;
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,     \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,      \
                     #condition, errno);                                        \
-            ++failures;                                                         \
-        }                                                                       \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 typedef struct {
@@ -42,18 +42,30 @@ typedef struct {
 
 static void destroy_tree(test_tree *tree)
 {
-    if (tree->link != NULL) unlink(tree->link);
-    if (tree->deep_photo != NULL) unlink(tree->deep_photo);
-    if (tree->gps != NULL) unlink(tree->gps);
-    if (tree->graphic != NULL) unlink(tree->graphic);
-    if (tree->notes != NULL) unlink(tree->notes);
-    if (tree->broken != NULL) unlink(tree->broken);
-    if (tree->bare != NULL) unlink(tree->bare);
-    if (tree->camera != NULL) unlink(tree->camera);
-    if (tree->deep != NULL) rmdir(tree->deep);
-    if (tree->nested != NULL) rmdir(tree->nested);
-    if (tree->empty != NULL) rmdir(tree->empty);
-    if (tree->root != NULL) rmdir(tree->root);
+    if (tree->link != NULL)
+        unlink(tree->link);
+    if (tree->deep_photo != NULL)
+        unlink(tree->deep_photo);
+    if (tree->gps != NULL)
+        unlink(tree->gps);
+    if (tree->graphic != NULL)
+        unlink(tree->graphic);
+    if (tree->notes != NULL)
+        unlink(tree->notes);
+    if (tree->broken != NULL)
+        unlink(tree->broken);
+    if (tree->bare != NULL)
+        unlink(tree->bare);
+    if (tree->camera != NULL)
+        unlink(tree->camera);
+    if (tree->deep != NULL)
+        rmdir(tree->deep);
+    if (tree->nested != NULL)
+        rmdir(tree->nested);
+    if (tree->empty != NULL)
+        rmdir(tree->empty);
+    if (tree->root != NULL)
+        rmdir(tree->root);
 
     free(tree->missing);
     free(tree->link);
@@ -133,7 +145,8 @@ static int create_tree(test_tree *tree)
     if (temporary_directory == NULL || temporary_directory[0] == '\0') {
         temporary_directory = "/tmp";
     }
-    if (photoc_fs_join(temporary_directory, "photoc-scan-XXXXXX", &tree->root) != 0 ||
+    if (photoc_fs_join(temporary_directory, "photoc-scan-XXXXXX",
+                       &tree->root) != 0 ||
         mkdtemp(tree->root) == NULL ||
         photoc_fs_join(tree->root, "camera.JPG", &tree->camera) != 0 ||
         photoc_fs_join(tree->root, "bare.jpeg", &tree->bare) != 0 ||
@@ -147,8 +160,7 @@ static int create_tree(test_tree *tree)
         photoc_fs_join(tree->root, "empty", &tree->empty) != 0 ||
         photoc_fs_join(tree->root, "link.jpg", &tree->link) != 0 ||
         photoc_fs_join(tree->root, "missing", &tree->missing) != 0 ||
-        mkdir(tree->nested, 0700) != 0 ||
-        mkdir(tree->deep, 0700) != 0 ||
+        mkdir(tree->nested, 0700) != 0 || mkdir(tree->deep, 0700) != 0 ||
         mkdir(tree->empty, 0700) != 0 ||
         copy_fixture("with_exif.jpg", tree->camera) != 0 ||
         copy_fixture("no_exif.jpg", tree->bare) != 0 ||
@@ -359,11 +371,11 @@ static void test_errors(const test_tree *tree)
                                 observe_warning, &seen, &stats) == -1 &&
           errno == ENOTDIR);
     errno = 0;
-    CHECK(photoc_scan_directory(tree->root, false, NULL,
-                                observe_warning, &seen, &stats) == -1 &&
+    CHECK(photoc_scan_directory(tree->root, false, NULL, observe_warning, &seen,
+                                &stats) == -1 &&
           errno == EINVAL);
-    CHECK(photoc_scan_directory(tree->root, false, observe_photo,
-                                NULL, &seen, &stats) == 0);
+    CHECK(photoc_scan_directory(tree->root, false, observe_photo, NULL, &seen,
+                                &stats) == 0);
     CHECK(stats.errors == 1 && seen.warnings == 0);
 }
 

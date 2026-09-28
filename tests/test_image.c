@@ -12,20 +12,21 @@
 
 static int failures;
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,    \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,      \
                     #condition, errno);                                        \
-            ++failures;                                                         \
-        }                                                                       \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 static void write_jpeg(const char *path, const photoc_jpeg_buffer *jpeg)
 {
     FILE *file = fopen(path, "wb");
     CHECK(file != NULL);
-    if (file == NULL) return;
+    if (file == NULL)
+        return;
     CHECK(fwrite(jpeg->data, 1, jpeg->size, file) == jpeg->size);
     CHECK(fclose(file) == 0);
 }
@@ -57,10 +58,11 @@ int main(void)
     }
 
     const char *temporary = getenv("TMPDIR");
-    if (temporary == NULL || temporary[0] == '\0') temporary = "/tmp";
+    if (temporary == NULL || temporary[0] == '\0')
+        temporary = "/tmp";
     char *output = NULL;
-    CHECK(photoc_fs_join(temporary, "photoc-image-roundtrip-XXXXXX",
-                         &output) == 0);
+    CHECK(photoc_fs_join(temporary, "photoc-image-roundtrip-XXXXXX", &output) ==
+          0);
     int descriptor = output == NULL ? -1 : mkstemp(output);
     CHECK(descriptor >= 0);
     if (descriptor >= 0) {

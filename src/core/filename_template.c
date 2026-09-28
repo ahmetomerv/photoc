@@ -39,9 +39,9 @@ static photoc_template_result append_char(filename_buffer *buffer, char ch)
         buffer->capacity = capacity;
     }
     unsigned char byte = (unsigned char)ch;
-    if (byte < 0x20 || byte == 0x7f || ch == '/' || ch == '\\' ||
-        ch == ':' || ch == '*' || ch == '?' || ch == '"' ||
-        ch == '<' || ch == '>' || ch == '|') {
+    if (byte < 0x20 || byte == 0x7f || ch == '/' || ch == '\\' || ch == ':' ||
+        ch == '*' || ch == '?' || ch == '"' || ch == '<' || ch == '>' ||
+        ch == '|') {
         ch = '_';
     }
     buffer->data[buffer->length++] = ch;
@@ -69,9 +69,8 @@ static bool token_is(const char *token, size_t length, const char *name)
 static bool known_token(const char *token, size_t length)
 {
     static const char *const names[] = {
-        "date", "datetime", "camera", "make", "iso", "aperture",
-        "focal", "sequence", "original", "ext"
-    };
+        "date",     "datetime", "camera",   "make",     "iso",
+        "aperture", "focal",    "sequence", "original", "ext"};
     for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i) {
         if (token_is(token, length, names[i])) {
             return true;
@@ -80,8 +79,8 @@ static bool known_token(const char *token, size_t length)
     return false;
 }
 
-photoc_template_result photoc_filename_template_validate(
-    const char *pattern, size_t *error_offset)
+photoc_template_result photoc_filename_template_validate(const char *pattern,
+                                                         size_t *error_offset)
 {
     if (error_offset != NULL) {
         *error_offset = SIZE_MAX;
@@ -132,21 +131,18 @@ photoc_template_result photoc_filename_template_validate(
 }
 
 static photoc_template_result format_number(char *buffer, size_t size,
-                                             const char *format, double value)
+                                            const char *format, double value)
 {
     int length = snprintf(buffer, size, format, value);
-    return length < 0 || (size_t)length >= size ?
-        PHOTOC_TEMPLATE_TOO_LONG : PHOTOC_TEMPLATE_OK;
+    return length < 0 || (size_t)length >= size ? PHOTOC_TEMPLATE_TOO_LONG
+                                                : PHOTOC_TEMPLATE_OK;
 }
 
-static photoc_template_result expand_token(filename_buffer *buffer,
-                                           const char *token, size_t length,
-                                           const Photo *photo,
-                                           const char *original,
-                                           size_t original_length,
-                                           const char *extension,
-                                           uint64_t sequence,
-                                           unsigned int sequence_width)
+static photoc_template_result
+expand_token(filename_buffer *buffer, const char *token, size_t length,
+             const Photo *photo, const char *original, size_t original_length,
+             const char *extension, uint64_t sequence,
+             unsigned int sequence_width)
 {
     const char *value = NULL;
     size_t value_length = 0;
@@ -176,8 +172,8 @@ static photoc_template_result expand_token(filename_buffer *buffer,
         if (!photo->has_iso || photo->iso == 0) {
             return PHOTOC_TEMPLATE_MISSING_VALUE;
         }
-        int written = snprintf(formatted, sizeof(formatted), "%" PRIu32,
-                               photo->iso);
+        int written =
+            snprintf(formatted, sizeof(formatted), "%" PRIu32, photo->iso);
         if (written < 0 || (size_t)written >= sizeof(formatted)) {
             return PHOTOC_TEMPLATE_TOO_LONG;
         }
@@ -229,9 +225,10 @@ static photoc_template_result expand_token(filename_buffer *buffer,
     return append_text(buffer, value, value_length);
 }
 
-photoc_template_result photoc_filename_template_expand(
-    const char *pattern, const Photo *photo, uint64_t sequence,
-    unsigned int sequence_width, char **filename, size_t *error_offset)
+photoc_template_result
+photoc_filename_template_expand(const char *pattern, const Photo *photo,
+                                uint64_t sequence, unsigned int sequence_width,
+                                char **filename, size_t *error_offset)
 {
     if (error_offset != NULL) {
         *error_offset = SIZE_MAX;
@@ -244,8 +241,8 @@ photoc_template_result photoc_filename_template_expand(
         photo->path[0] == '\0' || sequence_width > 20) {
         return PHOTOC_TEMPLATE_INVALID_ARGUMENT;
     }
-    photoc_template_result validation = photoc_filename_template_validate(
-        pattern, error_offset);
+    photoc_template_result validation =
+        photoc_filename_template_validate(pattern, error_offset);
     if (validation != PHOTOC_TEMPLATE_OK) {
         return validation;
     }
@@ -256,8 +253,8 @@ photoc_template_result photoc_filename_template_expand(
     photoc_template_result result = PHOTOC_TEMPLATE_OK;
     if (photoc_fs_filename(photo->path, &basename) != 0 ||
         photoc_fs_extension(photo->path, &extension) != 0) {
-        result = errno == ENOMEM ? PHOTOC_TEMPLATE_NO_MEMORY :
-                 PHOTOC_TEMPLATE_INVALID_ARGUMENT;
+        result = errno == ENOMEM ? PHOTOC_TEMPLATE_NO_MEMORY
+                                 : PHOTOC_TEMPLATE_INVALID_ARGUMENT;
         goto done;
     }
     size_t original_length = strlen(basename);
@@ -330,13 +327,20 @@ done:
 const char *photoc_template_result_message(photoc_template_result result)
 {
     switch (result) {
-    case PHOTOC_TEMPLATE_OK: return "success";
-    case PHOTOC_TEMPLATE_INVALID_ARGUMENT: return "invalid template argument";
-    case PHOTOC_TEMPLATE_INVALID_TEMPLATE: return "invalid filename template";
-    case PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER: return "unknown placeholder";
-    case PHOTOC_TEMPLATE_MISSING_VALUE: return "placeholder value is unavailable or invalid";
-    case PHOTOC_TEMPLATE_NO_MEMORY: return "out of memory";
-    case PHOTOC_TEMPLATE_TOO_LONG: return "filename is too long";
+    case PHOTOC_TEMPLATE_OK:
+        return "success";
+    case PHOTOC_TEMPLATE_INVALID_ARGUMENT:
+        return "invalid template argument";
+    case PHOTOC_TEMPLATE_INVALID_TEMPLATE:
+        return "invalid filename template";
+    case PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER:
+        return "unknown placeholder";
+    case PHOTOC_TEMPLATE_MISSING_VALUE:
+        return "placeholder value is unavailable or invalid";
+    case PHOTOC_TEMPLATE_NO_MEMORY:
+        return "out of memory";
+    case PHOTOC_TEMPLATE_TOO_LONG:
+        return "filename is too long";
     }
     return "unknown template error";
 }

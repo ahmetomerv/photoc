@@ -35,13 +35,13 @@ typedef struct {
 /* Read raw JPEG dimensions; EXIF orientation is not applied. On error,
    width and height are unchanged. I/O errors preserve errno. */
 photoc_image_result photoc_image_jpeg_dimensions(const char *path,
-                                                  uint32_t *width,
-                                                  uint32_t *height);
+                                                 uint32_t *width,
+                                                 uint32_t *height);
 
 /* Decode a JPEG file to RGB. out must be zero-initialized or cleaned first.
    On success out owns pixels; on error out remains empty. */
 photoc_image_result photoc_image_decode_jpeg(const char *path,
-                                              photoc_image *out);
+                                             photoc_image *out);
 
 /* Decode at the largest TurboJPEG-supported scale whose width and height are
    at most max_dimension. The decoded buffer is capped at 4 million pixels.
@@ -56,8 +56,8 @@ photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
    be zero-initialized or cleaned first. On success out owns data; on error
    out remains empty. This function never writes a file. */
 photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
-                                              int quality,
-                                              photoc_jpeg_buffer *out);
+                                             int quality,
+                                             photoc_jpeg_buffer *out);
 
 void photoc_image_cleanup(photoc_image *image);
 void photoc_jpeg_buffer_cleanup(photoc_jpeg_buffer *buffer);

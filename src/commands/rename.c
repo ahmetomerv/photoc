@@ -57,8 +57,7 @@ static void free_plan(rename_plan *plan)
     *plan = (rename_plan){0};
 }
 
-static bool collect_jpeg(const char *path, photoc_fs_type type,
-                         void *user_data)
+static bool collect_jpeg(const char *path, photoc_fs_type type, void *user_data)
 {
     rename_plan *plan = user_data;
     if (type != PHOTOC_FS_FILE || !photoc_fs_is_jpeg(path)) {
@@ -71,8 +70,8 @@ static bool collect_jpeg(const char *path, photoc_fs_type type,
             plan->error_errno = EOVERFLOW;
             return false;
         }
-        rename_entry *entries = realloc(plan->entries,
-                                        capacity * sizeof(*entries));
+        rename_entry *entries =
+            realloc(plan->entries, capacity * sizeof(*entries));
         if (entries == NULL) {
             plan->error_errno = errno;
             return false;
@@ -105,8 +104,9 @@ static int compare_source(const void *left, const void *right)
 static int destination_path(const char *source, const char *name, char **output)
 {
     const char *slash = strrchr(source, '/');
-    size_t parent_length = slash == NULL ? 1 :
-                           slash == source ? 1 : (size_t)(slash - source);
+    size_t parent_length = slash == NULL     ? 1
+                           : slash == source ? 1
+                                             : (size_t)(slash - source);
     char *parent = malloc(parent_length + 1);
     if (parent == NULL) {
         return -1;
@@ -151,14 +151,14 @@ static int prepare_entries(rename_plan *plan, const char *format)
 
         char *name = NULL;
         entry->template_error = photoc_filename_template_expand(
-            format, &photo, (uint64_t)i + 1, 4, &name,
-            &entry->template_offset);
+            format, &photo, (uint64_t)i + 1, 4, &name, &entry->template_offset);
         photo_cleanup(&photo);
         if (entry->template_error != PHOTOC_TEMPLATE_OK) {
             if (entry->template_error == PHOTOC_TEMPLATE_NO_MEMORY ||
                 entry->template_error == PHOTOC_TEMPLATE_TOO_LONG) {
-                errno = entry->template_error == PHOTOC_TEMPLATE_NO_MEMORY ?
-                        ENOMEM : EOVERFLOW;
+                errno = entry->template_error == PHOTOC_TEMPLATE_NO_MEMORY
+                            ? ENOMEM
+                            : EOVERFLOW;
                 return -1;
             }
             continue;
@@ -219,7 +219,8 @@ static int compare_destination(const void *left, const void *right)
 {
     const rename_entry *const *a = left;
     const rename_entry *const *b = right;
-    int folded = photoc_fs_compare_casefold((*a)->destination, (*b)->destination);
+    int folded =
+        photoc_fs_compare_casefold((*a)->destination, (*b)->destination);
     return folded == 0 ? strcmp((*a)->destination, (*b)->destination) : folded;
 }
 
@@ -314,9 +315,9 @@ static void print_summary(const rename_plan *plan,
                           const rename_summary *summary)
 {
     printf("Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
-           "%zu applied, %zu rolled back\n", plan->count, summary->planned,
-           summary->unchanged, summary->blocked, summary->applied,
-           summary->rolled_back);
+           "%zu applied, %zu rolled back\n",
+           plan->count, summary->planned, summary->unchanged, summary->blocked,
+           summary->applied, summary->rolled_back);
 }
 
 static void print_plan(const rename_plan *plan, const char *root,
@@ -338,13 +339,11 @@ static void print_plan(const rename_plan *plan, const char *root,
                                      "missing or invalid metadata for %s",
                                      placeholder);
             } else {
-                photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED,
-                                    photoc_error_kind_for_template(
-                                        entry->template_error),
-                                    source,
-                                    photoc_template_result_message(
-                                        entry->template_error),
-                                    0);
+                photoc_error_report(
+                    "rename", PHOTOC_ERR_NOTE_SKIPPED,
+                    photoc_error_kind_for_template(entry->template_error),
+                    source,
+                    photoc_template_result_message(entry->template_error), 0);
             }
         } else if (entry->duplicate_destination) {
             photoc_error_reportf("rename", PHOTOC_ERR_NOTE_SKIPPED,
@@ -357,18 +356,20 @@ static void print_plan(const rename_plan *plan, const char *root,
                                  "destination exists '%s'",
                                  photoc_fs_relative(root, entry->destination));
         } else if (entry->system_errno != 0) {
-            photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
-                                source, "cannot check destination",
-                                entry->system_errno);
+            photoc_error_report(
+                "rename", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO, source,
+                "cannot check destination", entry->system_errno);
         } else if (entry->source_errno != 0) {
-            photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
-                                source, "cannot check source",
+            photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED,
+                                PHOTOC_ERR_IO, source, "cannot check source",
                                 entry->source_errno);
         } else if (entry->source_changed) {
-            photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED, PHOTOC_ERR_IO,
-                                source, "source changed during preflight", 0);
+            photoc_error_report("rename", PHOTOC_ERR_NOTE_SKIPPED,
+                                PHOTOC_ERR_IO, source,
+                                "source changed during preflight", 0);
         } else if (show_safe) {
-            const char *destination = photoc_fs_relative(root, entry->destination);
+            const char *destination =
+                photoc_fs_relative(root, entry->destination);
             printf("%s -> %s", source, destination);
             if (strcmp(entry->source, entry->destination) == 0) {
                 fputs(" (unchanged)", stdout);
@@ -401,8 +402,8 @@ static void rollback_applied(rename_plan *plan, const char *root,
         if (!entry->applied) {
             continue;
         }
-        if (photoc_fs_rename_noreplace(entry->destination,
-                                      entry->source) == 0) {
+        if (photoc_fs_rename_noreplace(entry->destination, entry->source) ==
+            0) {
             entry->applied = false;
             --summary->applied;
             ++summary->rolled_back;
@@ -425,8 +426,8 @@ static int apply_plan(rename_plan *plan, const char *root,
             continue;
         }
         if (source_matches(entry) != 0 ||
-            photoc_fs_rename_noreplace(entry->source,
-                                       entry->destination) != 0) {
+            photoc_fs_rename_noreplace(entry->source, entry->destination) !=
+                0) {
             int saved_errno = errno;
             photoc_error_reportf("rename", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                  NULL, saved_errno,
@@ -446,11 +447,11 @@ int photoc_command_rename(const char *directory, const char *format,
                           bool recursive, bool apply)
 {
     size_t template_offset = SIZE_MAX;
-    photoc_template_result validation = photoc_filename_template_validate(
-        format, &template_offset);
+    photoc_template_result validation =
+        photoc_filename_template_validate(format, &template_offset);
     if (validation != PHOTOC_TEMPLATE_OK) {
-        fprintf(stderr, "photoc rename: %s", photoc_template_result_message(
-                validation));
+        fprintf(stderr, "photoc rename: %s",
+                photoc_template_result_message(validation));
         if (validation == PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER) {
             fputs(" ", stderr);
             print_placeholder(stderr, format, template_offset);
@@ -462,14 +463,14 @@ int photoc_command_rename(const char *directory, const char *format,
     }
 
     rename_plan plan = {0};
-    int walk_result = recursive ?
-        photoc_fs_walk_recursive(directory, collect_jpeg, &plan) :
-        photoc_fs_walk(directory, collect_jpeg, &plan);
+    int walk_result =
+        recursive ? photoc_fs_walk_recursive(directory, collect_jpeg, &plan)
+                  : photoc_fs_walk(directory, collect_jpeg, &plan);
     if (walk_result != 0) {
         int saved_errno = walk_result == 1 ? plan.error_errno : errno;
         photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
-                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
-                            PHOTOC_ERR_IO,
+                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                                  : PHOTOC_ERR_IO,
                             directory, "unable to read directory", saved_errno);
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
@@ -482,8 +483,8 @@ int photoc_command_rename(const char *directory, const char *format,
         mark_duplicate_destinations(&plan) != 0) {
         int saved_errno = errno;
         photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
-                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
-                            PHOTOC_ERR_IO,
+                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                                  : PHOTOC_ERR_IO,
                             NULL, "unable to prepare plan", saved_errno);
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
@@ -492,8 +493,8 @@ int photoc_command_rename(const char *directory, const char *format,
         recheck_entries(&plan);
     }
     rename_summary summary = summarize_plan(&plan);
-    int exit_code = summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS :
-                    PHOTOC_EXIT_FAILURE;
+    int exit_code =
+        summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
     if (!apply) {
         print_plan(&plan, directory, format, true);
     } else if (summary.blocked != 0) {
@@ -508,8 +509,9 @@ int photoc_command_rename(const char *directory, const char *format,
     print_summary(&plan, &summary);
     free_plan(&plan);
     if (ferror(stdout) || ferror(stderr)) {
-        return photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                                   NULL, "unable to write output", EIO);
+        return photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, NULL,
+                                   "unable to write output", EIO);
     }
     return exit_code;
 }

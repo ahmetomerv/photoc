@@ -31,8 +31,8 @@ const char *photoc_error_kind_name(photoc_error_kind kind);
 photoc_error_kind photoc_error_kind_for_metadata(photoc_metadata_result result);
 photoc_error_kind photoc_error_kind_for_image(photoc_image_result result);
 /* err is the errno saved for PHOTOC_JPEG_EDIT_IO_ERROR; EEXIST is a collision. */
-photoc_error_kind photoc_error_kind_for_jpeg_edit(photoc_jpeg_edit_result result,
-                                                  int err);
+photoc_error_kind
+photoc_error_kind_for_jpeg_edit(photoc_jpeg_edit_result result, int err);
 photoc_error_kind photoc_error_kind_for_template(photoc_template_result result);
 
 /* Writes one line to stderr:

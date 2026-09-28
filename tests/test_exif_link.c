@@ -10,7 +10,8 @@ int main(void)
     }
 
     exif_data_set_byte_order(data, EXIF_BYTE_ORDER_INTEL);
-    int result = exif_data_get_byte_order(data) == EXIF_BYTE_ORDER_INTEL ? 0 : 1;
+    int result =
+        exif_data_get_byte_order(data) == EXIF_BYTE_ORDER_INTEL ? 0 : 1;
     exif_data_unref(data);
     return result;
 }

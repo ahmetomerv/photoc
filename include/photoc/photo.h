@@ -9,11 +9,11 @@ typedef struct Photo {
     char *path;
 
     /* A zero value is not a missing marker; check each presence flag. */
-    uint64_t file_size;       /* bytes */
+    uint64_t file_size; /* bytes */
     bool has_file_size;
-    uint32_t width;           /* pixels */
+    uint32_t width; /* pixels */
     bool has_width;
-    uint32_t height;          /* pixels */
+    uint32_t height; /* pixels */
     bool has_height;
 
     /* NULL means unavailable. The timestamp is text with no assumed zone. */
@@ -23,11 +23,11 @@ typedef struct Photo {
 
     uint32_t iso;
     bool has_iso;
-    double aperture;          /* f-number */
+    double aperture; /* f-number */
     bool has_aperture;
-    double exposure_time;     /* seconds */
+    double exposure_time; /* seconds */
     bool has_exposure_time;
-    double focal_length;      /* millimeters */
+    double focal_length; /* millimeters */
     bool has_focal_length;
 
     /* Coordinates are decimal degrees and valid only when has_gps is true. */

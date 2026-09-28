@@ -19,13 +19,13 @@
 
 static int failures;
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,    \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,      \
                     #condition, errno);                                        \
-            ++failures;                                                         \
-        }                                                                       \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 static char *path_join(const char *directory, const char *name)
@@ -41,7 +41,8 @@ static unsigned char *read_file(const char *path, size_t *length)
 {
     FILE *file = fopen(path, "rb");
     if (file == NULL || fseek(file, 0, SEEK_END) != 0) {
-        if (file != NULL) fclose(file);
+        if (file != NULL)
+            fclose(file);
         return NULL;
     }
     long size = ftell(file);
@@ -101,8 +102,7 @@ static bool find_exif_segment(const unsigned char *bytes, size_t length,
         if (marker == 0xda) {
             return false;
         }
-        size_t segment_end = position + 2 +
-                             ((size_t)bytes[position + 2] << 8) +
+        size_t segment_end = position + 2 + ((size_t)bytes[position + 2] << 8) +
                              bytes[position + 3];
         if (segment_end > length || segment_end <= position + 4) {
             return false;
@@ -146,7 +146,8 @@ static void check_non_gps_metadata(const char *path, bool gps)
         CHECK((data->ifd[EXIF_IFD_GPS]->count != 0) == gps);
         if (!gps) {
             CHECK(exif_content_get_entry(data->ifd[EXIF_IFD_0],
-                    EXIF_TAG_GPS_INFO_IFD_POINTER) == NULL);
+                                         EXIF_TAG_GPS_INFO_IFD_POINTER) ==
+                  NULL);
         }
         exif_data_unref(data);
     }
@@ -195,7 +196,8 @@ static void test_writing(const char *gps_path, const char *base_path,
     photoc_jpeg_exif *source = NULL;
     photoc_jpeg_exif *edited = NULL;
     CHECK(photoc_jpeg_exif_load_copy(gps_path, &source) == PHOTOC_JPEG_EDIT_OK);
-    if (source == NULL) goto cleanup;
+    if (source == NULL)
+        goto cleanup;
     CHECK(photoc_jpeg_exif_has_gps(source));
     CHECK(photoc_jpeg_exif_copy(source, &edited) == PHOTOC_JPEG_EDIT_OK);
     if (edited == NULL) {
@@ -232,7 +234,8 @@ static void test_writing(const char *gps_path, const char *base_path,
     CHECK(write_file(existing_path, "sentinel", 8) == 0);
     errno = 0;
     CHECK(photoc_jpeg_write_with_exif(gps_path, existing_path, edited) ==
-          PHOTOC_JPEG_EDIT_IO_ERROR && errno == EEXIST);
+              PHOTOC_JPEG_EDIT_IO_ERROR &&
+          errno == EEXIST);
     size_t existing_length = 0;
     unsigned char *existing = read_file(existing_path, &existing_length);
     CHECK(existing != NULL && existing_length == 8 &&
@@ -242,10 +245,14 @@ static void test_writing(const char *gps_path, const char *base_path,
     photoc_jpeg_exif_free(edited);
     photoc_jpeg_exif_free(source);
 cleanup:
-    if (clean_path) unlink(clean_path);
-    if (copied_path) unlink(copied_path);
-    if (inserted_path) unlink(inserted_path);
-    if (existing_path) unlink(existing_path);
+    if (clean_path)
+        unlink(clean_path);
+    if (copied_path)
+        unlink(copied_path);
+    if (inserted_path)
+        unlink(inserted_path);
+    if (existing_path)
+        unlink(existing_path);
     free(clean_path);
     free(copied_path);
     free(inserted_path);
@@ -260,7 +267,8 @@ static void test_failures(const char *gps_path, const char *base_path,
     char *double_exif = path_join(directory, "double-exif.jpg");
     char *link_path = path_join(directory, "existing-link.jpg");
     CHECK(output && missing && double_exif && link_path);
-    if (!output || !missing || !double_exif || !link_path) goto cleanup;
+    if (!output || !missing || !double_exif || !link_path)
+        goto cleanup;
     photoc_jpeg_exif *exif = NULL;
     CHECK(photoc_jpeg_exif_load_copy(base_path, &exif) ==
           PHOTOC_JPEG_EDIT_NO_EXIF);
@@ -269,22 +277,26 @@ static void test_failures(const char *gps_path, const char *base_path,
           PHOTOC_JPEG_EDIT_INVALID_JPEG);
     CHECK(exif == NULL);
     CHECK(photoc_jpeg_exif_load_copy(gps_path, &exif) == PHOTOC_JPEG_EDIT_OK);
-    if (exif == NULL) goto cleanup;
+    if (exif == NULL)
+        goto cleanup;
     CHECK(photoc_jpeg_write_with_exif(invalid_path, output, exif) ==
           PHOTOC_JPEG_EDIT_INVALID_JPEG);
     bool exists = true;
     CHECK(photoc_fs_exists(output, &exists) == 0 && !exists);
     errno = 0;
     CHECK(photoc_jpeg_write_with_exif(missing, output, exif) ==
-          PHOTOC_JPEG_EDIT_IO_ERROR && errno == ENOENT);
+              PHOTOC_JPEG_EDIT_IO_ERROR &&
+          errno == ENOENT);
     CHECK(photoc_fs_exists(output, &exists) == 0 && !exists);
     errno = 0;
     CHECK(photoc_jpeg_write_with_exif(gps_path, gps_path, exif) ==
-          PHOTOC_JPEG_EDIT_IO_ERROR && errno == EEXIST);
+              PHOTOC_JPEG_EDIT_IO_ERROR &&
+          errno == EEXIST);
     CHECK(symlink(gps_path, link_path) == 0);
     errno = 0;
     CHECK(photoc_jpeg_write_with_exif(gps_path, link_path, exif) ==
-          PHOTOC_JPEG_EDIT_IO_ERROR && errno == EEXIST);
+              PHOTOC_JPEG_EDIT_IO_ERROR &&
+          errno == EEXIST);
     size_t gps_length = 0;
     unsigned char *gps_bytes = read_file(gps_path, &gps_length);
     CHECK(gps_bytes != NULL);
@@ -320,9 +332,12 @@ static void test_failures(const char *gps_path, const char *base_path,
           PHOTOC_JPEG_EDIT_INVALID_ARGUMENT);
     photoc_jpeg_exif_free(exif);
 cleanup:
-    if (output) unlink(output);
-    if (double_exif) unlink(double_exif);
-    if (link_path) unlink(link_path);
+    if (output)
+        unlink(output);
+    if (double_exif)
+        unlink(double_exif);
+    if (link_path)
+        unlink(link_path);
     free(output);
     free(missing);
     free(double_exif);
@@ -348,7 +363,8 @@ static void test_in_place(const char *gps_path, const char *base_path,
     size_t source_length = 0;
     unsigned char *source = read_file(gps_path, &source_length);
     CHECK(source != NULL);
-    if (source == NULL) goto cleanup;
+    if (source == NULL)
+        goto cleanup;
 
     CHECK(write_file(target, source, source_length) == 0);
     CHECK(chmod(target, 0640) == 0);
@@ -429,13 +445,20 @@ static void test_in_place(const char *gps_path, const char *base_path,
     }
     free(source);
 cleanup:
-    if (target) unlink(target);
-    if (changed) unlink(changed);
-    if (replaced) unlink(replaced);
-    if (former) unlink(former);
-    if (linked) unlink(linked);
-    if (second_link) unlink(second_link);
-    if (symlink_path) unlink(symlink_path);
+    if (target)
+        unlink(target);
+    if (changed)
+        unlink(changed);
+    if (replaced)
+        unlink(replaced);
+    if (former)
+        unlink(former);
+    if (linked)
+        unlink(linked);
+    if (second_link)
+        unlink(second_link);
+    if (symlink_path)
+        unlink(symlink_path);
     free(target);
     free(changed);
     free(replaced);
@@ -451,7 +474,8 @@ int main(void)
     char *base = path_join(PHOTOC_METADATA_FIXTURES, "no_exif.jpg");
     char *invalid = path_join(PHOTOC_METADATA_FIXTURES, "invalid.jpg");
     const char *temporary = getenv("TMPDIR");
-    if (temporary == NULL || temporary[0] == '\0') temporary = "/tmp";
+    if (temporary == NULL || temporary[0] == '\0')
+        temporary = "/tmp";
     char *directory = path_join(temporary, "photoc-jpeg-write-XXXXXX");
     CHECK(gps && base && invalid && directory);
     if (gps && base && invalid && directory && mkdtemp(directory) != NULL) {

@@ -17,6 +17,25 @@ defaults:
     shell: bash
 
 jobs:
+  formatting:
+    name: Check C formatting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format-18
+
+      - name: Check formatting
+        run: sh scripts/format.sh --check
+
   build:
     name: Build and test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

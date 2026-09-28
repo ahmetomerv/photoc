@@ -88,8 +88,8 @@ static bool collect_jpeg(const char *path, photoc_fs_type type, void *user_data)
             plan->error_errno = EOVERFLOW;
             return false;
         }
-        sort_entry *entries = realloc(plan->entries,
-                                      capacity * sizeof(*entries));
+        sort_entry *entries =
+            realloc(plan->entries, capacity * sizeof(*entries));
         if (entries == NULL) {
             plan->error_errno = errno;
             return false;
@@ -258,8 +258,7 @@ static int compare_capture(const void *left, const void *right)
 {
     const sort_entry *const *a = left;
     const sort_entry *const *b = right;
-    int comparison = strcmp((*a)->capture_timestamp,
-                            (*b)->capture_timestamp);
+    int comparison = strcmp((*a)->capture_timestamp, (*b)->capture_timestamp);
     return comparison == 0 ? strcmp((*a)->source, (*b)->source) : comparison;
 }
 
@@ -276,8 +275,7 @@ static int prepare_session_destinations(sort_plan *plan, const char *root,
         return 0;
     }
     if (count > SIZE_MAX / sizeof(sort_entry *) ||
-        count > SIZE_MAX / sizeof(Photo) ||
-        count > SIZE_MAX / sizeof(size_t)) {
+        count > SIZE_MAX / sizeof(Photo) || count > SIZE_MAX / sizeof(size_t)) {
         errno = EOVERFLOW;
         return -1;
     }
@@ -302,8 +300,8 @@ static int prepare_session_destinations(sort_plan *plan, const char *root,
         /* Borrow each entry's timestamp only for the session calculation. */
         photos[i] = (Photo){.capture_timestamp = dated[i]->capture_timestamp};
     }
-    photoc_session_result grouping = photoc_session_group(photos, count,
-                                                          gap_minutes, ids);
+    photoc_session_result grouping =
+        photoc_session_group(photos, count, gap_minutes, ids);
     free(photos);
     if (grouping != PHOTOC_SESSION_OK) {
         free(dated);
@@ -334,8 +332,8 @@ static int compare_destination(const void *left, const void *right)
 {
     const sort_entry *const *a = left;
     const sort_entry *const *b = right;
-    int folded = photoc_fs_compare_casefold((*a)->destination,
-                                            (*b)->destination);
+    int folded =
+        photoc_fs_compare_casefold((*a)->destination, (*b)->destination);
     return folded == 0 ? strcmp((*a)->destination, (*b)->destination) : folded;
 }
 
@@ -372,11 +370,10 @@ static int mark_duplicates(sort_plan *plan)
 
 static bool entry_blocked(const sort_entry *entry)
 {
-    return entry->metadata_error != PHOTOC_METADATA_OK ||
-           entry->missing_date || entry->parent_conflict ||
-           entry->system_errno != 0 || entry->destination_exists ||
-           entry->duplicate_destination || entry->source_errno != 0 ||
-           entry->source_changed;
+    return entry->metadata_error != PHOTOC_METADATA_OK || entry->missing_date ||
+           entry->parent_conflict || entry->system_errno != 0 ||
+           entry->destination_exists || entry->duplicate_destination ||
+           entry->source_errno != 0 || entry->source_changed;
 }
 
 static void recheck_entries(sort_plan *plan, const char *root)
@@ -429,9 +426,9 @@ static sort_summary summarize_plan(const sort_plan *plan)
 static void print_summary(const sort_plan *plan, const sort_summary *summary)
 {
     printf("Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
-           "%zu applied, %zu rolled back\n", plan->count, summary->planned,
-           summary->unchanged, summary->blocked, summary->applied,
-           summary->rolled_back);
+           "%zu applied, %zu rolled back\n",
+           plan->count, summary->planned, summary->unchanged, summary->blocked,
+           summary->applied, summary->rolled_back);
 }
 
 static void print_plan(const sort_plan *plan, const char *root, bool show_safe)
@@ -586,8 +583,8 @@ static void recheck_source_descriptors(sort_plan *plan, const char *root,
             continue;
         }
         const char *name;
-        int parent_fd = open_parent(root_fd,
-                                    photoc_fs_relative(root, entry->source), &name);
+        int parent_fd = open_parent(
+            root_fd, photoc_fs_relative(root, entry->source), &name);
         if (parent_fd < 0) {
             entry->source_errno = errno;
             continue;
@@ -678,9 +675,8 @@ static int move_entry(int root_fd, const char *root, sort_entry *entry,
     if (source_fd < 0) {
         return -1;
     }
-    int destination_fd = open_parent(root_fd,
-                                     photoc_fs_relative(root, destination_path),
-                                     &destination_name);
+    int destination_fd = open_parent(
+        root_fd, photoc_fs_relative(root, destination_path), &destination_name);
     if (destination_fd < 0) {
         int saved_errno = errno;
         close(source_fd);
@@ -688,8 +684,8 @@ static int move_entry(int root_fd, const char *root, sort_entry *entry,
         return -1;
     }
     struct stat source_info;
-    int result = fstatat(source_fd, source_name, &source_info,
-                         AT_SYMLINK_NOFOLLOW);
+    int result =
+        fstatat(source_fd, source_name, &source_info, AT_SYMLINK_NOFOLLOW);
     if (result == 0 && (!S_ISREG(source_info.st_mode) ||
                         source_info.st_dev != entry->source_device ||
                         source_info.st_ino != entry->source_inode)) {
@@ -698,8 +694,7 @@ static int move_entry(int root_fd, const char *root, sort_entry *entry,
     }
     if (result == 0) {
         result = photoc_fs_renameat_noreplace(source_fd, source_name,
-                                               destination_fd,
-                                               destination_name);
+                                              destination_fd, destination_name);
     }
     int saved_errno = errno;
     close(source_fd);
@@ -722,7 +717,8 @@ static void rollback_moves(sort_plan *plan, const char *root, int root_fd,
             ++summary->rolled_back;
         } else {
             photoc_error_reportf("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                                 NULL, errno, "rollback failed for '%s' -> '%s'",
+                                 NULL, errno,
+                                 "rollback failed for '%s' -> '%s'",
                                  photoc_fs_relative(root, entry->destination),
                                  photoc_fs_relative(root, entry->source));
         }
@@ -735,7 +731,8 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
     created_directories created = {0};
     if (prepare_created_list(plan, &created) != 0) {
         photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
-                            errno == ENOMEM ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO,
+                            errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                            : PHOTOC_ERR_IO,
                             NULL, "unable to prepare directories", errno);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -746,10 +743,9 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
         }
         int fd = open_directory_chain(root_fd, entry->folder, true, &created);
         if (fd < 0) {
-            photoc_error_reportf("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                                 NULL, errno,
-                                 "unable to create destination directory '%s'",
-                                 entry->folder);
+            photoc_error_reportf(
+                "sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL, errno,
+                "unable to create destination directory '%s'", entry->folder);
             remove_created_directories(root_fd, &created);
             free_created_list(&created);
             return PHOTOC_EXIT_FAILURE;
@@ -780,8 +776,7 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
 }
 
 int photoc_command_sort(const char *directory, bool recursive,
-                        photoc_sort_mode mode, uint32_t gap_minutes,
-                        bool apply)
+                        photoc_sort_mode mode, uint32_t gap_minutes, bool apply)
 {
     struct stat root_before;
     if (apply && lstat(directory, &root_before) != 0) {
@@ -790,14 +785,14 @@ int photoc_command_sort(const char *directory, bool recursive,
                                    errno);
     }
     sort_plan plan = {0};
-    int walk_result = recursive ?
-        photoc_fs_walk_recursive(directory, collect_jpeg, &plan) :
-        photoc_fs_walk(directory, collect_jpeg, &plan);
+    int walk_result =
+        recursive ? photoc_fs_walk_recursive(directory, collect_jpeg, &plan)
+                  : photoc_fs_walk(directory, collect_jpeg, &plan);
     if (walk_result != 0) {
         int saved_errno = walk_result == 1 ? plan.error_errno : errno;
         photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
-                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
-                            PHOTOC_ERR_IO,
+                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                                  : PHOTOC_ERR_IO,
                             directory, "unable to read directory", saved_errno);
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
@@ -806,14 +801,15 @@ int photoc_command_sort(const char *directory, bool recursive,
         qsort(plan.entries, plan.count, sizeof(*plan.entries), compare_source);
     }
     if (load_entries(&plan) != 0 ||
-        (mode == PHOTOC_SORT_BY_DATE ?
-         prepare_date_destinations(&plan, directory) :
-         prepare_session_destinations(&plan, directory, gap_minutes)) != 0 ||
+        (mode == PHOTOC_SORT_BY_DATE
+             ? prepare_date_destinations(&plan, directory)
+             : prepare_session_destinations(&plan, directory, gap_minutes)) !=
+            0 ||
         mark_duplicates(&plan) != 0) {
         int saved_errno = errno;
         photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
-                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL :
-                            PHOTOC_ERR_IO,
+                            saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                                  : PHOTOC_ERR_IO,
                             NULL, "unable to prepare plan", saved_errno);
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
@@ -821,8 +817,8 @@ int photoc_command_sort(const char *directory, bool recursive,
 
     int root_fd = -1;
     if (apply) {
-        root_fd = open(directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW |
-                     O_CLOEXEC);
+        root_fd =
+            open(directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
         if (root_fd < 0) {
             photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                 directory, "cannot open directory", errno);
@@ -833,10 +829,9 @@ int photoc_command_sort(const char *directory, bool recursive,
         if (fstat(root_fd, &root_now) != 0 ||
             root_before.st_dev != root_now.st_dev ||
             root_before.st_ino != root_now.st_ino) {
-            photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                                NULL,
-                                "directory changed during preflight; no files changed",
-                                0);
+            photoc_error_report(
+                "sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL,
+                "directory changed during preflight; no files changed", 0);
             close(root_fd);
             free_plan(&plan);
             return PHOTOC_EXIT_FAILURE;
@@ -845,8 +840,8 @@ int photoc_command_sort(const char *directory, bool recursive,
         recheck_source_descriptors(&plan, directory, root_fd);
     }
     sort_summary summary = summarize_plan(&plan);
-    int exit_code = summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS :
-                    PHOTOC_EXIT_FAILURE;
+    int exit_code =
+        summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
     if (!apply) {
         print_plan(&plan, directory, true);
     } else if (summary.blocked != 0) {

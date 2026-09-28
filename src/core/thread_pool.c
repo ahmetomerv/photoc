@@ -25,7 +25,8 @@ static void *worker_main(void *user_data)
     photoc_thread_pool *pool = user_data;
     pthread_mutex_lock(&pool->mutex);
     for (;;) {
-        while (!pool->stopping && (!pool->active || pool->next == pool->count)) {
+        while (!pool->stopping &&
+               (!pool->active || pool->next == pool->count)) {
             pthread_cond_wait(&pool->work, &pool->mutex);
         }
         if (pool->stopping) {
@@ -48,19 +49,24 @@ static void *worker_main(void *user_data)
 
 photoc_thread_pool *photoc_thread_pool_create(size_t workers)
 {
-    if (workers == 0) workers = PHOTOC_DEFAULT_WORKERS;
+    if (workers == 0)
+        workers = PHOTOC_DEFAULT_WORKERS;
     if (workers > PHOTOC_MAX_WORKERS) {
         errno = EINVAL;
         return NULL;
     }
     photoc_thread_pool *pool = calloc(1, sizeof(*pool));
-    if (pool == NULL) return NULL;
+    if (pool == NULL)
+        return NULL;
     int error = pthread_mutex_init(&pool->mutex, NULL);
-    if (error != 0) goto fail_mutex;
+    if (error != 0)
+        goto fail_mutex;
     error = pthread_cond_init(&pool->work, NULL);
-    if (error != 0) goto fail_work;
+    if (error != 0)
+        goto fail_work;
     error = pthread_cond_init(&pool->done, NULL);
-    if (error != 0) goto fail_done;
+    if (error != 0)
+        goto fail_done;
     if (workers > 1) {
         for (size_t i = 0; i < workers; ++i) {
             error = pthread_create(&pool->threads[i], NULL, worker_main, pool);
@@ -85,7 +91,7 @@ fail_mutex:
 }
 
 int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
-                          photoc_thread_task_fn task, void *user_data)
+                           photoc_thread_task_fn task, void *user_data)
 {
     if (pool == NULL || task == NULL) {
         errno = EINVAL;
@@ -104,7 +110,8 @@ int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
     pool->active = true;
     if (pool->thread_count == 0) {
         pthread_mutex_unlock(&pool->mutex);
-        for (size_t i = 0; i < count; ++i) task(i, user_data);
+        for (size_t i = 0; i < count; ++i)
+            task(i, user_data);
         pthread_mutex_lock(&pool->mutex);
         pool->active = false;
         pthread_cond_broadcast(&pool->done);
@@ -115,7 +122,8 @@ int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
         pool->task = task;
         pool->user_data = user_data;
         pthread_cond_broadcast(&pool->work);
-        while (pool->active) pthread_cond_wait(&pool->done, &pool->mutex);
+        while (pool->active)
+            pthread_cond_wait(&pool->done, &pool->mutex);
         pool->task = NULL;
         pool->user_data = NULL;
     }
@@ -125,9 +133,11 @@ int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
 
 void photoc_thread_pool_destroy(photoc_thread_pool *pool)
 {
-    if (pool == NULL) return;
+    if (pool == NULL)
+        return;
     pthread_mutex_lock(&pool->mutex);
-    while (pool->active) pthread_cond_wait(&pool->done, &pool->mutex);
+    while (pool->active)
+        pthread_cond_wait(&pool->done, &pool->mutex);
     pool->stopping = true;
     pthread_cond_broadcast(&pool->work);
     pthread_mutex_unlock(&pool->mutex);

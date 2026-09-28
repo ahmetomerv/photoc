@@ -105,7 +105,8 @@ static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
     if (!in_place && scrubbed_path(path, &destination) != 0) {
         ++counts->failed;
         photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
-                            errno == ENOMEM ? PHOTOC_ERR_INTERNAL : PHOTOC_ERR_IO,
+                            errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                            : PHOTOC_ERR_IO,
                             path, "cannot build output path", errno);
         photoc_jpeg_exif_free(exif);
         return;
@@ -113,8 +114,9 @@ static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
 
     result = photoc_jpeg_exif_remove_gps(exif);
     if (result == PHOTOC_JPEG_EDIT_OK) {
-        result = in_place ? photoc_jpeg_replace_with_exif(path, exif) :
-                            photoc_jpeg_write_with_exif(path, destination, exif);
+        result = in_place
+                     ? photoc_jpeg_replace_with_exif(path, exif)
+                     : photoc_jpeg_write_with_exif(path, destination, exif);
     }
     int saved_errno = errno;
     if (result == PHOTOC_JPEG_EDIT_OK) {
@@ -143,7 +145,8 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
         }
         if (walk->count == walk->capacity) {
             size_t next = walk->capacity == 0 ? 16 : walk->capacity * 2;
-            if (next < walk->capacity || next > SIZE_MAX / sizeof(*walk->paths)) {
+            if (next < walk->capacity ||
+                next > SIZE_MAX / sizeof(*walk->paths)) {
                 walk->error = ENOMEM;
                 return false;
             }
@@ -182,18 +185,18 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
                                    path, "unable to inspect path", errno);
     }
     if (type == PHOTOC_FS_OTHER) {
-        return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
-                                   PHOTOC_ERR_UNSUPPORTED, path,
-                                   "expected a regular JPEG file or directory", 0);
+        return photoc_error_report(
+            "scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
+            "expected a regular JPEG file or directory", 0);
     }
     if (type == PHOTOC_FS_FILE && recursive) {
         fputs("photoc scrub: --recursive requires a directory\n", stderr);
         return PHOTOC_EXIT_USAGE;
     }
     if (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path)) {
-        return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
-                                   PHOTOC_ERR_UNSUPPORTED, path,
-                                   "expected a regular JPEG file or directory", 0);
+        return photoc_error_report(
+            "scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
+            "expected a regular JPEG file or directory", 0);
     }
 
     scrub_counts counts = {0};
@@ -201,20 +204,21 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
         scrub_file(path, in_place, &counts);
     } else {
         scrub_walk walk = {0};
-        int result = recursive ? photoc_fs_walk_recursive(path, visit_file,
-                                                           &walk) :
-                                 photoc_fs_walk(path, visit_file, &walk);
+        int result = recursive
+                         ? photoc_fs_walk_recursive(path, visit_file, &walk)
+                         : photoc_fs_walk(path, visit_file, &walk);
         counts = walk.counts;
         if (result != 0) {
             ++counts.failed;
             photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
-                                walk.error == ENOMEM ? PHOTOC_ERR_INTERNAL :
-                                PHOTOC_ERR_IO,
+                                walk.error == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                                     : PHOTOC_ERR_IO,
                                 path, "cannot read directory",
                                 walk.error != 0 ? walk.error : errno);
         } else {
             if (walk.count > 1) {
-                qsort(walk.paths, walk.count, sizeof(*walk.paths), compare_paths);
+                qsort(walk.paths, walk.count, sizeof(*walk.paths),
+                      compare_paths);
             }
             for (size_t i = 0; i < walk.count; ++i) {
                 scrub_file(walk.paths[i], in_place, &counts);

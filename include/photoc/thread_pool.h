@@ -25,7 +25,7 @@ photoc_thread_pool *photoc_thread_pool_create(size_t workers);
    active pool. Tasks must not run/destroy their own pool. The owner must
    serialize run/destroy calls and keep the pool alive throughout each call. */
 int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
-                          photoc_thread_task_fn task, void *user_data);
+                           photoc_thread_task_fn task, void *user_data);
 
 /* Waits for work to finish, joins every worker, and frees the pool. NULL is
    accepted. Call only after external callers have stopped using the pool. */

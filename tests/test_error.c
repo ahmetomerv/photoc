@@ -12,12 +12,12 @@
 
 static int failures = 0;
 
-#define CHECK(condition)                                                        \
-    do {                                                                        \
-        if (!(condition)) {                                                     \
-            fprintf(stdout, "%s:%d: %s\n", __FILE__, __LINE__, #condition);   \
-            ++failures;                                                         \
-        }                                                                       \
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stdout, "%s:%d: %s\n", __FILE__, __LINE__, #condition);    \
+            ++failures;                                                        \
+        }                                                                      \
     } while (0)
 
 static void expect_line(int code, const char *expected, int actual_code,
@@ -97,8 +97,8 @@ static int report_warning(void *unused)
 {
     (void)unused;
     return photoc_error_report("duplicates", PHOTOC_ERR_NOTE_WARNING,
-                               PHOTOC_ERR_IO, "locked.bin", "unable to read file",
-                               EACCES);
+                               PHOTOC_ERR_IO, "locked.bin",
+                               "unable to read file", EACCES);
 }
 
 static int report_usage(void *unused)
@@ -118,7 +118,8 @@ static int report_skipped(void *unused)
 
 int main(void)
 {
-    CHECK(strcmp(photoc_error_kind_name(PHOTOC_ERR_USAGE), "invalid input") == 0);
+    CHECK(strcmp(photoc_error_kind_name(PHOTOC_ERR_USAGE), "invalid input") ==
+          0);
     CHECK(strcmp(photoc_error_kind_name(PHOTOC_ERR_UNSUPPORTED),
                  "unsupported file") == 0);
     CHECK(strcmp(photoc_error_kind_name(PHOTOC_ERR_IO), "file I/O error") == 0);
@@ -126,7 +127,8 @@ int main(void)
                  "metadata error") == 0);
     CHECK(strcmp(photoc_error_kind_name(PHOTOC_ERR_DECODE),
                  "image decode error") == 0);
-    CHECK(strcmp(photoc_error_kind_name(PHOTOC_ERR_COLLISION), "collision") == 0);
+    CHECK(strcmp(photoc_error_kind_name(PHOTOC_ERR_COLLISION), "collision") ==
+          0);
     CHECK(strcmp(photoc_error_kind_name(PHOTOC_ERR_INTERNAL),
                  "internal error") == 0);
 
@@ -155,29 +157,32 @@ int main(void)
     int code = 0;
     char output[512];
     capture(report_collision, NULL, &code, output, sizeof(output));
-    expect_line(PHOTOC_EXIT_FAILURE,
-                "photoc compress: 'out.jpg': collision: output already exists\n",
-                code, output);
+    expect_line(
+        PHOTOC_EXIT_FAILURE,
+        "photoc compress: 'out.jpg': collision: output already exists\n", code,
+        output);
     CHECK(strstr(output, "File exists") == NULL);
 
     capture(report_decode, NULL, &code, output, sizeof(output));
     expect_line(PHOTOC_EXIT_FAILURE,
-                "photoc exif: 'bad.jpg': image decode error: invalid or truncated JPEG file\n",
+                "photoc exif: 'bad.jpg': image decode error: invalid or "
+                "truncated JPEG file\n",
                 code, output);
 
     capture(report_warning, NULL, &code, output, sizeof(output));
     expect_line(0,
-                "photoc duplicates: warning: 'locked.bin': file I/O error: unable to read file: Permission denied\n",
+                "photoc duplicates: warning: 'locked.bin': file I/O error: "
+                "unable to read file: Permission denied\n",
                 code, output);
 
     capture(report_usage, NULL, &code, output, sizeof(output));
     expect_line(PHOTOC_EXIT_USAGE,
-                "photoc sort: invalid input: invalid gap '30'\n",
-                code, output);
+                "photoc sort: invalid input: invalid gap '30'\n", code, output);
 
     capture(report_skipped, NULL, &code, output, sizeof(output));
     expect_line(PHOTOC_EXIT_FAILURE,
-                "photoc rename: 'a.jpg': skipped: collision: destination exists 'taken.jpg'\n",
+                "photoc rename: 'a.jpg': skipped: collision: destination "
+                "exists 'taken.jpg'\n",
                 code, output);
 
     if (failures != 0) {

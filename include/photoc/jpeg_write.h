@@ -24,13 +24,13 @@ typedef enum {
 /* Load an owned, editable copy of the EXIF from a JPEG. A JPEG without an
    EXIF APP1 segment returns NO_EXIF. The output pointer must not already own
    memory; on failure *out is NULL. Free with photoc_jpeg_exif_free. */
-photoc_jpeg_edit_result photoc_jpeg_exif_load_copy(
-    const char *source_path, photoc_jpeg_exif **out);
+photoc_jpeg_edit_result photoc_jpeg_exif_load_copy(const char *source_path,
+                                                   photoc_jpeg_exif **out);
 
 /* Deep-copy an edited EXIF document. The output follows the same ownership
    rules as load_copy. The source remains independent and unchanged. */
-photoc_jpeg_edit_result photoc_jpeg_exif_copy(
-    const photoc_jpeg_exif *source, photoc_jpeg_exif **out);
+photoc_jpeg_edit_result photoc_jpeg_exif_copy(const photoc_jpeg_exif *source,
+                                              photoc_jpeg_exif **out);
 
 /* True when the EXIF GPS IFD has entries or its root pointer is present.
    The caller retains ownership of exif. */
@@ -38,8 +38,8 @@ bool photoc_jpeg_exif_has_gps(const photoc_jpeg_exif *exif);
 
 /* Number of bytes added when attaching this EXIF to an encoded JPEG.
    Returns zero for NULL EXIF. The caller retains ownership of exif. */
-photoc_jpeg_edit_result photoc_jpeg_exif_output_overhead(
-    const photoc_jpeg_exif *exif, uint64_t *bytes);
+photoc_jpeg_edit_result
+photoc_jpeg_exif_output_overhead(const photoc_jpeg_exif *exif, uint64_t *bytes);
 
 /* Remove all GPS IFD entries and the GPS pointer from this in-memory copy.
    The source JPEG and any other EXIF document remain unchanged. */
@@ -51,17 +51,19 @@ photoc_jpeg_edit_result photoc_jpeg_exif_remove_gps(photoc_jpeg_exif *exif);
    in the destination directory is fully written and verified before an atomic
    no-overwrite rename. An existing destination is never replaced. On an I/O
    failure, errno describes the failed operation. The caller retains exif. */
-photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
-    const char *source_path, const char *destination_path,
-    const photoc_jpeg_exif *exif);
+photoc_jpeg_edit_result
+photoc_jpeg_write_with_exif(const char *source_path,
+                            const char *destination_path,
+                            const photoc_jpeg_exif *exif);
 
 /* Save encoded JPEG bytes as a new file, optionally adding an EXIF copy.
    The caller retains the buffer and EXIF object. A temporary file beside the
    destination is synced and validated first; the destination is never
    overwritten. Without EXIF, the temporary file becomes the output. */
-photoc_jpeg_edit_result photoc_jpeg_write_encoded(
-    const char *destination_path, const photoc_jpeg_buffer *encoded,
-    const photoc_jpeg_exif *exif);
+photoc_jpeg_edit_result
+photoc_jpeg_write_encoded(const char *destination_path,
+                          const photoc_jpeg_buffer *encoded,
+                          const photoc_jpeg_exif *exif);
 
 /* Replace source_path with an edited JPEG only after writing, syncing, and
    verifying a temporary JPEG beside it. Preserves POSIX permission bits and
@@ -70,8 +72,9 @@ photoc_jpeg_edit_result photoc_jpeg_write_encoded(
    source whose identity or contents changed since exif was loaded. The
    original path remains untouched on any failure before atomic rename.
    Other metadata such as ACLs and extended attributes is not preserved. */
-photoc_jpeg_edit_result photoc_jpeg_replace_with_exif(
-    const char *source_path, const photoc_jpeg_exif *exif);
+photoc_jpeg_edit_result
+photoc_jpeg_replace_with_exif(const char *source_path,
+                              const photoc_jpeg_exif *exif);
 
 void photoc_jpeg_exif_free(photoc_jpeg_exif *exif);
 

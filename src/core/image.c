@@ -86,13 +86,13 @@ static photoc_image_result read_file(const char *path, unsigned char **bytes,
 
 static photoc_image_result read_header(tjhandle handle,
                                        const unsigned char *bytes,
-                                       unsigned long length,
-                                       int *width, int *height)
+                                       unsigned long length, int *width,
+                                       int *height)
 {
     int subsampling;
     int colorspace;
-    if (tjDecompressHeader3(handle, bytes, length, width, height,
-                            &subsampling, &colorspace) != 0 ||
+    if (tjDecompressHeader3(handle, bytes, length, width, height, &subsampling,
+                            &colorspace) != 0 ||
         *width <= 0 || *height <= 0) {
         return PHOTOC_IMAGE_INVALID_JPEG;
     }
@@ -100,8 +100,8 @@ static photoc_image_result read_header(tjhandle handle,
 }
 
 photoc_image_result photoc_image_jpeg_dimensions(const char *path,
-                                                  uint32_t *width,
-                                                  uint32_t *height)
+                                                 uint32_t *width,
+                                                 uint32_t *height)
 {
     if (path == NULL || path[0] == '\0' || width == NULL || height == NULL) {
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
@@ -129,9 +129,8 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
     return result;
 }
 
-static photoc_image_result decode_jpeg(const char *path,
-                                        uint32_t max_dimension,
-                                        photoc_image *out)
+static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
+                                       photoc_image *out)
 {
     if (path == NULL || path[0] == '\0' || out == NULL) {
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
@@ -214,8 +213,8 @@ static photoc_image_result decode_jpeg(const char *path,
         }
     }
     if (result == PHOTOC_IMAGE_OK &&
-        tjDecompress2(handle, bytes, length, pixels, width, (int)stride,
-                      height, TJPF_RGB, 0) != 0) {
+        tjDecompress2(handle, bytes, length, pixels, width, (int)stride, height,
+                      TJPF_RGB, 0) != 0) {
         result = PHOTOC_IMAGE_INVALID_JPEG;
     }
     tjDestroy(handle);
@@ -224,13 +223,13 @@ static photoc_image_result decode_jpeg(const char *path,
         free(pixels);
         return result;
     }
-    *out = (photoc_image){(uint32_t)width, (uint32_t)height,
-                          stride, pixel_bytes, pixels};
+    *out = (photoc_image){(uint32_t)width, (uint32_t)height, stride,
+                          pixel_bytes, pixels};
     return PHOTOC_IMAGE_OK;
 }
 
 photoc_image_result photoc_image_decode_jpeg(const char *path,
-                                              photoc_image *out)
+                                             photoc_image *out)
 {
     return decode_jpeg(path, 0, out);
 }
@@ -246,8 +245,8 @@ photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
 }
 
 photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
-                                              int quality,
-                                              photoc_jpeg_buffer *out)
+                                             int quality,
+                                             photoc_jpeg_buffer *out)
 {
     if (image == NULL || out == NULL || quality < 1 || quality > 100 ||
         image->pixels == NULL || image->width == 0 || image->height == 0 ||
@@ -268,9 +267,8 @@ photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
     unsigned char *jpeg = NULL;
     unsigned long length = 0;
     int encoded = tjCompress2(handle, image->pixels, (int)image->width,
-                              (int)image->stride, (int)image->height,
-                              TJPF_RGB, &jpeg, &length, TJSAMP_420,
-                              quality, 0);
+                              (int)image->stride, (int)image->height, TJPF_RGB,
+                              &jpeg, &length, TJSAMP_420, quality, 0);
     tjDestroy(handle);
     if (encoded != 0 || jpeg == NULL || length == 0) {
         tjFree(jpeg);
@@ -284,13 +282,21 @@ photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
 const char *photoc_image_result_message(photoc_image_result result)
 {
     switch (result) {
-    case PHOTOC_IMAGE_OK: return "image processed";
-    case PHOTOC_IMAGE_INVALID_ARGUMENT: return "invalid image argument";
-    case PHOTOC_IMAGE_IO_ERROR: return "image I/O error";
-    case PHOTOC_IMAGE_INVALID_JPEG: return "invalid or unsupported JPEG";
-    case PHOTOC_IMAGE_TOO_LARGE: return "image is too large";
-    case PHOTOC_IMAGE_NO_MEMORY: return "out of memory";
-    case PHOTOC_IMAGE_CODEC_ERROR: return "JPEG codec error";
-    default: return "unknown image error";
+    case PHOTOC_IMAGE_OK:
+        return "image processed";
+    case PHOTOC_IMAGE_INVALID_ARGUMENT:
+        return "invalid image argument";
+    case PHOTOC_IMAGE_IO_ERROR:
+        return "image I/O error";
+    case PHOTOC_IMAGE_INVALID_JPEG:
+        return "invalid or unsupported JPEG";
+    case PHOTOC_IMAGE_TOO_LARGE:
+        return "image is too large";
+    case PHOTOC_IMAGE_NO_MEMORY:
+        return "out of memory";
+    case PHOTOC_IMAGE_CODEC_ERROR:
+        return "JPEG codec error";
+    default:
+        return "unknown image error";
     }
 }

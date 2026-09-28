@@ -5,8 +5,7 @@
 
 bool photoc_parse_gap_minutes(const char *text, uint32_t *minutes)
 {
-    if (text == NULL || minutes == NULL || text[0] < '0' ||
-        text[0] > '9') {
+    if (text == NULL || minutes == NULL || text[0] < '0' || text[0] > '9') {
         return false;
     }
     uint32_t value = 0;
@@ -90,28 +89,26 @@ typedef struct {
     bool valued;
 } photoc_flag;
 
-static const photoc_flag flags[] = {
-    {"-h", 0, false},
-    {"--help", 0, false},
-    {"-V", 0, false},
-    {"--version", 0, false},
-    {"-v", 0, false},
-    {"--verbose", 0, false},
-    {"-q", 0, false},
-    {"--quiet", 0, false},
-    {"--json", 0, false},
-    {"--recursive", CMD_RECURSIVE, false},
-    {"--apply", CMD_APPLY, false},
-    {"--gps", CMD_SCRUB, false},
-    {"--in-place", CMD_SCRUB, false},
-    {"--quality", CMD_COMPRESS, true},
-    {"--target", CMD_COMPRESS, true},
-    {"--min-quality", CMD_COMPRESS, true},
-    {"--output-dir", CMD_COMPRESS, true},
-    {"--by", CMD_SORT, true},
-    {"--gap", CMD_SORT, true},
-    {"--format", CMD_RENAME, true}
-};
+static const photoc_flag flags[] = {{"-h", 0, false},
+                                    {"--help", 0, false},
+                                    {"-V", 0, false},
+                                    {"--version", 0, false},
+                                    {"-v", 0, false},
+                                    {"--verbose", 0, false},
+                                    {"-q", 0, false},
+                                    {"--quiet", 0, false},
+                                    {"--json", 0, false},
+                                    {"--recursive", CMD_RECURSIVE, false},
+                                    {"--apply", CMD_APPLY, false},
+                                    {"--gps", CMD_SCRUB, false},
+                                    {"--in-place", CMD_SCRUB, false},
+                                    {"--quality", CMD_COMPRESS, true},
+                                    {"--target", CMD_COMPRESS, true},
+                                    {"--min-quality", CMD_COMPRESS, true},
+                                    {"--output-dir", CMD_COMPRESS, true},
+                                    {"--by", CMD_SORT, true},
+                                    {"--gap", CMD_SORT, true},
+                                    {"--format", CMD_RENAME, true}};
 
 static const photoc_flag *find_flag(const char *name)
 {
@@ -273,8 +270,8 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
 
         const photoc_flag *flag = options_ended ? NULL : find_flag(arg);
         if (flag != NULL && flag_allowed(flag, command)) {
-            photoc_parse_status status = apply_flag(flag, &i, argc, argv,
-                                                    options, error_arg);
+            photoc_parse_status status =
+                apply_flag(flag, &i, argc, argv, options, error_arg);
             if (status != PHOTOC_PARSE_OK) {
                 return status;
             }

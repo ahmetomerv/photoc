@@ -82,8 +82,8 @@ static bool read_coordinate(ExifEntry *source, ExifEntry *reference,
     }
     char direction = (char)reference->data[0];
     if (reference->data[1] != '\0' ||
-        (latitude ? (direction != 'N' && direction != 'S') :
-                    (direction != 'E' && direction != 'W'))) {
+        (latitude ? (direction != 'N' && direction != 'S')
+                  : (direction != 'E' && direction != 'W'))) {
         return false;
     }
     double parts[3];
@@ -113,34 +113,37 @@ static bool load_exif(const char *path, Photo *photo)
         return true; /* A JPEG need not carry EXIF. */
     }
 
-    bool ok = copy_ascii(entry(data, EXIF_IFD_0, EXIF_TAG_MAKE),
-                         &photo->camera_make) &&
-              copy_ascii(entry(data, EXIF_IFD_0, EXIF_TAG_MODEL),
-                         &photo->camera_model) &&
-              copy_ascii(entry(data, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_ORIGINAL),
-                         &photo->capture_timestamp);
+    bool ok =
+        copy_ascii(entry(data, EXIF_IFD_0, EXIF_TAG_MAKE),
+                   &photo->camera_make) &&
+        copy_ascii(entry(data, EXIF_IFD_0, EXIF_TAG_MODEL),
+                   &photo->camera_model) &&
+        copy_ascii(entry(data, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_ORIGINAL),
+                   &photo->capture_timestamp);
     if (ok) {
         ExifByteOrder order = exif_data_get_byte_order(data);
-        photo->has_iso = read_iso(entry(data, EXIF_IFD_EXIF,
-                                        EXIF_TAG_ISO_SPEED_RATINGS), order,
-                                  &photo->iso);
-        photo->has_aperture = read_rational(entry(data, EXIF_IFD_EXIF,
-                                                  EXIF_TAG_FNUMBER), order,
-                                            &photo->aperture);
-        photo->has_exposure_time = read_rational(entry(data, EXIF_IFD_EXIF,
-                                                       EXIF_TAG_EXPOSURE_TIME),
-                                                 order, &photo->exposure_time);
-        photo->has_focal_length = read_rational(entry(data, EXIF_IFD_EXIF,
-                                                      EXIF_TAG_FOCAL_LENGTH),
-                                                order, &photo->focal_length);
+        photo->has_iso =
+            read_iso(entry(data, EXIF_IFD_EXIF, EXIF_TAG_ISO_SPEED_RATINGS),
+                     order, &photo->iso);
+        photo->has_aperture =
+            read_rational(entry(data, EXIF_IFD_EXIF, EXIF_TAG_FNUMBER), order,
+                          &photo->aperture);
+        photo->has_exposure_time =
+            read_rational(entry(data, EXIF_IFD_EXIF, EXIF_TAG_EXPOSURE_TIME),
+                          order, &photo->exposure_time);
+        photo->has_focal_length =
+            read_rational(entry(data, EXIF_IFD_EXIF, EXIF_TAG_FOCAL_LENGTH),
+                          order, &photo->focal_length);
         double latitude;
         double longitude;
-        if (read_coordinate(entry(data, EXIF_IFD_GPS, EXIF_TAG_GPS_LATITUDE),
-                            entry(data, EXIF_IFD_GPS, EXIF_TAG_GPS_LATITUDE_REF),
-                            order, true, &latitude) &&
-            read_coordinate(entry(data, EXIF_IFD_GPS, EXIF_TAG_GPS_LONGITUDE),
-                            entry(data, EXIF_IFD_GPS, EXIF_TAG_GPS_LONGITUDE_REF),
-                            order, false, &longitude)) {
+        if (read_coordinate(
+                entry(data, EXIF_IFD_GPS, EXIF_TAG_GPS_LATITUDE),
+                entry(data, EXIF_IFD_GPS, EXIF_TAG_GPS_LATITUDE_REF), order,
+                true, &latitude) &&
+            read_coordinate(
+                entry(data, EXIF_IFD_GPS, EXIF_TAG_GPS_LONGITUDE),
+                entry(data, EXIF_IFD_GPS, EXIF_TAG_GPS_LONGITUDE_REF), order,
+                false, &longitude)) {
             photo->latitude = latitude;
             photo->longitude = longitude;
             photo->has_gps = true;
@@ -177,8 +180,8 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
         loaded.has_file_size = true;
         photoc_jpeg_info info;
         if (photoc_jpeg_inspect(file, &info) != 0) {
-            result = errno == EINVAL ? PHOTOC_METADATA_INVALID_JPEG :
-                                       PHOTOC_METADATA_IO_ERROR;
+            result = errno == EINVAL ? PHOTOC_METADATA_INVALID_JPEG
+                                     : PHOTOC_METADATA_IO_ERROR;
         } else {
             loaded.width = info.width;
             loaded.height = info.height;

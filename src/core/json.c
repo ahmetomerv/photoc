@@ -60,14 +60,29 @@ int photoc_json_write_string(FILE *stream, const char *value)
         unsigned char ch = text[i];
         const char *escape = NULL;
         switch (ch) {
-        case '"': escape = "\\\""; break;
-        case '\\': escape = "\\\\"; break;
-        case '\b': escape = "\\b"; break;
-        case '\f': escape = "\\f"; break;
-        case '\n': escape = "\\n"; break;
-        case '\r': escape = "\\r"; break;
-        case '\t': escape = "\\t"; break;
-        default: break;
+        case '"':
+            escape = "\\\"";
+            break;
+        case '\\':
+            escape = "\\\\";
+            break;
+        case '\b':
+            escape = "\\b";
+            break;
+        case '\f':
+            escape = "\\f";
+            break;
+        case '\n':
+            escape = "\\n";
+            break;
+        case '\r':
+            escape = "\\r";
+            break;
+        case '\t':
+            escape = "\\t";
+            break;
+        default:
+            break;
         }
         if (escape != NULL) {
             if (fputs(escape, stream) == EOF) {

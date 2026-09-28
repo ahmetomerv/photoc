@@ -27,8 +27,8 @@ static void print_human(const Photo *photo, const char *name)
     puts("");
 
     puts("Image");
-    printf("  Dimensions: %" PRIu32 " x %" PRIu32 " pixels\n",
-           photo->width, photo->height);
+    printf("  Dimensions: %" PRIu32 " x %" PRIu32 " pixels\n", photo->width,
+           photo->height);
     puts("");
 
     puts("Camera");
@@ -131,8 +131,8 @@ int photoc_command_exif(const char *path, bool json)
     photoc_metadata_result result = photo_load_metadata(path, &photo);
     if (result != PHOTOC_METADATA_OK) {
         int saved_errno = errno;
-        return photoc_error_metadata("exif", PHOTOC_ERR_NOTE_NONE, path,
-                                     result, saved_errno);
+        return photoc_error_metadata("exif", PHOTOC_ERR_NOTE_NONE, path, result,
+                                     saved_errno);
     }
 
     char *name = NULL;

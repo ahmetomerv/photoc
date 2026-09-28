@@ -40,12 +40,9 @@ static bool same_source(const struct stat *left, const struct stat *right)
     const struct timespec *left_ctime = &left->st_ctim;
     const struct timespec *right_ctime = &right->st_ctim;
 #endif
-    return left->st_dev == right->st_dev &&
-           left->st_ino == right->st_ino &&
-           left->st_size == right->st_size &&
-           left->st_mode == right->st_mode &&
-           left->st_uid == right->st_uid &&
-           left->st_gid == right->st_gid &&
+    return left->st_dev == right->st_dev && left->st_ino == right->st_ino &&
+           left->st_size == right->st_size && left->st_mode == right->st_mode &&
+           left->st_uid == right->st_uid && left->st_gid == right->st_gid &&
            left->st_nlink == right->st_nlink &&
            left_mtime->tv_sec == right_mtime->tv_sec &&
            left_mtime->tv_nsec == right_mtime->tv_nsec &&
@@ -72,10 +69,10 @@ static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
                                           photoc_jpeg_exif **out)
 {
     if (length < 14 || memcmp(bytes, "Exif\0\0", 6) != 0 ||
-        !((bytes[6] == 'I' && bytes[7] == 'I' &&
-           bytes[8] == 0x2a && bytes[9] == 0) ||
-          (bytes[6] == 'M' && bytes[7] == 'M' &&
-           bytes[8] == 0 && bytes[9] == 0x2a))) {
+        !((bytes[6] == 'I' && bytes[7] == 'I' && bytes[8] == 0x2a &&
+           bytes[9] == 0) ||
+          (bytes[6] == 'M' && bytes[7] == 'M' && bytes[8] == 0 &&
+           bytes[9] == 0x2a))) {
         return PHOTOC_JPEG_EDIT_INVALID_EXIF;
     }
 
@@ -111,19 +108,17 @@ static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
     return PHOTOC_JPEG_EDIT_OK;
 }
 
-static photoc_jpeg_edit_result inspect_file(FILE *file,
-                                             photoc_jpeg_info *info)
+static photoc_jpeg_edit_result inspect_file(FILE *file, photoc_jpeg_info *info)
 {
     if (photoc_jpeg_inspect(file, info) == 0) {
         return PHOTOC_JPEG_EDIT_OK;
     }
-    return errno == EINVAL ? PHOTOC_JPEG_EDIT_INVALID_JPEG :
-                             PHOTOC_JPEG_EDIT_IO_ERROR;
+    return errno == EINVAL ? PHOTOC_JPEG_EDIT_INVALID_JPEG
+                           : PHOTOC_JPEG_EDIT_IO_ERROR;
 }
 
-static photoc_jpeg_edit_result read_exif(FILE *file,
-                                         const photoc_jpeg_info *info,
-                                         photoc_jpeg_exif **out)
+static photoc_jpeg_edit_result
+read_exif(FILE *file, const photoc_jpeg_info *info, photoc_jpeg_exif **out)
 {
     if (info->exif_count == 0) {
         return PHOTOC_JPEG_EDIT_NO_EXIF;
@@ -160,8 +155,8 @@ static photoc_jpeg_edit_result read_exif(FILE *file,
     return result;
 }
 
-photoc_jpeg_edit_result photoc_jpeg_exif_load_copy(
-    const char *source_path, photoc_jpeg_exif **out)
+photoc_jpeg_edit_result photoc_jpeg_exif_load_copy(const char *source_path,
+                                                   photoc_jpeg_exif **out)
 {
     if (out == NULL || source_path == NULL || source_path[0] == '\0') {
         return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
@@ -235,8 +230,8 @@ static photoc_jpeg_edit_result serialize_exif(const photoc_jpeg_exif *exif,
     return PHOTOC_JPEG_EDIT_OK;
 }
 
-photoc_jpeg_edit_result photoc_jpeg_exif_output_overhead(
-    const photoc_jpeg_exif *exif, uint64_t *bytes)
+photoc_jpeg_edit_result
+photoc_jpeg_exif_output_overhead(const photoc_jpeg_exif *exif, uint64_t *bytes)
 {
     if (bytes == NULL) {
         return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
@@ -255,8 +250,8 @@ photoc_jpeg_edit_result photoc_jpeg_exif_output_overhead(
     return result;
 }
 
-photoc_jpeg_edit_result photoc_jpeg_exif_copy(
-    const photoc_jpeg_exif *source, photoc_jpeg_exif **out)
+photoc_jpeg_edit_result photoc_jpeg_exif_copy(const photoc_jpeg_exif *source,
+                                              photoc_jpeg_exif **out)
 {
     if (source == NULL || out == NULL || source->data == NULL ||
         source->memory == NULL) {
@@ -293,8 +288,8 @@ photoc_jpeg_edit_result photoc_jpeg_exif_remove_gps(photoc_jpeg_exif *exif)
     if (root == NULL) {
         return PHOTOC_JPEG_EDIT_INVALID_EXIF;
     }
-    ExifEntry *pointer = exif_content_get_entry(
-        root, EXIF_TAG_GPS_INFO_IFD_POINTER);
+    ExifEntry *pointer =
+        exif_content_get_entry(root, EXIF_TAG_GPS_INFO_IFD_POINTER);
     if (pointer != NULL) {
         exif_content_remove_entry(root, pointer);
     }
@@ -309,16 +304,17 @@ bool photoc_jpeg_exif_has_gps(const photoc_jpeg_exif *exif)
     ExifContent *gps = exif->data->ifd[EXIF_IFD_GPS];
     ExifContent *root = exif->data->ifd[EXIF_IFD_0];
     return (gps != NULL && gps->count != 0) ||
-           (root != NULL &&
-            exif_content_get_entry(root, EXIF_TAG_GPS_INFO_IFD_POINTER) != NULL);
+           (root != NULL && exif_content_get_entry(
+                                root, EXIF_TAG_GPS_INFO_IFD_POINTER) != NULL);
 }
 
 static photoc_jpeg_edit_result destination_directory(const char *destination,
-                                                      char **directory)
+                                                     char **directory)
 {
     const char *slash = strrchr(destination, '/');
-    size_t length = slash == NULL ? 1 :
-                    slash == destination ? 1 : (size_t)(slash - destination);
+    size_t length = slash == NULL          ? 1
+                    : slash == destination ? 1
+                                           : (size_t)(slash - destination);
     char *copy = malloc(length + 1);
     if (copy == NULL) {
         return PHOTOC_JPEG_EDIT_NO_MEMORY;
@@ -378,17 +374,15 @@ static int write_jpeg(FILE *source, FILE *destination,
                       const photoc_jpeg_info *info,
                       const unsigned char *exif_bytes, unsigned int length)
 {
-    uint64_t prefix = info->exif_count == 0 ?
-                      info->exif_insert_offset : info->exif_offset;
+    uint64_t prefix =
+        info->exif_count == 0 ? info->exif_insert_offset : info->exif_offset;
     if (fseeko(source, 0, SEEK_SET) != 0 ||
         copy_bytes(source, destination, prefix) != 0) {
         return -1;
     }
     unsigned int segment_length = length + 2;
-    unsigned char header[4] = {
-        0xff, 0xe1, (unsigned char)(segment_length >> 8),
-        (unsigned char)segment_length
-    };
+    unsigned char header[4] = {0xff, 0xe1, (unsigned char)(segment_length >> 8),
+                               (unsigned char)segment_length};
     errno = 0;
     if (fwrite(header, 1, sizeof(header), destination) != sizeof(header) ||
         fwrite(exif_bytes, 1, length, destination) != length) {
@@ -397,8 +391,9 @@ static int write_jpeg(FILE *source, FILE *destination,
         }
         return -1;
     }
-    uint64_t suffix = info->exif_count == 0 ? info->exif_insert_offset :
-                      info->exif_offset + info->exif_length;
+    uint64_t suffix = info->exif_count == 0
+                          ? info->exif_insert_offset
+                          : info->exif_offset + info->exif_length;
     if (suffix > INT64_MAX) {
         errno = EOVERFLOW;
         return -1;
@@ -424,8 +419,8 @@ static int compare_regions(FILE *source, FILE *written, uint64_t source_offset,
     unsigned char left[16384];
     unsigned char right[16384];
     do {
-        size_t chunk = until_eof || length > sizeof(left) ?
-                       sizeof(left) : (size_t)length;
+        size_t chunk =
+            until_eof || length > sizeof(left) ? sizeof(left) : (size_t)length;
         size_t left_count = fread(left, 1, chunk, source);
         size_t right_count = fread(right, 1, chunk, written);
         if (ferror(source) || ferror(written)) {
@@ -434,8 +429,7 @@ static int compare_regions(FILE *source, FILE *written, uint64_t source_offset,
             }
             return -1;
         }
-        if (left_count != right_count ||
-            memcmp(left, right, left_count) != 0 ||
+        if (left_count != right_count || memcmp(left, right, left_count) != 0 ||
             (!until_eof && left_count != chunk)) {
             errno = EIO;
             return -1;
@@ -450,10 +444,10 @@ static int compare_regions(FILE *source, FILE *written, uint64_t source_offset,
     return 0;
 }
 
-static photoc_jpeg_edit_result verify_temporary(
-    FILE *source, const char *temporary, const photoc_jpeg_info *original,
-    const photoc_jpeg_exif *exif, const unsigned char *exif_bytes,
-    unsigned int exif_length)
+static photoc_jpeg_edit_result
+verify_temporary(FILE *source, const char *temporary,
+                 const photoc_jpeg_info *original, const photoc_jpeg_exif *exif,
+                 const unsigned char *exif_bytes, unsigned int exif_length)
 {
     FILE *written = fopen(temporary, "rb");
     if (written == NULL) {
@@ -483,15 +477,17 @@ static photoc_jpeg_edit_result verify_temporary(
         }
     }
     if (result == PHOTOC_JPEG_EDIT_OK) {
-        uint64_t old_prefix = original->exif_count == 0 ?
-                              original->exif_insert_offset : original->exif_offset;
-        uint64_t old_suffix = original->exif_count == 0 ?
-                              original->exif_insert_offset :
-                              original->exif_offset + original->exif_length;
+        uint64_t old_prefix = original->exif_count == 0
+                                  ? original->exif_insert_offset
+                                  : original->exif_offset;
+        uint64_t old_suffix =
+            original->exif_count == 0
+                ? original->exif_insert_offset
+                : original->exif_offset + original->exif_length;
         uint64_t new_suffix = info.exif_offset + info.exif_length;
         if (compare_regions(source, written, 0, 0, old_prefix, false) != 0 ||
-            compare_regions(source, written, old_suffix, new_suffix, 0,
-                            true) != 0) {
+            compare_regions(source, written, old_suffix, new_suffix, 0, true) !=
+                0) {
             result = PHOTOC_JPEG_EDIT_IO_ERROR;
         }
     }
@@ -506,8 +502,9 @@ static photoc_jpeg_edit_result verify_temporary(
 
     photoc_jpeg_exif *reloaded = NULL;
     result = photoc_jpeg_exif_load_copy(temporary, &reloaded);
-    ExifContent *reloaded_gps = result == PHOTOC_JPEG_EDIT_OK ?
-        reloaded->data->ifd[EXIF_IFD_GPS] : NULL;
+    ExifContent *reloaded_gps = result == PHOTOC_JPEG_EDIT_OK
+                                    ? reloaded->data->ifd[EXIF_IFD_GPS]
+                                    : NULL;
     ExifContent *original_gps = exif->data->ifd[EXIF_IFD_GPS];
     if (result == PHOTOC_JPEG_EDIT_OK &&
         (reloaded_gps == NULL || original_gps == NULL ||
@@ -518,8 +515,8 @@ static photoc_jpeg_edit_result verify_temporary(
     return result;
 }
 
-static photoc_jpeg_edit_result check_replace_source(
-    const char *path, const photoc_jpeg_exif *exif)
+static photoc_jpeg_edit_result
+check_replace_source(const char *path, const photoc_jpeg_exif *exif)
 {
     struct stat current;
     if (lstat(path, &current) != 0) {
@@ -534,21 +531,23 @@ static photoc_jpeg_edit_result check_replace_source(
     return PHOTOC_JPEG_EDIT_OK;
 }
 
-static photoc_jpeg_edit_result write_with_exif(
-    const char *source_path, const char *destination_path,
-    const photoc_jpeg_exif *exif, bool replace_source)
+static photoc_jpeg_edit_result write_with_exif(const char *source_path,
+                                               const char *destination_path,
+                                               const photoc_jpeg_exif *exif,
+                                               bool replace_source)
 {
     if (source_path == NULL || source_path[0] == '\0' ||
         destination_path == NULL || destination_path[0] == '\0' ||
-        destination_path[strlen(destination_path) - 1] == '/' ||
-        exif == NULL || exif->data == NULL || exif->memory == NULL) {
+        destination_path[strlen(destination_path) - 1] == '/' || exif == NULL ||
+        exif->data == NULL || exif->memory == NULL) {
         return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
     }
     if (replace_source) {
         if (strcmp(source_path, destination_path) != 0) {
             return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
         }
-        photoc_jpeg_edit_result safety = check_replace_source(source_path, exif);
+        photoc_jpeg_edit_result safety =
+            check_replace_source(source_path, exif);
         if (safety != PHOTOC_JPEG_EDIT_OK) {
             return safety;
         }
@@ -564,8 +563,8 @@ static photoc_jpeg_edit_result write_with_exif(
     }
     unsigned char *exif_bytes;
     unsigned int exif_length;
-    photoc_jpeg_edit_result result = serialize_exif(exif, &exif_bytes,
-                                                    &exif_length);
+    photoc_jpeg_edit_result result =
+        serialize_exif(exif, &exif_bytes, &exif_length);
     if (result != PHOTOC_JPEG_EDIT_OK) {
         return result;
     }
@@ -604,8 +603,8 @@ static photoc_jpeg_edit_result write_with_exif(
     }
     if (result == PHOTOC_JPEG_EDIT_OK &&
         photoc_fs_join(parent, ".photoc-exif-XXXXXX", &temporary) != 0) {
-        result = errno == ENOMEM ? PHOTOC_JPEG_EDIT_NO_MEMORY :
-                                   PHOTOC_JPEG_EDIT_IO_ERROR;
+        result = errno == ENOMEM ? PHOTOC_JPEG_EDIT_NO_MEMORY
+                                 : PHOTOC_JPEG_EDIT_IO_ERROR;
         saved_errno = errno;
     }
     if (result == PHOTOC_JPEG_EDIT_OK) {
@@ -676,8 +675,9 @@ static photoc_jpeg_edit_result write_with_exif(
             }
         }
         if (result == PHOTOC_JPEG_EDIT_OK &&
-            (replace_source ? rename(temporary, destination_path) :
-             photoc_fs_rename_noreplace(temporary, destination_path)) != 0) {
+            (replace_source ? rename(temporary, destination_path)
+                            : photoc_fs_rename_noreplace(
+                                  temporary, destination_path)) != 0) {
             result = PHOTOC_JPEG_EDIT_IO_ERROR;
             saved_errno = errno;
         }
@@ -694,22 +694,25 @@ static photoc_jpeg_edit_result write_with_exif(
     return result;
 }
 
-photoc_jpeg_edit_result photoc_jpeg_write_with_exif(
-    const char *source_path, const char *destination_path,
-    const photoc_jpeg_exif *exif)
+photoc_jpeg_edit_result
+photoc_jpeg_write_with_exif(const char *source_path,
+                            const char *destination_path,
+                            const photoc_jpeg_exif *exif)
 {
     return write_with_exif(source_path, destination_path, exif, false);
 }
 
-photoc_jpeg_edit_result photoc_jpeg_replace_with_exif(
-    const char *source_path, const photoc_jpeg_exif *exif)
+photoc_jpeg_edit_result
+photoc_jpeg_replace_with_exif(const char *source_path,
+                              const photoc_jpeg_exif *exif)
 {
     return write_with_exif(source_path, source_path, exif, true);
 }
 
-photoc_jpeg_edit_result photoc_jpeg_write_encoded(
-    const char *destination_path, const photoc_jpeg_buffer *encoded,
-    const photoc_jpeg_exif *exif)
+photoc_jpeg_edit_result
+photoc_jpeg_write_encoded(const char *destination_path,
+                          const photoc_jpeg_buffer *encoded,
+                          const photoc_jpeg_exif *exif)
 {
     if (destination_path == NULL || destination_path[0] == '\0' ||
         destination_path[strlen(destination_path) - 1] == '/' ||
@@ -805,17 +808,28 @@ cleanup:
 const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result)
 {
     switch (result) {
-    case PHOTOC_JPEG_EDIT_OK: return "JPEG written";
-    case PHOTOC_JPEG_EDIT_INVALID_ARGUMENT: return "invalid argument";
-    case PHOTOC_JPEG_EDIT_INVALID_JPEG: return "invalid JPEG";
-    case PHOTOC_JPEG_EDIT_NO_EXIF: return "JPEG has no EXIF";
-    case PHOTOC_JPEG_EDIT_INVALID_EXIF: return "invalid EXIF";
-    case PHOTOC_JPEG_EDIT_UNSAFE_LAYOUT: return "ambiguous JPEG EXIF layout";
-    case PHOTOC_JPEG_EDIT_EXIF_TOO_LARGE: return "EXIF exceeds JPEG APP1 limit";
-    case PHOTOC_JPEG_EDIT_IO_ERROR: return "JPEG I/O error";
-    case PHOTOC_JPEG_EDIT_NO_MEMORY: return "out of memory";
+    case PHOTOC_JPEG_EDIT_OK:
+        return "JPEG written";
+    case PHOTOC_JPEG_EDIT_INVALID_ARGUMENT:
+        return "invalid argument";
+    case PHOTOC_JPEG_EDIT_INVALID_JPEG:
+        return "invalid JPEG";
+    case PHOTOC_JPEG_EDIT_NO_EXIF:
+        return "JPEG has no EXIF";
+    case PHOTOC_JPEG_EDIT_INVALID_EXIF:
+        return "invalid EXIF";
+    case PHOTOC_JPEG_EDIT_UNSAFE_LAYOUT:
+        return "ambiguous JPEG EXIF layout";
+    case PHOTOC_JPEG_EDIT_EXIF_TOO_LARGE:
+        return "EXIF exceeds JPEG APP1 limit";
+    case PHOTOC_JPEG_EDIT_IO_ERROR:
+        return "JPEG I/O error";
+    case PHOTOC_JPEG_EDIT_NO_MEMORY:
+        return "out of memory";
     case PHOTOC_JPEG_EDIT_UNSAFE_SOURCE:
-        return "unsafe in-place source (changed, linked, symlinked, or not owned by this user)";
-    default: return "unknown JPEG editing error";
+        return "unsafe in-place source (changed, linked, symlinked, or not "
+               "owned by this user)";
+    default:
+        return "unknown JPEG editing error";
     }
 }

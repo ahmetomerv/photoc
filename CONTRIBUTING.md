@@ -83,13 +83,50 @@ Thanks for helping build `photoc`.
    benchmarks are documented in [`benchmarks/README.md`](benchmarks/README.md).
 8. Describe what changed and how it was tested in your pull request.
 
+## Code formatting
+
+Use **clang-format 18** and the repository's [`.clang-format`](.clang-format):
+four-space indentation, an 80-column limit, function braces on their own line,
+and attached braces for control statements. Include order and comment text are
+preserved. The formatter is a development tool, not a runtime dependency.
+
+Install it with:
+
+```sh
+# Debian/Ubuntu
+sudo apt install clang-format-18
+
+# macOS
+brew install llvm@18
+export CLANG_FORMAT="$(brew --prefix llvm@18)/bin/clang-format"
+```
+
+From the repository root, format project C sources and headers before submitting:
+
+```sh
+sh scripts/format.sh --write
+```
+
+Run the same read-only check as CI:
+
+```sh
+sh scripts/format.sh --check
+```
+
+The script defaults to `--check`, prefers `clang-format-18` on `PATH`, and accepts
+`CLANG_FORMAT` to select the version 18 executable. It covers `.c` and `.h` files
+under `src/`, `include/`, `tests/`, and `benchmarks/`. It excludes fixture,
+generated, vendor, and `third_party` directories; build outputs and other file
+types are outside its scope. Do not reformat generated or vendored files.
+
 ## Continuous integration
 
 [GitHub Actions CI](.github/workflows/ci.yml) runs on pushes, pull requests,
 and manual dispatches. Release builds configure CMake, compile with warnings
 enabled, and run CTest on Ubuntu 24.04 and macOS 15. A separate Ubuntu Clang
 Debug build enables AddressSanitizer and UndefinedBehaviorSanitizer, including
-leak detection on Linux.
+leak detection on Linux. A separate formatting job uses clang-format 18 and
+fails when project C sources or headers need formatting.
 
 CI installs libexif, TurboJPEG, and native test tools so completion and man-page
 checks run alongside the C and CLI tests. It does not cache dependencies or
