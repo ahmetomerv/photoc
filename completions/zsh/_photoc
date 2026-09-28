@@ -74,6 +74,7 @@ case $command in
             '--recursive[Include nested directories]'
             '--threshold[Review cutoff (default 100)]:threshold:'
             '--only-blurry[List only scores below the threshold]'
+            '--json[Print structured JSON]'
             '2:JPEG file or directory:_files'
         ) ;;
     scrub)

@@ -1,4 +1,4 @@
-Usage: photoc [global options] focus <file|directory> [--recursive] [--threshold <value>] [--only-blurry]
+Usage: photoc [global options] focus <file|directory> [--recursive] [--threshold <value>] [--only-blurry] [--json]
        photoc focus --help
 
 Compare JPEG sharpness scores
@@ -9,11 +9,13 @@ Example:
   photoc focus photo.jpg
   photoc focus ~/Pictures --recursive
   photoc focus ~/Pictures --threshold 100 --only-blurry
+  photoc focus photo.jpg --json
 
 Options:
   --recursive          Include nested directories
   --threshold <value>  Nonnegative review cutoff (default: 100)
   --only-blurry        List only scores below the threshold
+  --json               Print structured JSON
 
 Rows are sorted by score ascending, then path; summaries include all analyzed JPEGs.
 Possibly blurry is a review hint, not certainty; no universal cutoff exists.

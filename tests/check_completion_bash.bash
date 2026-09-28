@@ -43,12 +43,12 @@ query photoc -v st
 has stats
 query photoc --json du
 has duplicates
-for name in exif duplicates stats; do
+for name in exif duplicates stats focus; do
     query photoc "$name" --
     has --json
     lacks --version
 done
-for name in compress rename sort focus scrub; do
+for name in compress rename sort scrub; do
     query photoc "$name" --
     lacks --json
 done
@@ -63,7 +63,7 @@ has --by; has --gap; has --apply
 query photoc scrub --
 has --gps; has --in-place; lacks --apply
 query photoc focus --
-has --threshold; has --only-blurry; lacks --apply; lacks --json
+has --threshold; has --only-blurry; has --json; lacks --apply
 query photoc --threshold 100 focus --only
 has --only-blurry
 query photoc focus ./ --threshold ''

@@ -31,7 +31,7 @@ int photoc_command_sort(const char *directory, bool recursive,
 /* Read-only JPEG analysis. Threshold is a finite, nonnegative review cutoff,
    not proof of blur. path is borrowed for the duration of this call. */
 int photoc_command_focus(const char *path, bool recursive, double threshold,
-                         bool only_blurry);
+                         bool only_blurry, bool json);
 int photoc_command_scrub(const char *path, bool recursive, bool in_place);
 
 #endif

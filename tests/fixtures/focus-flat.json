@@ -1,0 +1,18 @@
+{
+  "path": "@PATH@",
+  "threshold": 100,
+  "recursive": false,
+  "only_blurry": false,
+  "photos": [
+    {"path": "@PATH@", "score": 0, "threshold": 100, "possibly_blurry": true}
+  ],
+  "summary": {
+    "photos_analyzed": 1,
+    "possibly_blurry": 1,
+    "files_skipped": 0,
+    "files_failed": 0,
+    "minimum_score": 0,
+    "average_score": 0,
+    "maximum_score": 0
+  }
+}

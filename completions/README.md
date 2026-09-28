@@ -6,7 +6,7 @@ The scripts complete all eight command names, global flags, applicable command
 options, and file/directory paths. They also suggest common values for quality,
 target size, session gap, and `sort --by date|session`. Suggestions are examples,
 not a restriction on valid values. `--json` is suggested for `exif`, `stats`,
-and `duplicates`; `focus` supports JPEG sharpness review options.
+`duplicates`, and `focus`; `focus` also supports JPEG sharpness review options.
 
 Completion uses each shell's native facilities. It never runs `photoc`, reads
 photo metadata, or requires a CLI parsing/completion package. The Bash script

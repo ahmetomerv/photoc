@@ -169,7 +169,7 @@ containing spaces.
 | [`stats`](docs/stats.md) | Summarize storage, capture dates, and camera/exposure distributions | Read only; JSON supported |
 | [`rename`](docs/rename.md) | Rename JPEGs using metadata templates | Dry run; `--apply` to rename |
 | [`sort`](docs/sort.md) | Organize JPEGs by capture date or session | Dry run; `--apply` to move |
-| [`focus`](docs/focus.md) | Compare JPEG sharpness scores | Read only; lowest scores first |
+| [`focus`](docs/focus.md) | Compare JPEG sharpness scores | Read only; lowest scores first; JSON supported |
 | [`scrub`](docs/scrub.md) | Remove EXIF GPS tags from JPEGs | Write new copies |
 
 Follow each command link for syntax, options, examples, edge cases, safety
@@ -240,12 +240,13 @@ errors, so check warnings and scan summaries when completeness matters.
 
 ## JSON output
 
-Available for `exif`, `stats`, and `duplicates`:
+Available for `exif`, `stats`, `duplicates`, and `focus`:
 
 ```sh
 photoc exif photo.jpg --json
 photoc stats ./photos --recursive --json > stats.json
 photoc duplicates ./photos --recursive --json > duplicates.json
+photoc focus ./photos --recursive --json > focus.json
 
 # Optional: use jq to select exposure metadata.
 photoc exif photo.jpg --json | jq '.exposure'
@@ -275,8 +276,6 @@ are recognized but do not change output yet.
 
 Planned work, without release dates:
 
-- Add JSON output for `focus`. Sharpness measures edge variation, not artistic
-  quality.
 - Broaden release compatibility and add package-manager distribution.
 - Evaluate additional image formats while retaining safe file handling.
 

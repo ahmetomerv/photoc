@@ -53,7 +53,7 @@ _photoc_complete()
             duplicates|stats) candidates="$candidates --recursive --json" ;;
             rename) candidates="$candidates --format --recursive --apply" ;;
             sort) candidates="$candidates --by --gap --recursive --apply" ;;
-            focus) candidates="$candidates --recursive --threshold --only-blurry" ;;
+            focus) candidates="$candidates --recursive --threshold --only-blurry --json" ;;
             scrub) candidates="$candidates --gps --recursive --in-place" ;;
         esac
         while IFS= read -r word; do COMPREPLY+=("$word"); done \

@@ -3,6 +3,7 @@
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/fs.h"
+#include "photoc/json.h"
 #include "photoc/sharpness.h"
 
 #include <errno.h>
@@ -25,6 +26,16 @@ typedef struct {
     size_t skipped;
     int error;
 } focus_walk;
+
+typedef struct {
+    size_t analyzed;
+    size_t blurry;
+    size_t skipped;
+    size_t failed;
+    double mean;
+    double minimum;
+    double maximum;
+} focus_summary;
 
 static void cleanup_walk(focus_walk *walk)
 {
@@ -95,16 +106,47 @@ static int compare_rows(const void *left, const void *right)
     return strcmp(a->path, b->path);
 }
 
-static int print_report(const char *path, bool directory, double threshold,
-                        bool only_blurry, const focus_walk *walk)
+static focus_summary summarize_results(const focus_walk *walk, double threshold)
 {
-    size_t analyzed = 0;
-    size_t blurry = 0;
-    size_t failed = 0;
-    double mean = 0.0;
-    double minimum = 0.0;
-    double maximum = 0.0;
+    focus_summary summary = {.skipped = walk->skipped};
+    for (size_t i = 0; i < walk->count; ++i) {
+        const focus_row *row = &walk->rows[i];
+        if (row->result != PHOTOC_IMAGE_OK) {
+            ++summary.failed;
+            continue;
+        }
+        ++summary.analyzed;
+        summary.mean += (row->score - summary.mean) / (double)summary.analyzed;
+        if (summary.analyzed == 1) {
+            summary.minimum = row->score;
+        }
+        summary.maximum = row->score;
+        if (row->score < threshold) {
+            ++summary.blurry;
+        }
+    }
+    return summary;
+}
 
+static void report_errors(const char *path, bool directory,
+                          const focus_walk *walk)
+{
+    for (size_t i = 0; i < walk->count; ++i) {
+        const focus_row *row = &walk->rows[i];
+        if (row->result != PHOTOC_IMAGE_OK) {
+            photoc_error_image(
+                "focus",
+                directory ? PHOTOC_ERR_NOTE_WARNING : PHOTOC_ERR_NOTE_NONE,
+                directory ? photoc_fs_relative(path, row->path) : row->path,
+                row->result, row->system_errno);
+        }
+    }
+}
+
+static void print_report(const char *path, bool directory, double threshold,
+                         bool only_blurry, const focus_walk *walk,
+                         const focus_summary *summary)
+{
     puts("JPEG sharpness (lowest scores first)");
     puts("Filename\tSharpness score");
     for (size_t i = 0; i < walk->count; ++i) {
@@ -112,45 +154,85 @@ static int print_report(const char *path, bool directory, double threshold,
         const char *name =
             directory ? photoc_fs_relative(path, row->path) : row->path;
         if (row->result != PHOTOC_IMAGE_OK) {
-            ++failed;
-            photoc_error_image("focus",
-                               directory ? PHOTOC_ERR_NOTE_WARNING
-                                         : PHOTOC_ERR_NOTE_NONE,
-                               name, row->result, row->system_errno);
             continue;
         }
-        ++analyzed;
-        mean += (row->score - mean) / (double)analyzed;
-        if (analyzed == 1) {
-            minimum = row->score;
-        }
-        maximum = row->score;
         bool possibly_blurry = row->score < threshold;
-        if (possibly_blurry) {
-            ++blurry;
-        }
         if (!only_blurry || possibly_blurry) {
             printf("%s\t%.3f%s\n", name, row->score,
                    possibly_blurry ? "\tpossibly blurry" : "");
         }
     }
-    printf("\nPhotos analyzed: %zu\n", analyzed);
-    printf("Possibly blurry: %zu (score < %.6g)\n", blurry, threshold);
-    printf("Files skipped: %zu\nFiles failed: %zu\n", walk->skipped, failed);
-    if (analyzed == 0) {
+    printf("\nPhotos analyzed: %zu\n", summary->analyzed);
+    printf("Possibly blurry: %zu (score < %.6g)\n", summary->blurry, threshold);
+    printf("Files skipped: %zu\nFiles failed: %zu\n", summary->skipped,
+           summary->failed);
+    if (summary->analyzed == 0) {
         puts("Minimum score: Unavailable\nAverage score: Unavailable\n"
              "Maximum score: Unavailable");
     } else {
         printf("Minimum score: %.3f\nAverage score: %.3f\nMaximum score: "
                "%.3f\n",
-               minimum, mean, maximum);
+               summary->minimum, summary->mean, summary->maximum);
     }
     puts("Scores are a review aid, not proof of blur or artistic quality.");
-    return failed == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
+}
+
+static int print_json(const char *path, bool directory, bool recursive,
+                      double threshold, bool only_blurry,
+                      const focus_walk *walk, const focus_summary *summary)
+{
+    fputs("{\n  \"path\": ", stdout);
+    if (photoc_json_write_string(stdout, path) != 0) {
+        return -1;
+    }
+    printf(",\n  \"threshold\": %.17g,\n  \"recursive\": %s,\n"
+           "  \"only_blurry\": %s,\n  \"photos\": [",
+           threshold, recursive ? "true" : "false",
+           only_blurry ? "true" : "false");
+    bool first = true;
+    for (size_t i = 0; i < walk->count; ++i) {
+        const focus_row *row = &walk->rows[i];
+        if (row->result != PHOTOC_IMAGE_OK) {
+            continue;
+        }
+        bool possibly_blurry = row->score < threshold;
+        if (only_blurry && !possibly_blurry) {
+            continue;
+        }
+        printf("%s\n    {\"path\": ", first ? "" : ",");
+        if (photoc_json_write_string(
+                stdout, directory ? photoc_fs_relative(path, row->path)
+                                  : row->path) != 0) {
+            return -1;
+        }
+        /* Round-trip precision keeps score < threshold consistent with the
+           serialized values, even close to the classification boundary. */
+        printf(", \"score\": %.17g, \"threshold\": %.17g, "
+               "\"possibly_blurry\": %s}",
+               row->score, threshold, possibly_blurry ? "true" : "false");
+        first = false;
+    }
+    fputs(first ? "]" : "\n  ]", stdout);
+    printf(",\n  \"summary\": {\n    \"photos_analyzed\": %zu,\n"
+           "    \"possibly_blurry\": %zu,\n    \"files_skipped\": %zu,\n"
+           "    \"files_failed\": %zu,\n    \"minimum_score\": ",
+           summary->analyzed, summary->blurry, summary->skipped,
+           summary->failed);
+    if (summary->analyzed == 0) {
+        fputs("null,\n    \"average_score\": null,\n"
+              "    \"maximum_score\": null",
+              stdout);
+    } else {
+        printf("%.17g,\n    \"average_score\": %.17g,\n"
+               "    \"maximum_score\": %.17g",
+               summary->minimum, summary->mean, summary->maximum);
+    }
+    fputs("\n  }\n}\n", stdout);
+    return ferror(stdout) ? -1 : 0;
 }
 
 int photoc_command_focus(const char *path, bool recursive, double threshold,
-                         bool only_blurry)
+                         bool only_blurry, bool json)
 {
     if (!isfinite(threshold) || threshold < 0.0) {
         return photoc_error_report(
@@ -194,8 +276,23 @@ int photoc_command_focus(const char *path, bool recursive, double threshold,
     if (walk.count > 1) {
         qsort(walk.rows, walk.count, sizeof(*walk.rows), compare_rows);
     }
-    int exit_code = print_report(path, type == PHOTOC_FS_DIRECTORY, threshold,
-                                 only_blurry, &walk);
+    focus_summary summary = summarize_results(&walk, threshold);
+    bool directory = type == PHOTOC_FS_DIRECTORY;
+    report_errors(path, directory, &walk);
+    int output_result = 0;
+    if (json) {
+        output_result = print_json(path, directory, recursive, threshold,
+                                   only_blurry, &walk, &summary);
+    } else {
+        print_report(path, directory, threshold, only_blurry, &walk, &summary);
+        output_result = ferror(stdout) ? -1 : 0;
+    }
+    int saved_errno = errno;
     cleanup_walk(&walk);
-    return exit_code;
+    if (output_result != 0) {
+        return photoc_error_report("focus", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   NULL, "unable to write output",
+                                   saved_errno == 0 ? EIO : saved_errno);
+    }
+    return summary.failed == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
 }

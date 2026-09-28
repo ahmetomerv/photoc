@@ -2,6 +2,8 @@
 """Read-only focus reports, ordering, filtering, and failure handling."""
 
 import hashlib
+import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -243,7 +245,7 @@ class FocusTests(unittest.TestCase):
                  (("focus", path, "--threshold", "1", "--threshold", "2"), "only once"),
                  (("focus", path, "--bogus"), "unknown option"),
                  (("focus", path, "--apply"), "unknown option"),
-                 (("focus", path, "--json"), "--json is not supported"),
+                 (("focus", "--json"), "expected exactly one"),
                  (("stats", self.root, "--threshold", "100"), "unknown option"),
                  (("exif", path, "--only-blurry"), "unknown option")]
         for args, message in cases:
@@ -260,6 +262,173 @@ class FocusTests(unittest.TestCase):
                 result = self.invoke("focus", path, "--threshold", value, expected=2)
                 self.assertEqual(result.stdout, "")
                 self.assertIn("threshold", result.stderr)
+
+    def json_report(self, *args, expected=0):
+        result = self.invoke(*args, expected=expected)
+        report = json.loads(result.stdout, parse_constant=lambda value: self.fail(value))
+        self.assertEqual(set(report), {"path", "threshold", "recursive", "only_blurry",
+                                       "photos", "summary"})
+        self.assertIsInstance(report["path"], str)
+        self.assertIn(type(report["threshold"]), (int, float))
+        self.assertTrue(math.isfinite(report["threshold"]))
+        self.assertGreaterEqual(report["threshold"], 0)
+        self.assertIs(type(report["recursive"]), bool)
+        self.assertIs(type(report["only_blurry"]), bool)
+        self.assertIsInstance(report["photos"], list)
+        for photo in report["photos"]:
+            self.assertEqual(set(photo), {"path", "score", "threshold", "possibly_blurry"})
+            self.assertIsInstance(photo["path"], str)
+            self.assertIn(type(photo["score"]), (int, float))
+            self.assertTrue(math.isfinite(photo["score"]))
+            self.assertGreaterEqual(photo["score"], 0)
+            self.assertIn(type(photo["threshold"]), (int, float))
+            self.assertEqual(photo["threshold"], report["threshold"])
+            self.assertIs(type(photo["possibly_blurry"]), bool)
+            self.assertEqual(photo["possibly_blurry"], photo["score"] < photo["threshold"])
+        summary = report["summary"]
+        self.assertEqual(set(summary), {"photos_analyzed", "possibly_blurry", "files_skipped",
+                                        "files_failed", "minimum_score", "average_score", "maximum_score"})
+        for field in ("photos_analyzed", "possibly_blurry", "files_skipped", "files_failed"):
+            self.assertIs(type(summary[field]), int)
+            self.assertGreaterEqual(summary[field], 0)
+        for field in ("minimum_score", "average_score", "maximum_score"):
+            if summary["photos_analyzed"] == 0:
+                self.assertIsNone(summary[field])
+            else:
+                self.assertIn(type(summary[field]), (int, float))
+                self.assertTrue(math.isfinite(summary[field]))
+                self.assertGreaterEqual(summary[field], 0)
+        self.assertLessEqual(summary["possibly_blurry"], summary["photos_analyzed"])
+        self.assertLessEqual(len(report["photos"]), summary["photos_analyzed"])
+        return report, result
+
+    def test_json_single(self):
+        path = self.copy("flat.jpg", "Photo image.JPG")
+        report, _ = self.json_report("focus", path, "--json")
+        self.assertEqual(report["path"], str(path))
+        self.assertEqual(report["photos"], [{"path": str(path), "score": 0,
+                                              "threshold": 100, "possibly_blurry": True}])
+        self.assertEqual(report["summary"], {"photos_analyzed": 1, "possibly_blurry": 1,
+                                              "files_skipped": 0, "files_failed": 0,
+                                              "minimum_score": 0, "average_score": 0, "maximum_score": 0})
+        self.assertFalse(report["recursive"])
+        self.assertFalse(report["only_blurry"])
+
+    def test_json_order_summary_and_determinism(self):
+        for fixture, name in [("sharp.jpg", "a.jpg"), ("blurred.jpg", "b.jpeg"),
+                              ("flat.jpg", "z.JPG"), ("flat.jpg", "c.jpg")]:
+            self.copy(fixture, name)
+        report, result = self.json_report("focus", self.root, "--json")
+        self.assertEqual([photo["path"] for photo in report["photos"]],
+                         ["c.jpg", "z.JPG", "b.jpeg", "a.jpg"])
+        scores = [photo["score"] for photo in report["photos"]]
+        summary = report["summary"]
+        self.assertEqual(summary["photos_analyzed"], 4)
+        self.assertEqual(summary["possibly_blurry"],
+                         sum(photo["possibly_blurry"] for photo in report["photos"]))
+        self.assertEqual(summary["minimum_score"], min(scores))
+        self.assertEqual(summary["maximum_score"], max(scores))
+        self.assertTrue(math.isclose(summary["average_score"], sum(scores) / 4, rel_tol=1e-12))
+        repeated, repeated_result = self.json_report("focus", self.root, "--json")
+        self.assertEqual(report, repeated)
+        self.assertEqual(result.stdout, repeated_result.stdout)
+        _, human, _ = self.report("focus", self.root)
+        self.assertEqual(int(human["Photos analyzed"]), summary["photos_analyzed"])
+        self.assertLessEqual(abs(float(human["Average score"]) - summary["average_score"]), 0.0005)
+
+    def test_json_filter_keeps_summary(self):
+        self.copy("sharp.jpg", "sharp.jpg")
+        self.copy("flat.jpg", "flat.jpg")
+        complete, _ = self.json_report("--json", "--threshold", "0.5", "focus", self.root)
+        filtered, _ = self.json_report("focus", self.root, "--json", "--only-blurry", "--threshold", "0.5")
+        self.assertEqual([photo["path"] for photo in filtered["photos"]], ["flat.jpg"])
+        self.assertEqual(complete["summary"], filtered["summary"])
+        self.assertEqual(filtered["summary"]["photos_analyzed"], 2)
+        self.assertEqual(filtered["summary"]["possibly_blurry"], 1)
+        self.assertTrue(filtered["only_blurry"])
+        empty, _ = self.json_report("focus", self.root, "--json", "--only-blurry", "--threshold", "0")
+        self.assertEqual(empty["photos"], [])
+        self.assertEqual(empty["summary"]["photos_analyzed"], 2)
+        self.assertEqual(empty["summary"]["possibly_blurry"], 0)
+        self.assertGreater(empty["summary"]["maximum_score"], 0)
+
+    def test_json_precision_at_positive_threshold_boundary(self):
+        path = self.copy("sharp.jpg", "sharp.jpg")
+        initial, _ = self.json_report("focus", path, "--json")
+        score = initial["photos"][0]["score"]
+        self.assertGreater(score, 0)
+        for threshold in (math.nextafter(score, -math.inf), score, math.nextafter(score, math.inf)):
+            with self.subTest(threshold=threshold):
+                report, _ = self.json_report("focus", path, "--json", "--threshold", repr(threshold))
+                self.assertEqual(report["threshold"], threshold)
+                self.assertEqual(report["photos"][0]["score"], score)
+                self.assertEqual(report["photos"][0]["possibly_blurry"], score < threshold)
+                self.assertEqual(report["summary"]["possibly_blurry"], int(score < threshold))
+
+    def test_json_recursive_mixed_and_symlinks(self):
+        source = self.copy("flat.jpg", "a.jpg")
+        self.copy("sharp.jpg", "nested/b.JpEg")
+        (self.root / "notes.txt").write_text("not a JPEG")
+        (self.root / "link.jpg").symlink_to(source)
+        report, _ = self.json_report("focus", self.root, "--json")
+        self.assertEqual([photo["path"] for photo in report["photos"]], ["a.jpg"])
+        report, _ = self.json_report("focus", str(self.root) + "/", "--recursive", "--json")
+        self.assertEqual([photo["path"] for photo in report["photos"]], ["a.jpg", "nested/b.JpEg"])
+        self.assertEqual(report["summary"]["files_skipped"], 1)
+        self.assertEqual(report["summary"]["photos_analyzed"], 2)
+        self.assertTrue(report["recursive"])
+
+    def test_json_empty_and_failed_scores_are_null(self):
+        report, _ = self.json_report("focus", self.root, "--json")
+        self.assertEqual(report["photos"], [])
+        self.assertEqual(report["summary"]["photos_analyzed"], 0)
+        path = self.copy("invalid.jpg", "invalid.jpg")
+        report, result = self.json_report("focus", path, "--json", expected=1)
+        self.assertEqual(report["photos"], [])
+        self.assertEqual(report["summary"]["files_failed"], 1)
+        self.assertIn("image decode error:", result.stderr)
+
+    def test_json_partial_failure_keeps_diagnostics_on_stderr(self):
+        self.copy("flat.jpg", "valid.jpg")
+        self.copy("invalid.jpg", "z-broken.jpg")
+        self.copy("invalid.jpg", "a-broken.jpg")
+        report, result = self.json_report("focus", self.root, "--json", expected=1)
+        self.assertEqual([photo["path"] for photo in report["photos"]], ["valid.jpg"])
+        self.assertEqual(report["summary"]["photos_analyzed"], 1)
+        self.assertEqual(report["summary"]["files_failed"], 2)
+        self.assertNotIn("warning", result.stdout)
+        warnings = result.stderr.splitlines()
+        self.assertIn("'a-broken.jpg'", warnings[0])
+        self.assertIn("'z-broken.jpg'", warnings[1])
+
+    def test_json_escaping_and_unicode_paths(self):
+        name = 'trip "Café"\\line\n\t\x01.jpg'
+        path = self.copy("flat.jpg", name)
+        report, result = self.json_report("focus", path, "--json")
+        self.assertEqual(report["path"], str(path))
+        self.assertEqual(report["photos"][0]["path"], str(path))
+        for escape in ('\\"', '\\\\', '\\n', '\\t', '\\u0001'):
+            self.assertIn(escape, result.stdout)
+        directory_report, _ = self.json_report("focus", self.root, "--json")
+        self.assertEqual(directory_report["photos"][0]["path"], next(self.root.iterdir()).name)
+
+    def test_json_missing_metadata_and_zero_threshold(self):
+        path = self.copy("no_exif.jpg", "no_exif.jpg")
+        report, _ = self.json_report("focus", path, "--json", "--threshold", "0")
+        self.assertEqual(len(report["photos"]), 1)
+        self.assertFalse(report["photos"][0]["possibly_blurry"])
+        self.assertEqual(report["summary"]["possibly_blurry"], 0)
+
+    def test_json_fatal_and_usage_errors_have_no_report(self):
+        for args, code in [(("focus", self.root / "missing.jpg", "--json"), 1),
+                           (("focus", self.copy("unsupported.png", "image.png"), "--json"), 1),
+                           (("focus", "--json"), 2),
+                           (("focus", self.root, "--json", "--threshold", "nan"), 2),
+                           (("focus", self.root, "--json", "--bogus"), 2)]:
+            with self.subTest(args=args):
+                result = self.invoke(*args, expected=code)
+                self.assertEqual(result.stdout, "")
+                self.assertTrue(result.stderr.startswith("photoc focus:"))
 
 
 if __name__ == "__main__":

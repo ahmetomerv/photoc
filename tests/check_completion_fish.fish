@@ -31,12 +31,12 @@ query 'photoc --ver'
 has --version
 query 'photoc -v st'
 has stats
-for name in exif duplicates stats
+for name in exif duplicates stats focus
     query "photoc $name --"
     has --json
     lacks --version
 end
-for name in compress rename sort focus scrub
+for name in compress rename sort scrub
     query "photoc $name --"
     lacks --json
 end
@@ -49,7 +49,7 @@ has --format; has --apply; lacks --gps
 query 'photoc scrub --'
 has --gps; has --in-place; lacks --apply
 query 'photoc focus --'
-has --threshold; has --only-blurry; lacks --apply; lacks --json
+has --threshold; has --only-blurry; has --json; lacks --apply
 query 'photoc --threshold 100 focus --only'
 has --only-blurry
 query 'photoc focus Photo'

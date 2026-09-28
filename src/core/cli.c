@@ -107,12 +107,14 @@ static const photoc_help_option sort_options[] = {
 
 static const char *const focus_examples[] = {
     "photoc focus photo.jpg", "photoc focus ~/Pictures --recursive",
-    "photoc focus ~/Pictures --threshold 100 --only-blurry", NULL};
+    "photoc focus ~/Pictures --threshold 100 --only-blurry",
+    "photoc focus photo.jpg --json", NULL};
 
 static const photoc_help_option focus_options[] = {
     {"--recursive", "Include nested directories"},
     {"--threshold <value>", "Nonnegative review cutoff (default: 100)"},
     {"--only-blurry", "List only scores below the threshold"},
+    {"--json", "Print structured JSON"},
     {NULL, NULL}};
 
 static const char *const focus_notes[] = {
@@ -309,7 +311,7 @@ static int run_focus(const photoc_cli_options *options)
 {
     static const char usage[] =
         "focus <file|directory> [--recursive] [--threshold <value>] "
-        "[--only-blurry]";
+        "[--only-blurry] [--json]";
     if (options->argument_count != 1) {
         usage_error("focus", "expected exactly one JPEG file or directory",
                     usage);
@@ -325,7 +327,7 @@ static int run_focus(const photoc_cli_options *options)
         return PHOTOC_EXIT_USAGE;
     }
     return photoc_command_focus(options->first_argument, options->recursive,
-                                threshold, options->only_blurry);
+                                threshold, options->only_blurry, options->json);
 }
 
 static int run_scrub(const photoc_cli_options *options)
@@ -366,9 +368,10 @@ static const photoc_command commands[] = {
      "Status: dry-run by default; --apply moves files after preflight",
      sort_examples, sort_options, NULL, true, false, run_sort},
     {"focus", "Compare JPEG sharpness scores",
-     "<file|directory> [--recursive] [--threshold <value>] [--only-blurry]",
+     "<file|directory> [--recursive] [--threshold <value>] [--only-blurry] "
+     "[--json]",
      "Status: available for JPEG files (read-only)", focus_examples,
-     focus_options, focus_notes, true, false, run_focus},
+     focus_options, focus_notes, true, true, run_focus},
     {"scrub", "Remove EXIF GPS metadata from JPEGs",
      "<file|directory> --gps [--recursive] [--in-place]",
      "Status: writes .scrubbed copies by default; --in-place replaces "

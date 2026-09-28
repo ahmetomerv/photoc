@@ -16,7 +16,7 @@ review hint, not proof of blur or a measure of artistic quality.
 ## Syntax
 
 ```text
-photoc focus <file|directory> [--recursive] [--threshold <value>] [--only-blurry]
+photoc focus <file|directory> [--recursive] [--threshold <value>] [--only-blurry] [--json]
 photoc focus --help
 ```
 
@@ -30,13 +30,12 @@ Exactly one regular JPEG or directory is required. JPEG recognition uses
 | `--recursive` | Include nested directories. Invalid with a single file. |
 | `--threshold <value>` | Finite, nonnegative review cutoff; default **100**. Decimal and scientific notation are accepted. |
 | `--only-blurry` | List only scores strictly below the threshold. Uses the default threshold if omitted. |
+| `--json` | Emit a structured report with numeric scores, classification booleans, and summary counts. |
 | `-h`, `--help` | Print command help and exit successfully. |
 | `-v`, `--verbose` | Recognized; currently does not change output. |
 | `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
 
 Option values are separate arguments, for example `--threshold 50.5`.
-`--json` is not supported yet and returns exit status 2; no JSON schema is
-defined for this command.
 
 ## Examples
 
@@ -45,6 +44,7 @@ photoc focus photo.jpg
 photoc focus "Photo archive" --recursive
 photoc focus ./photos --threshold 50.5 --only-blurry
 photoc focus ./photos --recursive --threshold 100 --only-blurry
+photoc focus ./photos --recursive --json > focus.json
 photoc focus --threshold 0 -- -photo.jpg
 ```
 
@@ -68,6 +68,92 @@ The summary includes:
 no matching rows can still describe successfully analyzed photos. No scores
 are available for an empty directory or a scan where every JPEG failed;
 minimum, average, and maximum then display `Unavailable`.
+
+## JSON output
+
+JSON uses the same sorting, threshold, filtering, and counting rules as the
+terminal report. Scores retain full double precision rather than being rounded
+to three decimal places. Each `possibly_blurry` boolean means `score < threshold`;
+the threshold is repeated in each photo so its classification is self-contained.
+
+The top-level `path` preserves the supplied input spelling. Photo paths are
+relative to that input directory, or as supplied for a single file. Summary
+counts and scores cover all successfully analyzed photos, including rows hidden
+by `--only-blurry`. Score statistics are `null` when no photo was analyzed.
+
+Example for a flat, low-detail JPEG in a directory:
+
+```json
+{
+  "path": "./photos",
+  "threshold": 100,
+  "recursive": false,
+  "only_blurry": false,
+  "photos": [
+    {"path": "flat.jpg", "score": 0, "threshold": 100, "possibly_blurry": true}
+  ],
+  "summary": {
+    "photos_analyzed": 1,
+    "possibly_blurry": 1,
+    "files_skipped": 0,
+    "files_failed": 0,
+    "minimum_score": 0,
+    "average_score": 0,
+    "maximum_score": 0
+  }
+}
+```
+
+Schema for the current report:
+
+```json
+{
+  "title": "photoc focus output",
+  "type": "object",
+  "required": ["path", "threshold", "recursive", "only_blurry", "photos", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "path": {"type": "string"},
+    "threshold": {"type": "number", "minimum": 0},
+    "recursive": {"type": "boolean"},
+    "only_blurry": {"type": "boolean"},
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "score", "threshold", "possibly_blurry"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {"type": "string"},
+          "score": {"type": "number", "minimum": 0},
+          "threshold": {"type": "number", "minimum": 0},
+          "possibly_blurry": {"type": "boolean"}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["photos_analyzed", "possibly_blurry", "files_skipped", "files_failed", "minimum_score", "average_score", "maximum_score"],
+      "additionalProperties": false,
+      "properties": {
+        "photos_analyzed": {"type": "integer", "minimum": 0},
+        "possibly_blurry": {"type": "integer", "minimum": 0},
+        "files_skipped": {"type": "integer", "minimum": 0},
+        "files_failed": {"type": "integer", "minimum": 0},
+        "minimum_score": {"type": ["number", "null"], "minimum": 0},
+        "average_score": {"type": ["number", "null"], "minimum": 0},
+        "maximum_score": {"type": ["number", "null"], "minimum": 0}
+      }
+    }
+  }
+}
+```
+
+Failed JPEGs are omitted from `photos` and counted in `files_failed`. Individual
+decode failures still produce a JSON report and exit status 1. Diagnostics go
+only to stderr; there is no JSON error envelope. Fatal input, traversal,
+allocation, or usage errors produce no report. Output failures can leave a
+partial document. Check the exit status before treating a report as complete.
 
 ## Edge cases and metric limitations
 
@@ -103,4 +189,4 @@ unchanged during analysis for consistent results.
 | --- | --- |
 | `0` | Analysis completed without failures, or help printed. Low scores alone do not cause failure. |
 | `1` | Input, decoding, traversal, allocation, or output failure. A partial report may include successfully analyzed photos. |
-| `2` | Invalid arguments, threshold, incompatible options, or unsupported JSON mode. |
+| `2` | Invalid arguments, threshold, or incompatible options. |

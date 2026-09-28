@@ -283,6 +283,7 @@ Report plan rows and summary counts as for
 .RI [ \-\-recursive ]
 .RI [ \-\-threshold " value" ]
 .RI [ \-\-only\-blurry ]
+.RI [ \-\-json ]
 .PP
 Report JPEG sharpness scores, sorted from lowest to highest with path ordering
 for ties. Scores are variance of a Laplacian on grayscale pixels, using scaled
@@ -296,7 +297,12 @@ The threshold is a review hint, not proof of blur or artistic quality.
 Noise, texture, subject matter, and JPEG artifacts affect the score.
 Missing EXIF is valid; directory scans skip non-JPEG files and continue past
 unreadable or invalid JPEGs, returning status 1 if any JPEG fails.
-There is no focus JSON report.
+JSON contains the input path, threshold, recursion and filtering settings,
+a photos array with path, numeric score, threshold, and possibly_blurry boolean,
+and summary counts and minimum/average/maximum scores.
+Photo paths are relative to the scanned directory, or as supplied for a single
+file. Summary scores are null when no JPEG could be analyzed.
+Filtering does not change the summary; diagnostics remain on standard error.
 .SS scrub
 .B photoc scrub
 .I file|directory
@@ -353,8 +359,9 @@ Cannot be combined with verbose.
 Print structured JSON for
 .BR exif ,
 .BR stats ,
+.BR duplicates ,
 and
-.BR duplicates .
+.BR focus .
 Optional metadata is null, presence fields are booleans, and numbers remain
 numeric.
 No human-readable decorations are printed on standard output.
@@ -428,6 +435,7 @@ Review possible low-sharpness photos:
 .PP
 .nf
 photoc focus ./photos \-\-recursive \-\-threshold 100 \-\-only\-blurry
+photoc focus ./photos \-\-recursive \-\-json > focus.json
 .fi
 .PP
 Inspect a path beginning with a dash:
