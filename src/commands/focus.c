@@ -25,6 +25,7 @@ typedef struct {
     size_t capacity;
     size_t skipped;
     int error;
+    const photoc_output *output; /* Borrowed during traversal. */
 } focus_walk;
 
 typedef struct {
@@ -55,6 +56,9 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
     }
     if (!photoc_fs_is_jpeg(path)) {
         ++walk->skipped;
+        photoc_output_verbose(walk->output, "focus",
+                              "skipped '%s': unsupported file extension\n",
+                              path);
         return true;
     }
     if (walk->count == walk->capacity) {
@@ -131,6 +135,7 @@ static focus_summary summarize_results(const focus_walk *walk, double threshold)
 static void report_errors(const char *path, bool directory,
                           const focus_walk *walk)
 {
+    /* Decode warnings cause exit status 1, so they are never filtered. */
     for (size_t i = 0; i < walk->count; ++i) {
         const focus_row *row = &walk->rows[i];
         if (row->result != PHOTOC_IMAGE_OK) {
@@ -145,7 +150,8 @@ static void report_errors(const char *path, bool directory,
 
 static void print_report(const char *path, bool directory, double threshold,
                          bool only_blurry, const focus_walk *walk,
-                         const focus_summary *summary)
+                         const focus_summary *summary,
+                         const photoc_output *output)
 {
     puts("JPEG sharpness (lowest scores first)");
     puts("Filename\tSharpness score");
@@ -164,8 +170,8 @@ static void print_report(const char *path, bool directory, double threshold,
     }
     printf("\nPhotos analyzed: %zu\n", summary->analyzed);
     printf("Possibly blurry: %zu (score < %.6g)\n", summary->blurry, threshold);
-    printf("Files skipped: %zu\nFiles failed: %zu\n", summary->skipped,
-           summary->failed);
+    photoc_output_info(output, "Files skipped: %zu\nFiles failed: %zu\n",
+                       summary->skipped, summary->failed);
     if (summary->analyzed == 0) {
         puts("Minimum score: Unavailable\nAverage score: Unavailable\n"
              "Maximum score: Unavailable");
@@ -174,7 +180,9 @@ static void print_report(const char *path, bool directory, double threshold,
                "%.3f\n",
                summary->minimum, summary->mean, summary->maximum);
     }
-    puts("Scores are a review aid, not proof of blur or artistic quality.");
+    photoc_output_info(
+        output,
+        "Scores are a review aid, not proof of blur or artistic quality.\n");
 }
 
 static int print_json(const char *path, bool directory, bool recursive,
@@ -231,8 +239,9 @@ static int print_json(const char *path, bool directory, bool recursive,
     return ferror(stdout) ? -1 : 0;
 }
 
-int photoc_command_focus(const char *path, bool recursive, double threshold,
-                         bool only_blurry, bool json)
+int photoc_command_focus_with_output(const char *path, bool recursive,
+                                     double threshold, bool only_blurry,
+                                     bool json, const photoc_output *output)
 {
     if (!isfinite(threshold) || threshold < 0.0) {
         return photoc_error_report(
@@ -255,7 +264,12 @@ int photoc_command_focus(const char *path, bool recursive, double threshold,
         return PHOTOC_EXIT_USAGE;
     }
 
-    focus_walk walk = {0};
+    photoc_output_verbose(output, "focus",
+                          "input: %s; mode: sharpness; recursive: %s; "
+                          "threshold: %.6g; only blurry: %s; output: %s\n",
+                          path, recursive ? "yes" : "no", threshold,
+                          only_blurry ? "yes" : "no", json ? "JSON" : "human");
+    focus_walk walk = {.output = output};
     int result;
     if (type == PHOTOC_FS_FILE) {
         result = visit_file(path, type, &walk) ? 0 : 1;
@@ -277,6 +291,11 @@ int photoc_command_focus(const char *path, bool recursive, double threshold,
         qsort(walk.rows, walk.count, sizeof(*walk.rows), compare_rows);
     }
     focus_summary summary = summarize_results(&walk, threshold);
+    photoc_output_verbose(output, "focus",
+                          "JPEG files discovered: %zu; analyzed: %zu; skipped: "
+                          "%zu; decode failures: %zu\n",
+                          walk.count, summary.analyzed, summary.skipped,
+                          summary.failed);
     bool directory = type == PHOTOC_FS_DIRECTORY;
     report_errors(path, directory, &walk);
     int output_result = 0;
@@ -284,7 +303,8 @@ int photoc_command_focus(const char *path, bool recursive, double threshold,
         output_result = print_json(path, directory, recursive, threshold,
                                    only_blurry, &walk, &summary);
     } else {
-        print_report(path, directory, threshold, only_blurry, &walk, &summary);
+        print_report(path, directory, threshold, only_blurry, &walk, &summary,
+                     output);
         output_result = ferror(stdout) ? -1 : 0;
     }
     int saved_errno = errno;
@@ -295,4 +315,11 @@ int photoc_command_focus(const char *path, bool recursive, double threshold,
                                    saved_errno == 0 ? EIO : saved_errno);
     }
     return summary.failed == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
+}
+
+int photoc_command_focus(const char *path, bool recursive, double threshold,
+                         bool only_blurry, bool json)
+{
+    return photoc_command_focus_with_output(path, recursive, threshold,
+                                            only_blurry, json, NULL);
 }

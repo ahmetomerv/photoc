@@ -37,6 +37,8 @@ typedef struct {
     size_t count;
     size_t capacity;
     int error_errno;
+    size_t skipped;
+    const photoc_output *output; /* Borrowed for the synchronous walk. */
 } rename_plan;
 
 typedef struct {
@@ -61,6 +63,12 @@ static bool collect_jpeg(const char *path, photoc_fs_type type, void *user_data)
 {
     rename_plan *plan = user_data;
     if (type != PHOTOC_FS_FILE || !photoc_fs_is_jpeg(path)) {
+        if (type != PHOTOC_FS_DIRECTORY) {
+            ++plan->skipped;
+            photoc_output_verbose(plan->output, "rename",
+                                  "skipped '%s': not a regular JPEG file\n",
+                                  path);
+        }
         return true;
     }
     if (plan->count == plan->capacity) {
@@ -312,12 +320,15 @@ static rename_summary summarize_plan(const rename_plan *plan)
 }
 
 static void print_summary(const rename_plan *plan,
-                          const rename_summary *summary)
+                          const rename_summary *summary,
+                          const photoc_output *output)
 {
-    printf("Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
-           "%zu applied, %zu rolled back\n",
-           plan->count, summary->planned, summary->unchanged, summary->blocked,
-           summary->applied, summary->rolled_back);
+    photoc_output_info(
+        output,
+        "Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
+        "%zu applied, %zu rolled back\n",
+        plan->count, summary->planned, summary->unchanged, summary->blocked,
+        summary->applied, summary->rolled_back);
 }
 
 static void print_plan(const rename_plan *plan, const char *root,
@@ -444,9 +455,13 @@ static int apply_plan(rename_plan *plan, const char *root,
     return PHOTOC_EXIT_SUCCESS;
 }
 
-int photoc_command_rename(const char *directory, const char *format,
-                          bool recursive, bool apply)
+int photoc_command_rename_with_output(const char *directory, const char *format,
+                                      bool recursive, bool apply,
+                                      const photoc_output *output)
 {
+    photoc_output_verbose(
+        output, "rename", "input: '%s'; mode: %s; recursion: %s\n", directory,
+        apply ? "apply" : "preview", recursive ? "enabled" : "disabled");
     size_t template_offset = SIZE_MAX;
     photoc_template_result validation =
         photoc_filename_template_validate(format, &template_offset);
@@ -463,7 +478,7 @@ int photoc_command_rename(const char *directory, const char *format,
         return PHOTOC_EXIT_USAGE;
     }
 
-    rename_plan plan = {0};
+    rename_plan plan = {.output = output};
     int walk_result =
         recursive ? photoc_fs_walk_recursive(directory, collect_jpeg, &plan)
                   : photoc_fs_walk(directory, collect_jpeg, &plan);
@@ -493,7 +508,18 @@ int photoc_command_rename(const char *directory, const char *format,
     if (apply) {
         recheck_entries(&plan);
     }
+    size_t metadata_failures = 0;
+    for (size_t i = 0; i < plan.count; ++i) {
+        if (plan.entries[i].metadata_error != PHOTOC_METADATA_OK) {
+            ++metadata_failures;
+        }
+    }
     rename_summary summary = summarize_plan(&plan);
+    photoc_output_verbose(output, "rename",
+                          "JPEG files discovered: %zu; skipped: %zu; metadata "
+                          "parse failures: %zu; blocked: %zu\n",
+                          plan.count, plan.skipped, metadata_failures,
+                          summary.blocked);
     int exit_code =
         summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
     if (!apply) {
@@ -507,7 +533,10 @@ int photoc_command_rename(const char *directory, const char *format,
             print_plan(&plan, directory, format, true);
         }
     }
-    print_summary(&plan, &summary);
+    photoc_output_verbose(
+        output, "rename", "planned: %zu; applied: %zu; rolled back: %zu\n",
+        summary.planned, summary.applied, summary.rolled_back);
+    print_summary(&plan, &summary, output);
     free_plan(&plan);
     if (ferror(stdout) || ferror(stderr)) {
         return photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
@@ -515,4 +544,11 @@ int photoc_command_rename(const char *directory, const char *format,
                                    "unable to write output", EIO);
     }
     return exit_code;
+}
+
+int photoc_command_rename(const char *directory, const char *format,
+                          bool recursive, bool apply)
+{
+    return photoc_command_rename_with_output(directory, format, recursive,
+                                             apply, NULL);
 }

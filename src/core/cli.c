@@ -18,7 +18,8 @@ typedef struct {
 
 typedef struct photoc_command photoc_command;
 
-typedef int (*photoc_command_run)(const photoc_cli_options *options);
+typedef int (*photoc_command_run)(const photoc_cli_options *options,
+                                  const photoc_output *output);
 
 struct photoc_command {
     const char *name;
@@ -179,7 +180,8 @@ static bool parse_quality_value(const char *value, int *quality)
     return true;
 }
 
-static int run_compress(const photoc_cli_options *options)
+static int run_compress(const photoc_cli_options *options,
+                        const photoc_output *output)
 {
     static const char usage[] =
         "compress <file|directory> [--quality <1-100> | --target <size> "
@@ -222,41 +224,47 @@ static int run_compress(const photoc_cli_options *options)
                       options->target);
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_compress(options->first_argument, &compress);
+    return photoc_command_compress_with_output(options->first_argument,
+                                               &compress, output);
 }
 
-static int run_exif(const photoc_cli_options *options)
+static int run_exif(const photoc_cli_options *options,
+                    const photoc_output *output)
 {
     if (options->argument_count != 1) {
         usage_error("exif", "expected exactly one file", "exif <file>");
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_exif(options->first_argument, options->json);
+    return photoc_command_exif_with_output(options->first_argument,
+                                           options->json, output);
 }
 
-static int run_duplicates(const photoc_cli_options *options)
+static int run_duplicates(const photoc_cli_options *options,
+                          const photoc_output *output)
 {
     static const char usage[] = "duplicates <directory> [--recursive] [--json]";
     if (options->argument_count != 1) {
         usage_error("duplicates", "expected exactly one directory", usage);
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_duplicates(options->first_argument,
-                                     options->recursive, options->json);
+    return photoc_command_duplicates_with_output(
+        options->first_argument, options->recursive, options->json, output);
 }
 
-static int run_stats(const photoc_cli_options *options)
+static int run_stats(const photoc_cli_options *options,
+                     const photoc_output *output)
 {
     static const char usage[] = "stats <directory> [--recursive] [--json]";
     if (options->argument_count != 1) {
         usage_error("stats", "expected exactly one directory", usage);
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_stats(options->first_argument, options->recursive,
-                                options->json);
+    return photoc_command_stats_with_output(
+        options->first_argument, options->recursive, options->json, output);
 }
 
-static int run_rename(const photoc_cli_options *options)
+static int run_rename(const photoc_cli_options *options,
+                      const photoc_output *output)
 {
     static const char usage[] =
         "rename <directory> --format <template> [--recursive] [--apply]";
@@ -265,11 +273,13 @@ static int run_rename(const photoc_cli_options *options)
                     usage);
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_rename(options->first_argument, options->format,
-                                 options->recursive, options->apply);
+    return photoc_command_rename_with_output(
+        options->first_argument, options->format, options->recursive,
+        options->apply, output);
 }
 
-static int run_sort(const photoc_cli_options *options)
+static int run_sort(const photoc_cli_options *options,
+                    const photoc_output *output)
 {
     static const char usage[] =
         "sort <directory> --by date|session [--gap <duration>] [--recursive] "
@@ -303,11 +313,13 @@ static int run_sort(const photoc_cli_options *options)
             options->gap);
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_sort(options->first_argument, options->recursive,
-                               mode, gap_minutes, options->apply);
+    return photoc_command_sort_with_output(options->first_argument,
+                                           options->recursive, mode,
+                                           gap_minutes, options->apply, output);
 }
 
-static int run_focus(const photoc_cli_options *options)
+static int run_focus(const photoc_cli_options *options,
+                     const photoc_output *output)
 {
     static const char usage[] =
         "focus <file|directory> [--recursive] [--threshold <value>] "
@@ -326,11 +338,13 @@ static int run_focus(const photoc_cli_options *options)
                       options->threshold);
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_focus(options->first_argument, options->recursive,
-                                threshold, options->only_blurry, options->json);
+    return photoc_command_focus_with_output(
+        options->first_argument, options->recursive, threshold,
+        options->only_blurry, options->json, output);
 }
 
-static int run_scrub(const photoc_cli_options *options)
+static int run_scrub(const photoc_cli_options *options,
+                     const photoc_output *output)
 {
     static const char usage[] =
         "scrub <file|directory> --gps [--recursive] [--in-place]";
@@ -338,8 +352,8 @@ static int run_scrub(const photoc_cli_options *options)
         usage_error("scrub", "expected one file or directory and --gps", usage);
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_scrub(options->first_argument, options->recursive,
-                                options->in_place);
+    return photoc_command_scrub_with_output(
+        options->first_argument, options->recursive, options->in_place, output);
 }
 
 static const photoc_command commands[] = {
@@ -406,8 +420,8 @@ static void print_global_help(void)
     puts("Global options:");
     puts("  -h, --help       Show global or command help");
     puts("  -V, --version    Show the version");
-    puts("  -v, --verbose    Request detailed output");
-    puts("  -q, --quiet      Request reduced output");
+    puts("  -v, --verbose    Add diagnostics on stderr");
+    puts("  -q, --quiet      Suppress status text and non-critical warnings");
     puts("      --json       Request JSON output where supported");
     puts("");
     puts("Exif and stats inspect JPEG files; duplicates compares file bytes.");
@@ -549,5 +563,10 @@ int photoc_run(int argc, char *argv[])
         command_error(command->name, "--json is not supported\n");
         return PHOTOC_EXIT_USAGE;
     }
-    return command->run(&options);
+    const photoc_output output = {.level = options.quiet ? PHOTOC_OUTPUT_QUIET
+                                           : options.verbose
+                                               ? PHOTOC_OUTPUT_VERBOSE
+                                               : PHOTOC_OUTPUT_NORMAL,
+                                  .json = options.json};
+    return command->run(&options, &output);
 }

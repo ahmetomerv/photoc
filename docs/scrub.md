@@ -1,6 +1,6 @@
 # photoc scrub
 
-[Command overview](../README.md#commands)
+[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
 ## Purpose
 
@@ -29,8 +29,12 @@ Exactly one regular JPEG file or directory is required. JPEG recognition uses
 | `--recursive` | Include nested directories. Invalid with a single-file input. |
 | `--in-place` | Replace each original only after writing and verifying a temporary file. No backup is created. |
 | `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Recognized; currently does not change output. |
-| `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
+| `-v`, `--verbose` | Report copy/in-place mode, recursion, input/output paths, skips, and processing/failure counts on stderr. |
+| `-q`, `--quiet` | Hide GPS-removal status, skip messages, and summaries; file operations are unchanged. Errors remain visible. |
+
+Global verbosity flags work before or after the command. Combining quiet and
+verbose returns usage status **2**. JSON, where supported, has the same schema
+in every mode; all diagnostics and errors use stderr.
 
 There is no dry-run or `--apply` option: copy mode writes immediately, and
 `--in-place` authorizes replacement. `--json` is unsupported and returns exit

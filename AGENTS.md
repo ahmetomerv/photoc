@@ -9,7 +9,8 @@
 
 ## CLI and file safety
 
-- Write normal output to stdout and errors to stderr.
+- Write requested result data to stdout and errors to stderr. Pass a borrowed `const photoc_output *` to command/output helpers; do not store verbosity in global mutable state.
+- Use `photoc_output_info` for informational status and operation summaries, `photoc_output_verbose` for extra stderr diagnostics, and `photoc_output_metadata_warning` for non-critical metadata warnings. Result/JSON writers remain unfiltered. Failure explanations use the existing unconditional error helpers, even if labeled warnings. Keep JSON stdout unchanged across output levels.
 - Keep exit codes stable and predictable. The current CLI uses `0` for success, `2` for usage errors, and `3` for commands that are not implemented. Document any new exit code before using it.
 - File-modifying commands should support a dry-run mode where appropriate. Never overwrite user files unless explicitly requested.
 - Make memory ownership explicit. Document who owns and frees dynamically allocated memory, especially at API boundaries.

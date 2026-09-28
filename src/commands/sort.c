@@ -15,6 +15,7 @@
 #include "photoc/timestamp.h"
 
 #include <errno.h>
+#include <inttypes.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -47,6 +48,8 @@ typedef struct {
     size_t count;
     size_t capacity;
     int error_errno;
+    size_t skipped;
+    const photoc_output *output; /* Borrowed for the synchronous walk. */
 } sort_plan;
 
 typedef struct {
@@ -79,6 +82,12 @@ static bool collect_jpeg(const char *path, photoc_fs_type type, void *user_data)
 {
     sort_plan *plan = user_data;
     if (type != PHOTOC_FS_FILE || !photoc_fs_is_jpeg(path)) {
+        if (type != PHOTOC_FS_DIRECTORY) {
+            ++plan->skipped;
+            photoc_output_verbose(plan->output, "sort",
+                                  "skipped '%s': not a regular JPEG file\n",
+                                  path);
+        }
         return true;
     }
     if (plan->count == plan->capacity) {
@@ -423,12 +432,15 @@ static sort_summary summarize_plan(const sort_plan *plan)
     return summary;
 }
 
-static void print_summary(const sort_plan *plan, const sort_summary *summary)
+static void print_summary(const sort_plan *plan, const sort_summary *summary,
+                          const photoc_output *output)
 {
-    printf("Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
-           "%zu applied, %zu rolled back\n",
-           plan->count, summary->planned, summary->unchanged, summary->blocked,
-           summary->applied, summary->rolled_back);
+    photoc_output_info(
+        output,
+        "Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
+        "%zu applied, %zu rolled back\n",
+        plan->count, summary->planned, summary->unchanged, summary->blocked,
+        summary->applied, summary->rolled_back);
 }
 
 static void print_plan(const sort_plan *plan, const char *root, bool show_safe)
@@ -775,16 +787,25 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
     return result;
 }
 
-int photoc_command_sort(const char *directory, bool recursive,
-                        photoc_sort_mode mode, uint32_t gap_minutes, bool apply)
+int photoc_command_sort_with_output(const char *directory, bool recursive,
+                                    photoc_sort_mode mode, uint32_t gap_minutes,
+                                    bool apply, const photoc_output *output)
 {
+    photoc_output_verbose(
+        output, "sort", "input: '%s'; mode: %s, %s; recursion: %s\n", directory,
+        mode == PHOTOC_SORT_BY_DATE ? "date" : "session",
+        apply ? "apply" : "preview", recursive ? "enabled" : "disabled");
+    if (mode == PHOTOC_SORT_BY_SESSION) {
+        photoc_output_verbose(
+            output, "sort", "session gap: %" PRIu32 " minutes\n", gap_minutes);
+    }
     struct stat root_before;
     if (apply && lstat(directory, &root_before) != 0) {
         return photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                    directory, "unable to inspect directory",
                                    errno);
     }
-    sort_plan plan = {0};
+    sort_plan plan = {.output = output};
     int walk_result =
         recursive ? photoc_fs_walk_recursive(directory, collect_jpeg, &plan)
                   : photoc_fs_walk(directory, collect_jpeg, &plan);
@@ -839,7 +860,18 @@ int photoc_command_sort(const char *directory, bool recursive,
         recheck_entries(&plan, directory);
         recheck_source_descriptors(&plan, directory, root_fd);
     }
+    size_t metadata_failures = 0;
+    for (size_t i = 0; i < plan.count; ++i) {
+        if (plan.entries[i].metadata_error != PHOTOC_METADATA_OK) {
+            ++metadata_failures;
+        }
+    }
     sort_summary summary = summarize_plan(&plan);
+    photoc_output_verbose(output, "sort",
+                          "JPEG files discovered: %zu; skipped: %zu; metadata "
+                          "parse failures: %zu; blocked: %zu\n",
+                          plan.count, plan.skipped, metadata_failures,
+                          summary.blocked);
     int exit_code =
         summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
     if (!apply) {
@@ -853,7 +885,10 @@ int photoc_command_sort(const char *directory, bool recursive,
             print_plan(&plan, directory, true);
         }
     }
-    print_summary(&plan, &summary);
+    photoc_output_verbose(
+        output, "sort", "planned: %zu; applied: %zu; rolled back: %zu\n",
+        summary.planned, summary.applied, summary.rolled_back);
+    print_summary(&plan, &summary, output);
     if (root_fd >= 0) {
         close(root_fd);
     }
@@ -863,4 +898,11 @@ int photoc_command_sort(const char *directory, bool recursive,
                                    NULL, "unable to write output", EIO);
     }
     return exit_code;
+}
+
+int photoc_command_sort(const char *directory, bool recursive,
+                        photoc_sort_mode mode, uint32_t gap_minutes, bool apply)
+{
+    return photoc_command_sort_with_output(directory, recursive, mode,
+                                           gap_minutes, apply, NULL);
 }

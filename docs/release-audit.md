@@ -5,6 +5,8 @@ release fixes in this working tree. No commands or options were added.
 
 This is a historical audit snapshot. `focus` has since been implemented;
 see [its current documentation](focus.md) for supported options and limitations.
+The current source also implements [output verbosity](../README.md#output-verbosity);
+the no-op verbosity limitation below describes the audited snapshot.
 
 ## Release status
 

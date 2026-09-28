@@ -1,6 +1,6 @@
 # photoc exif
 
-[Command overview](../README.md#commands)
+[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
 ## Purpose
 
@@ -25,8 +25,12 @@ supported; use [stats](stats.md) to summarize a collection.
 | --- | --- |
 | `--json` | Emit one JSON object containing the same metadata as the terminal report. |
 | `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Recognized; currently does not change output. |
-| `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
+| `-v`, `--verbose` | Report input path, metadata mode, output format, and metadata parse failures on stderr. |
+| `-q`, `--quiet` | Keep all EXIF fields; errors remain visible. |
+
+Global verbosity flags work before or after the command. Combining quiet and
+verbose returns usage status **2**. JSON, where supported, has the same schema
+in every mode; all diagnostics and errors use stderr.
 
 ## Examples
 

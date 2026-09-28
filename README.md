@@ -473,8 +473,9 @@ Example exposure object:
 ```
 
 Missing values are `null`. Fields such as `has_gps` use `true` or `false`, and
-numbers stay numeric. In JSON mode, stdout contains only JSON; warnings still
-go to stderr. `jq` is optional and is not required to run photoc.
+numbers stay numeric. In JSON mode, stdout contains only JSON; diagnostics,
+warnings, and errors use stderr. Quiet mode suppresses non-critical warnings.
+`jq` is optional and is not required to run photoc.
 
 ## Exit codes and output
 
@@ -488,8 +489,42 @@ Normal output goes to stdout. Errors and warnings go to stderr.
 | `3` | The command is not implemented |
 
 `stats` can return success even when individual files produce warnings.
-Its scan summary records those errors, so check the summary when completeness
-matters. `--verbose` and `--quiet` are accepted but do not change output yet.
+Its normal scan summary and JSON `scan.errors` record those errors. When
+completeness matters, use normal output or inspect `--json`, including in quiet
+mode.
+
+## Output verbosity
+
+Global flags work before or after the command:
+
+| Mode | Behavior |
+| --- | --- |
+| Default | Show the existing results, operation summaries, and warnings. |
+| `-q`, `--quiet` | Keep requested results; suppress status text, operation summaries, and non-critical warnings. Errors explaining a non-zero exit remain on stderr. |
+| `-v`, `--verbose` | Keep normal output and add diagnostics on stderr: operating mode, recursion, discovery/skip/failure counts, and relevant paths. Statistics and duplicate scans also report the worker limit; small workloads or worker startup failures can run serially. |
+
+Quiet mode keeps EXIF fields, statistics and distributions, duplicate groups
+and savings, focus scores, and rename/sort mappings. It hides scan status and
+rename/sort summaries. Successful `compress` and `scrub` operations have no
+stdout in quiet mode; their file operations and exit codes stay the same.
+Warnings that explain failures, including partial duplicate/focus results or
+blocked rename/sort plans, remain visible.
+
+With `--json`, stdout remains JSON only, with the same fields in every mode.
+Verbose diagnostics use stderr. Quiet JSON still includes scan/error counters.
+Help and version output remain available in every mode. Combining quiet and
+verbose is a usage error (exit **2**), regardless of option order.
+
+```sh
+# Keep the requested duplicate report, suppress scan status.
+photoc duplicates ./photos --quiet
+
+# Save JSON and diagnostics separately.
+photoc --verbose stats ./photos --recursive --json > stats.json 2> diagnostics.log
+
+# Remove GPS in new copies, showing only failures.
+photoc scrub ./photos --gps --quiet
+```
 
 ## Contributing
 

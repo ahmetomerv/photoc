@@ -1,6 +1,6 @@
 # photoc compress
 
-[Command overview](../README.md#commands)
+[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
 ## Purpose
 
@@ -33,8 +33,12 @@ for example `--quality 75`, not `--quality=75`.
 | `--recursive` | Include nested directories. Invalid with a single-file input. |
 | `--output-dir <directory>` | Write copies under this directory, creating parents as needed. Preserve paths relative to the input directory. |
 | `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Recognized; currently does not change output. |
-| `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
+| `-v`, `--verbose` | Report mode, recursion, quality settings, input/output paths, and processing/skip/failure counts on stderr. |
+| `-q`, `--quiet` | Hide compression status and summaries; file operations are unchanged. Errors and unmet-target messages remain visible. |
+
+Global verbosity flags work before or after the command. Combining quiet and
+verbose returns usage status **2**. JSON, where supported, has the same schema
+in every mode; all diagnostics and errors use stderr.
 
 Size syntax is a positive integer followed by an optional, case-sensitive
 suffix: bytes with no suffix or `B`, decimal `KB`/`MB`/`GB`, or binary

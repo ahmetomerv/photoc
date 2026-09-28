@@ -5,6 +5,7 @@
 #include "photoc/json.h"
 #include "photoc/scan.h"
 #include "photoc/stats.h"
+#include "photoc/thread_pool.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -14,6 +15,7 @@
 typedef struct {
     photoc_stats_aggregate aggregate;
     int aggregation_errno;
+    const photoc_output *output; /* Borrowed during the scan. */
 } stats_context;
 
 static bool collect_photo(const Photo *photo, void *user_data)
@@ -29,9 +31,9 @@ static bool collect_photo(const Photo *photo, void *user_data)
 static void report_warning(const char *path, photoc_metadata_result reason,
                            int system_errno, void *user_data)
 {
-    (void)user_data;
-    photoc_error_metadata("stats", PHOTOC_ERR_NOTE_WARNING, path, reason,
-                          system_errno);
+    const stats_context *context = user_data;
+    photoc_output_metadata_warning(context->output, "stats", path, reason,
+                                   system_errno);
 }
 
 static void print_counts(const char *heading, const photoc_stats_counts *counts,
@@ -132,11 +134,13 @@ static void print_json(const char *directory, bool recursive,
 
 static void print_human(const char *directory, bool recursive,
                         const photoc_scan_stats *scan,
-                        const photoc_stats_aggregate *aggregate)
+                        const photoc_stats_aggregate *aggregate,
+                        const photoc_output *output)
 {
     puts("Photo statistics");
-    printf("  Directory: %s\n", directory);
-    printf("  Scan: %s\n", recursive ? "recursive" : "flat");
+    photoc_output_info(output, "  Directory: %s\n", directory);
+    photoc_output_info(output, "  Scan: %s\n",
+                       recursive ? "recursive" : "flat");
     printf("  Total photos: %" PRIu64 "\n", aggregate->total_photos);
     printf("  Total storage used: %" PRIu64 " bytes\n",
            aggregate->total_file_size);
@@ -156,10 +160,12 @@ static void print_human(const char *directory, bool recursive,
     print_top("Most-used ISO", &aggregate->iso_values, "", "");
     print_top("Most-used aperture", &aggregate->apertures, "f/", "");
     print_top("Most-used focal length", &aggregate->focal_lengths, "", " mm");
-    printf("  Files: %" PRIu64 " visited, %" PRIu64 " JPEG, %" PRIu64
-           " skipped, %" PRIu64 " %s\n",
-           scan->files_visited, scan->jpeg_files_found, scan->skipped_files,
-           scan->errors, scan->errors == 1 ? "error" : "errors");
+    photoc_output_info(output,
+                       "  Files: %" PRIu64 " visited, %" PRIu64
+                       " JPEG, %" PRIu64 " skipped, %" PRIu64 " %s\n",
+                       scan->files_visited, scan->jpeg_files_found,
+                       scan->skipped_files, scan->errors,
+                       scan->errors == 1 ? "error" : "errors");
 
     puts("\nDistributions (share of parsed photos)");
     print_counts("Camera models", &aggregate->camera_models, "", "",
@@ -172,13 +178,29 @@ static void print_human(const char *directory, bool recursive,
                  aggregate->total_photos);
 }
 
-int photoc_command_stats(const char *directory, bool recursive, bool json)
+int photoc_command_stats_with_output(const char *directory, bool recursive,
+                                     bool json, const photoc_output *output)
 {
-    stats_context context = {0};
+    photoc_output_verbose(
+        output, "stats",
+        "input: %s; mode: metadata statistics; recursive: %s; output: %s\n",
+        directory, recursive ? "yes" : "no", json ? "JSON" : "human");
+    photoc_output_verbose(
+        output, "stats",
+        "worker limit: %u (small batches and startup fallback run serially)\n",
+        PHOTOC_DEFAULT_WORKERS);
+    stats_context context = {.output = output};
     photoc_stats_init(&context.aggregate);
     photoc_scan_stats scan = {0};
     int result = photoc_scan_directory(directory, recursive, collect_photo,
                                        report_warning, &context, &scan);
+    photoc_output_verbose(output, "stats",
+                          "files scanned: %" PRIu64
+                          "; JPEG files discovered: %" PRIu64
+                          "; metadata parsed: %" PRIu64 "; skipped: %" PRIu64
+                          "; metadata parse failures: %" PRIu64 "\n",
+                          scan.files_visited, scan.jpeg_files_found,
+                          scan.photos_parsed, scan.skipped_files, scan.errors);
     if (result != 0) {
         int saved_errno = result == 1 ? context.aggregation_errno : errno;
         photoc_error_kind kind =
@@ -195,7 +217,7 @@ int photoc_command_stats(const char *directory, bool recursive, bool json)
     if (json) {
         print_json(directory, recursive, &scan, &context.aggregate);
     } else {
-        print_human(directory, recursive, &scan, &context.aggregate);
+        print_human(directory, recursive, &scan, &context.aggregate, output);
     }
 
     photoc_stats_cleanup(&context.aggregate);
@@ -204,4 +226,9 @@ int photoc_command_stats(const char *directory, bool recursive, bool json)
                                    NULL, "unable to write output", EIO);
     }
     return PHOTOC_EXIT_SUCCESS;
+}
+
+int photoc_command_stats(const char *directory, bool recursive, bool json)
+{
+    return photoc_command_stats_with_output(directory, recursive, json, NULL);
 }

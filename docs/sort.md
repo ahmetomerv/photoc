@@ -1,6 +1,6 @@
 # photoc sort
 
-[Command overview](../README.md#commands)
+[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
 ## Purpose
 
@@ -29,8 +29,12 @@ separate arguments, such as `--by date`, not `--by=date`.
 | `--recursive` | Include nested directories; the default scans only the supplied directory. |
 | `--apply` | Move files only after the entire plan passes preflight. |
 | `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Recognized; currently does not change output. |
-| `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
+| `-v`, `--verbose` | Report date/session and preview/apply modes, recursion, session gap, discovery/skip/metadata-failure counts, and applied/rolled-back counts on stderr. |
+| `-q`, `--quiet` | Keep plan mappings; hide the summary. Blocked entries and apply/rollback errors remain visible. |
+
+Global verbosity flags work before or after the command. Combining quiet and
+verbose returns usage status **2**. JSON, where supported, has the same schema
+in every mode; all diagnostics and errors use stderr.
 
 Gap values are nonnegative integer minutes (`30m`) or hours (`2h`), with
 lowercase suffixes. `0m` is valid: only equal timestamps stay together.

@@ -87,6 +87,7 @@ add_library(photoc_core STATIC
     src/core/jpeg_write.c
     src/core/json.c
     src/core/metadata.c
+    src/core/output.c
     src/core/photo.c
     src/core/quality_search.c
     src/core/scan.c
@@ -153,6 +154,10 @@ if(BUILD_TESTING)
             add_test(NAME output_failure
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_OUTPUT_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_output_failure.py")
+            add_test(NAME verbosity_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_VERBOSITY_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_verbosity.py")
+            set_tests_properties(verbosity_cli PROPERTIES TIMEOUT 60)
             add_test(NAME focus_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")
@@ -358,6 +363,11 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_error)
     target_link_libraries(test_error PRIVATE photoc_core)
     add_test(NAME error_model COMMAND test_error)
+
+    add_executable(test_output tests/test_output.c)
+    photoc_configure_c_target(test_output)
+    target_link_libraries(test_output PRIVATE photoc_core)
+    add_test(NAME output_policy COMMAND test_output)
 
     function(add_cli_test name case)
         set(extra_args)

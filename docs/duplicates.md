@@ -1,6 +1,6 @@
 # photoc duplicates
 
-[Command overview](../README.md#commands)
+[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
 ## Purpose
 
@@ -25,8 +25,12 @@ Exactly one directory is required. Relative and absolute paths are accepted.
 | `--recursive` | Include nested directories; the default scans only the supplied directory. |
 | `--json` | Emit a JSON summary and duplicate groups. |
 | `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Recognized; currently does not change output. |
-| `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
+| `-v`, `--verbose` | Report mode, recursion, scanned/hashed/skipped files, failures, and worker limit on stderr. |
+| `-q`, `--quiet` | Keep duplicate groups, counts, and savings; hide scan status. Warnings explaining a failed scan remain visible. |
+
+Global verbosity flags work before or after the command. Combining quiet and
+verbose returns usage status **2**. JSON, where supported, has the same schema
+in every mode; all diagnostics and errors use stderr.
 
 There is no deletion, apply, or dry-run option: the command is always read only.
 

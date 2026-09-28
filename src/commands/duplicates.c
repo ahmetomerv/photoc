@@ -4,6 +4,7 @@
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/json.h"
+#include "photoc/thread_pool.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -12,17 +13,20 @@
 
 static void report_warning(const char *path, int system_errno, void *user_data)
 {
+    /* These warnings explain exit status 1 and must remain visible in quiet. */
     (void)user_data;
     photoc_error_report("duplicates", PHOTOC_ERR_NOTE_WARNING, PHOTOC_ERR_IO,
                         path, "unable to read file", system_errno);
 }
 
 static void print_human(const char *directory, bool recursive,
-                        const photoc_duplicates_result *result)
+                        const photoc_duplicates_result *result,
+                        const photoc_output *output)
 {
     puts("Exact duplicate files");
-    printf("  Directory: %s\n", directory);
-    printf("  Scan: %s\n", recursive ? "recursive" : "flat");
+    photoc_output_info(output, "  Directory: %s\n", directory);
+    photoc_output_info(output, "  Scan: %s\n",
+                       recursive ? "recursive" : "flat");
     if (result->group_count == 0) {
         puts("\nNo duplicates found.");
     }
@@ -38,9 +42,11 @@ static void print_human(const char *directory, bool recursive,
     printf("Total duplicate files: %" PRIu64 "\n", result->duplicate_files);
     printf("Potential storage savings: %" PRIu64 " bytes\n",
            result->potential_savings);
-    printf("Files scanned: %" PRIu64 ", hashed: %" PRIu64 ", skipped: %" PRIu64
-           "\n",
-           result->files_visited, result->files_hashed, result->files_skipped);
+    photoc_output_info(output,
+                       "Files scanned: %" PRIu64 ", hashed: %" PRIu64
+                       ", skipped: %" PRIu64 "\n",
+                       result->files_visited, result->files_hashed,
+                       result->files_skipped);
 }
 
 static int print_json(const char *directory, bool recursive,
@@ -77,8 +83,18 @@ static int print_json(const char *directory, bool recursive,
     return ferror(stdout) ? -1 : 0;
 }
 
-int photoc_command_duplicates(const char *directory, bool recursive, bool json)
+int photoc_command_duplicates_with_output(const char *directory, bool recursive,
+                                          bool json,
+                                          const photoc_output *output)
 {
+    photoc_output_verbose(
+        output, "duplicates",
+        "input: %s; mode: exact duplicates; recursive: %s; output: %s\n",
+        directory, recursive ? "yes" : "no", json ? "JSON" : "human");
+    photoc_output_verbose(output, "duplicates",
+                          "worker limit: %u (small workloads and startup "
+                          "fallback run serially)\n",
+                          PHOTOC_DEFAULT_WORKERS);
     photoc_duplicates_result result;
     if (photoc_duplicates_find(directory, recursive, report_warning, NULL,
                                &result) != 0) {
@@ -87,6 +103,13 @@ int photoc_command_duplicates(const char *directory, bool recursive, bool json)
                                    "unable to read directory", errno);
     }
 
+    photoc_output_verbose(output, "duplicates",
+                          "files scanned: %" PRIu64 "; full hashes: %" PRIu64
+                          "; skipped: %" PRIu64 "; file failures: %" PRIu64
+                          "; duplicate groups: %zu\n",
+                          result.files_visited, result.files_hashed,
+                          result.files_skipped, result.errors,
+                          result.group_count);
     if (json) {
         if (print_json(directory, recursive, &result) != 0) {
             photoc_duplicates_cleanup(&result);
@@ -95,7 +118,7 @@ int photoc_command_duplicates(const char *directory, bool recursive, bool json)
                                        "unable to write output", EIO);
         }
     } else {
-        print_human(directory, recursive, &result);
+        print_human(directory, recursive, &result, output);
     }
 
     int exit_code =
@@ -107,4 +130,10 @@ int photoc_command_duplicates(const char *directory, bool recursive, bool json)
                                    "unable to write output", EIO);
     }
     return exit_code;
+}
+
+int photoc_command_duplicates(const char *directory, bool recursive, bool json)
+{
+    return photoc_command_duplicates_with_output(directory, recursive, json,
+                                                 NULL);
 }

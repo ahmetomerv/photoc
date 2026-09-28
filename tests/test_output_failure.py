@@ -27,6 +27,8 @@ class OutputFailureTests(unittest.TestCase):
             path = Path(temporary) / "readonly"
             original = b"Existing file must remain unchanged.\n"
             path.write_bytes(original)
+            cases = tuple(args + (flag,) for args in cases
+                          for flag in ("--quiet", "--verbose")) + cases
             for args in cases:
                 with self.subTest(args=args), path.open("rb") as output:
                     result = subprocess.run([BINARY, *args], stdout=output,

@@ -1,6 +1,6 @@
 # photoc focus
 
-[Command overview](../README.md#commands)
+[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
 ## Purpose
 
@@ -32,8 +32,12 @@ Exactly one regular JPEG or directory is required. JPEG recognition uses
 | `--only-blurry` | List only scores strictly below the threshold. Uses the default threshold if omitted. |
 | `--json` | Emit a structured report with numeric scores, classification booleans, and summary counts. |
 | `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Recognized; currently does not change output. |
-| `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
+| `-v`, `--verbose` | Report mode, recursion, threshold/filter, skipped paths, and discovery/decode counts on stderr. |
+| `-q`, `--quiet` | Keep score rows and score statistics; hide scan status and the review reminder. Decode failures remain visible. |
+
+Global verbosity flags work before or after the command. Combining quiet and
+verbose returns usage status **2**. JSON, where supported, has the same schema
+in every mode; all diagnostics and errors use stderr.
 
 Option values are separate arguments, for example `--threshold 50.5`.
 

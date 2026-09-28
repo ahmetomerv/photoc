@@ -22,6 +22,7 @@ typedef struct {
     int error;
     const char *output_dir;
     const char *input_dir;
+    const photoc_output *output; /* Borrowed for the synchronous walk. */
 } compress_walk;
 
 typedef struct {
@@ -276,6 +277,9 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
     }
     if (!photoc_fs_is_jpeg(path) || is_compressed_output(path)) {
         ++walk->skipped;
+        photoc_output_verbose(
+            walk->output, "compress",
+            "skipped '%s': unsupported extension or compressed output\n", path);
         return true;
     }
     if (walk->count == walk->capacity) {
@@ -329,9 +333,18 @@ static int destination_for(const char *root, const char *source,
     return result;
 }
 
-int photoc_command_compress(const char *path,
-                            const photoc_compress_options *options)
+int photoc_command_compress_with_output(const char *path,
+                                        const photoc_compress_options *options,
+                                        const photoc_output *output)
 {
+    photoc_output_verbose(
+        output, "compress", "input: '%s'; mode: %s; recursion: %s\n", path,
+        options->target_bytes != 0 ? "target size" : "fixed quality",
+        options->recursive ? "enabled" : "disabled");
+    photoc_output_verbose(
+        output, "compress",
+        "quality: %d; minimum quality: %d; target bytes: %" PRIu64 "\n",
+        options->quality, options->min_quality, options->target_bytes);
     bool recursive = options->recursive;
     const char *output_dir = options->output_dir;
     photoc_fs_type type;
@@ -372,32 +385,45 @@ int photoc_command_compress(const char *path,
         uint64_t before = 0;
         uint64_t after = 0;
         photoc_quality_choice choice = {0};
+        photoc_output_verbose(output, "compress", "input: '%s'; output: '%s'\n",
+                              path, destination);
         int result =
             compress_file(path, destination, options, &before, &after, &choice);
         if (result == 0) {
-            printf("Output: %s\nQuality: %d\n", destination, choice.quality);
-            printf("Original size: %" PRIu64 " bytes\n", before);
-            printf("Compressed size: %" PRIu64 " bytes\n", after);
+            photoc_output_info(output, "Output: %s\nQuality: %d\n", destination,
+                               choice.quality);
+            photoc_output_info(output, "Original size: %" PRIu64 " bytes\n",
+                               before);
+            photoc_output_info(output, "Compressed size: %" PRIu64 " bytes\n",
+                               after);
             if (options->target_bytes != 0) {
-                printf("Target size: %" PRIu64 " bytes\n",
-                       options->target_bytes);
-                printf("Target met: %s\n", choice.target_met ? "yes" : "no");
+                photoc_output_info(output, "Target size: %" PRIu64 " bytes\n",
+                                   options->target_bytes);
+                photoc_output_info(output, "Target met: %s\n",
+                                   choice.target_met ? "yes" : "no");
                 if (!choice.target_met) {
                     report_target_miss(path, options, &choice);
                 }
             }
             if (after <= before) {
-                printf("Bytes saved: %" PRIu64 " bytes\n", before - after);
+                photoc_output_info(output, "Bytes saved: %" PRIu64 " bytes\n",
+                                   before - after);
             } else {
-                printf("Bytes saved: -%" PRIu64 " bytes\n", after - before);
+                photoc_output_info(output, "Bytes saved: -%" PRIu64 " bytes\n",
+                                   after - before);
             }
-            printf("Percentage saved: %.2f%%\n",
-                   (1.0 - (double)after / (double)before) * 100.0);
+            photoc_output_info(output, "Percentage saved: %.2f%%\n",
+                               (1.0 - (double)after / (double)before) * 100.0);
         } else if (result == 1) {
             photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
                                 PHOTOC_ERR_COLLISION, destination,
                                 "output already exists", 0);
         }
+        photoc_output_verbose(
+            output, "compress",
+            "files inspected: 1; processed: %u; failed: %u; target met: %s\n",
+            result == 0 ? 1u : 0u, result != 0 ? 1u : 0u,
+            choice.target_met ? "yes" : "no");
         free(destination);
         if (ferror(stdout)) {
             return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
@@ -408,7 +434,8 @@ int photoc_command_compress(const char *path,
                                                 : PHOTOC_EXIT_FAILURE;
     }
 
-    compress_walk walk = {.output_dir = output_dir, .input_dir = path};
+    compress_walk walk = {
+        .output_dir = output_dir, .input_dir = path, .output = output};
     int walk_result = recursive
                           ? photoc_fs_walk_recursive(path, visit_file, &walk)
                           : photoc_fs_walk(path, visit_file, &walk);
@@ -442,46 +469,58 @@ int photoc_command_compress(const char *path,
             uint64_t before = 0;
             uint64_t after = 0;
             photoc_quality_choice choice = {0};
+            photoc_output_verbose(output, "compress",
+                                  "input: '%s'; output: '%s'\n", walk.paths[i],
+                                  destination);
             int result = compress_file(walk.paths[i], destination, options,
                                        &before, &after, &choice);
             if (result == 0) {
                 ++processed;
                 before_total += before;
                 after_total += after;
-                printf("Compressed: %s -> %s (quality %d, %" PRIu64 " bytes)\n",
-                       walk.paths[i], destination, choice.quality, after);
+                photoc_output_info(
+                    output,
+                    "Compressed: %s -> %s (quality %d, %" PRIu64 " bytes)\n",
+                    walk.paths[i], destination, choice.quality, after);
                 if (!choice.target_met) {
                     ++targets_not_met;
                     report_target_miss(walk.paths[i], options, &choice);
                 }
             } else if (result == 1) {
                 ++skipped;
-                printf("Skipped: %s (output exists: %s)\n", walk.paths[i],
-                       destination);
+                photoc_output_info(output, "Skipped: %s (output exists: %s)\n",
+                                   walk.paths[i], destination);
             } else {
                 ++failed;
             }
             free(destination);
         }
     }
+    photoc_output_verbose(output, "compress",
+                          "JPEG files discovered: %zu; processed: %zu; "
+                          "skipped: %zu; failed: %zu; targets not met: %zu\n",
+                          walk.count, processed, skipped, failed,
+                          targets_not_met);
     for (size_t i = 0; i < walk.count; ++i) {
         free(walk.paths[i]);
     }
     free(walk.paths);
 
-    printf("Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n",
-           processed, skipped, failed);
+    photoc_output_info(
+        output, "Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n",
+        processed, skipped, failed);
     if (options->target_bytes != 0) {
-        printf("Targets not met: %zu\n", targets_not_met);
+        photoc_output_info(output, "Targets not met: %zu\n", targets_not_met);
     }
-    printf("Bytes before: %" PRIu64 "\nBytes after: %" PRIu64 "\n",
-           before_total, after_total);
+    photoc_output_info(output,
+                       "Bytes before: %" PRIu64 "\nBytes after: %" PRIu64 "\n",
+                       before_total, after_total);
     if (after_total <= before_total) {
-        printf("Total savings: %" PRIu64 " bytes\n",
-               before_total - after_total);
+        photoc_output_info(output, "Total savings: %" PRIu64 " bytes\n",
+                           before_total - after_total);
     } else {
-        printf("Total savings: -%" PRIu64 " bytes\n",
-               after_total - before_total);
+        photoc_output_info(output, "Total savings: -%" PRIu64 " bytes\n",
+                           after_total - before_total);
     }
     if (ferror(stdout)) {
         return photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE,
@@ -490,4 +529,10 @@ int photoc_command_compress(const char *path,
     }
     return failed == 0 && targets_not_met == 0 ? PHOTOC_EXIT_SUCCESS
                                                : PHOTOC_EXIT_FAILURE;
+}
+
+int photoc_command_compress(const char *path,
+                            const photoc_compress_options *options)
+{
+    return photoc_command_compress_with_output(path, options, NULL);
 }

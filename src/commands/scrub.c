@@ -24,6 +24,7 @@ typedef struct {
     size_t count;
     size_t capacity;
     int error;
+    const photoc_output *output; /* Borrowed for the synchronous walk. */
 } scrub_walk;
 
 static bool is_scrubbed_output(const char *path)
@@ -75,7 +76,8 @@ static void report_edit_error(const char *path, photoc_jpeg_edit_result result,
                            saved_errno);
 }
 
-static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
+static void scrub_file(const char *path, bool in_place, scrub_counts *counts,
+                       const photoc_output *output)
 {
     if (!photoc_fs_is_jpeg(path)) {
         ++counts->skipped;
@@ -86,7 +88,9 @@ static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
     photoc_jpeg_edit_result result = photoc_jpeg_exif_load_copy(path, &exif);
     if (result == PHOTOC_JPEG_EDIT_NO_EXIF) {
         ++counts->skipped;
-        printf("Skipped: %s (no EXIF GPS tags)\n", path);
+        photoc_output_verbose(output, "scrub",
+                              "skipped '%s': no EXIF GPS tags\n", path);
+        photoc_output_info(output, "Skipped: %s (no EXIF GPS tags)\n", path);
         return;
     }
     if (result != PHOTOC_JPEG_EDIT_OK) {
@@ -96,7 +100,9 @@ static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
     }
     if (!photoc_jpeg_exif_has_gps(exif)) {
         ++counts->skipped;
-        printf("Skipped: %s (no EXIF GPS tags)\n", path);
+        photoc_output_verbose(output, "scrub",
+                              "skipped '%s': no EXIF GPS tags\n", path);
+        photoc_output_info(output, "Skipped: %s (no EXIF GPS tags)\n", path);
         photoc_jpeg_exif_free(exif);
         return;
     }
@@ -112,6 +118,8 @@ static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
         return;
     }
 
+    photoc_output_verbose(output, "scrub", "input: '%s'; output: '%s'\n", path,
+                          in_place ? path : destination);
     result = photoc_jpeg_exif_remove_gps(exif);
     if (result == PHOTOC_JPEG_EDIT_OK) {
         result = in_place
@@ -123,9 +131,10 @@ static void scrub_file(const char *path, bool in_place, scrub_counts *counts)
         ++counts->processed;
         ++counts->gps_removed;
         if (in_place) {
-            printf("GPS removed in place: %s\n", path);
+            photoc_output_info(output, "GPS removed in place: %s\n", path);
         } else {
-            printf("GPS removed: %s -> %s\n", path, destination);
+            photoc_output_info(output, "GPS removed: %s -> %s\n", path,
+                               destination);
         }
     } else {
         ++counts->failed;
@@ -141,6 +150,10 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
     if (type == PHOTOC_FS_FILE) {
         if (!photoc_fs_is_jpeg(path) || is_scrubbed_output(path)) {
             ++walk->counts.skipped;
+            photoc_output_verbose(
+                walk->output, "scrub",
+                "skipped '%s': unsupported extension or scrubbed output\n",
+                path);
             return true;
         }
         if (walk->count == walk->capacity) {
@@ -177,8 +190,12 @@ static int compare_paths(const void *left, const void *right)
     return strcmp(*(const char *const *)left, *(const char *const *)right);
 }
 
-int photoc_command_scrub(const char *path, bool recursive, bool in_place)
+int photoc_command_scrub_with_output(const char *path, bool recursive,
+                                     bool in_place, const photoc_output *output)
 {
+    photoc_output_verbose(
+        output, "scrub", "input: '%s'; mode: %s; recursion: %s\n", path,
+        in_place ? "in place" : "copy", recursive ? "enabled" : "disabled");
     photoc_fs_type type;
     if (photoc_fs_get_type(path, &type) != 0) {
         return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
@@ -200,14 +217,16 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
     }
 
     scrub_counts counts = {0};
+    size_t discovered = 1;
     if (type == PHOTOC_FS_FILE) {
-        scrub_file(path, in_place, &counts);
+        scrub_file(path, in_place, &counts, output);
     } else {
-        scrub_walk walk = {0};
+        scrub_walk walk = {.output = output};
         int result = recursive
                          ? photoc_fs_walk_recursive(path, visit_file, &walk)
                          : photoc_fs_walk(path, visit_file, &walk);
         counts = walk.counts;
+        discovered = walk.count;
         if (result != 0) {
             ++counts.failed;
             photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
@@ -221,7 +240,7 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
                       compare_paths);
             }
             for (size_t i = 0; i < walk.count; ++i) {
-                scrub_file(walk.paths[i], in_place, &counts);
+                scrub_file(walk.paths[i], in_place, &counts, output);
             }
         }
         for (size_t i = 0; i < walk.count; ++i) {
@@ -229,12 +248,24 @@ int photoc_command_scrub(const char *path, bool recursive, bool in_place)
         }
         free(walk.paths);
     }
-    printf("Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n"
-           "Files with GPS found and removed: %zu\n",
-           counts.processed, counts.skipped, counts.failed, counts.gps_removed);
+    photoc_output_verbose(output, "scrub",
+                          "JPEG files discovered: %zu; processed: %zu; "
+                          "skipped: %zu; failed: %zu; GPS removed: %zu\n",
+                          discovered, counts.processed, counts.skipped,
+                          counts.failed, counts.gps_removed);
+    photoc_output_info(
+        output,
+        "Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n"
+        "Files with GPS found and removed: %zu\n",
+        counts.processed, counts.skipped, counts.failed, counts.gps_removed);
     if (ferror(stdout)) {
         return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                    NULL, "unable to write output", EIO);
     }
     return counts.failed == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
+}
+
+int photoc_command_scrub(const char *path, bool recursive, bool in_place)
+{
+    return photoc_command_scrub_with_output(path, recursive, in_place, NULL);
 }

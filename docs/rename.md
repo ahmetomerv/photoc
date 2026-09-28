@@ -1,6 +1,6 @@
 # photoc rename
 
-[Command overview](../README.md#commands)
+[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
 ## Purpose
 
@@ -27,8 +27,12 @@ paths containing spaces. Option values must be separate arguments, not
 | `--recursive` | Include JPEGs in nested directories; the default scans only the supplied directory. |
 | `--apply` | Rename files only after the entire plan passes preflight. |
 | `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Recognized; currently does not change output. |
-| `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
+| `-v`, `--verbose` | Report preview/apply mode, recursion, discovery/skip/metadata-failure counts, and applied/rolled-back counts on stderr. |
+| `-q`, `--quiet` | Keep plan mappings; hide the summary. Blocked entries and apply/rollback errors remain visible. |
+
+Global verbosity flags work before or after the command. Combining quiet and
+verbose returns usage status **2**. JSON, where supported, has the same schema
+in every mode; all diagnostics and errors use stderr.
 
 There is no `--dry-run` flag: omit `--apply`. `--json` is unsupported and returns
 exit status 2. Sequence width is currently fixed by the command, with no CLI

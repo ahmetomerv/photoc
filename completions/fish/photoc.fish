@@ -54,8 +54,8 @@ complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/de
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a scrub -d 'Remove EXIF GPS tags'
 
 complete -c photoc -n __fish_photoc_options -s h -l help -d 'Show help'
-complete -c photoc -n __fish_photoc_options -s v -l verbose -d 'Request detailed output'
-complete -c photoc -n __fish_photoc_options -s q -l quiet -d 'Request reduced output'
+complete -c photoc -n __fish_photoc_options -s v -l verbose -d 'Add diagnostics on stderr'
+complete -c photoc -n __fish_photoc_options -s q -l quiet -d 'Suppress status and non-critical warnings'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -s V -l version -d 'Show version'
 complete -c photoc -n '__fish_photoc_options; and begin; not __fish_photoc_command >/dev/null; or __fish_photoc_using_command exif stats duplicates focus; end' -l json -d 'Print structured JSON where supported'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command compress duplicates stats rename sort focus scrub' -l recursive -d 'Include nested directories'

@@ -1,6 +1,6 @@
 # photoc stats
 
-[Command overview](../README.md#commands)
+[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
 ## Purpose
 
@@ -25,8 +25,12 @@ case-insensitive; other file formats do not contribute to photo statistics.
 | `--recursive` | Include nested directories; the default scans only the supplied directory. |
 | `--json` | Emit scan, storage, date-range, and distribution objects. |
 | `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Recognized; currently does not change output. |
-| `-q`, `--quiet` | Recognized; currently does not change output. Cannot be combined with verbose. |
+| `-v`, `--verbose` | Report mode, recursion, scan/skip/metadata-failure counts, and worker limit on stderr. |
+| `-q`, `--quiet` | Keep statistics and distributions; hide scan status and non-critical metadata warnings. JSON keeps scan counters. |
+
+Global verbosity flags work before or after the command. Combining quiet and
+verbose returns usage status **2**. JSON, where supported, has the same schema
+in every mode; all diagnostics and errors use stderr.
 
 ## Examples
 
@@ -70,7 +74,9 @@ is applied.
   dates, and empty distributions (`None` in terminal output).
 - Broken or unreadable JPEGs are warned about, skipped, and counted as errors.
   **Per-file warnings alone do not cause a non-zero exit status.** Inspect the
-  scan summary or JSON `scan.errors` when completeness matters.
+  normal scan summary or JSON `scan.errors` when completeness matters. Quiet
+  mode suppresses these warnings and the human scan summary, but JSON counters
+  remain available.
 - Fatal directory traversal, allocation, aggregation, or output errors fail
   the command. Directory scans do not follow symlinks; symlinks and other
   non-regular entries are excluded from scan counters.

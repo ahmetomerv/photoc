@@ -125,10 +125,17 @@ static void print_json(const Photo *photo, const char *name)
     fputs("\n  }\n}\n", stdout);
 }
 
-int photoc_command_exif(const char *path, bool json)
+int photoc_command_exif_with_output(const char *path, bool json,
+                                    const photoc_output *output)
 {
+    photoc_output_verbose(output, "exif",
+                          "input: %s; mode: metadata; output: %s\n", path,
+                          json ? "JSON" : "human");
     Photo photo = {0};
     photoc_metadata_result result = photo_load_metadata(path, &photo);
+    photoc_output_verbose(output, "exif",
+                          "files inspected: 1; metadata parse failures: %u\n",
+                          result == PHOTOC_METADATA_OK ? 0u : 1u);
     if (result != PHOTOC_METADATA_OK) {
         int saved_errno = errno;
         return photoc_error_metadata("exif", PHOTOC_ERR_NOTE_NONE, path, result,
@@ -157,4 +164,9 @@ int photoc_command_exif(const char *path, bool json)
                                    NULL, "unable to write output", EIO);
     }
     return PHOTOC_EXIT_SUCCESS;
+}
+
+int photoc_command_exif(const char *path, bool json)
+{
+    return photoc_command_exif_with_output(path, json, NULL);
 }

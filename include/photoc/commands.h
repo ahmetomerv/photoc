@@ -1,6 +1,8 @@
 #ifndef PHOTOC_COMMANDS_H
 #define PHOTOC_COMMANDS_H
 
+#include "photoc/output.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -33,5 +35,31 @@ int photoc_command_sort(const char *directory, bool recursive,
 int photoc_command_focus(const char *path, bool recursive, double threshold,
                          bool only_blurry, bool json);
 int photoc_command_scrub(const char *path, bool recursive, bool in_place);
+
+/* Output-aware entry points. All arguments and output are borrowed only for
+   the synchronous call. NULL output preserves the original normal behavior;
+   the entry points above remain compatible wrappers. No context is retained. */
+int photoc_command_compress_with_output(const char *path,
+                                        const photoc_compress_options *options,
+                                        const photoc_output *output);
+int photoc_command_exif_with_output(const char *path, bool json,
+                                    const photoc_output *output);
+int photoc_command_duplicates_with_output(const char *directory, bool recursive,
+                                          bool json,
+                                          const photoc_output *output);
+int photoc_command_stats_with_output(const char *directory, bool recursive,
+                                     bool json, const photoc_output *output);
+int photoc_command_rename_with_output(const char *directory, const char *format,
+                                      bool recursive, bool apply,
+                                      const photoc_output *output);
+int photoc_command_sort_with_output(const char *directory, bool recursive,
+                                    photoc_sort_mode mode, uint32_t gap_minutes,
+                                    bool apply, const photoc_output *output);
+int photoc_command_focus_with_output(const char *path, bool recursive,
+                                     double threshold, bool only_blurry,
+                                     bool json, const photoc_output *output);
+int photoc_command_scrub_with_output(const char *path, bool recursive,
+                                     bool in_place,
+                                     const photoc_output *output);
 
 #endif

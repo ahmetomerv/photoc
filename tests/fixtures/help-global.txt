@@ -16,8 +16,8 @@ Commands:
 Global options:
   -h, --help       Show global or command help
   -V, --version    Show the version
-  -v, --verbose    Request detailed output
-  -q, --quiet      Request reduced output
+  -v, --verbose    Add diagnostics on stderr
+  -q, --quiet      Suppress status text and non-critical warnings
       --json       Request JSON output where supported
 
 Exif and stats inspect JPEG files; duplicates compares file bytes.

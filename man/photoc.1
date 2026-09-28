@@ -349,11 +349,21 @@ Cannot be combined with a command or
 .BR \-\-help .
 .TP
 .BR \-v ", " \-\-verbose
-Recognized as a request for detailed output; currently does not change output.
+Keep normal output and add diagnostics on standard error: operating mode,
+recursion, file discovery/skip/failure counts, and relevant input/output paths.
+Statistics and duplicate scans report the worker limit; small workloads and
+worker startup failures can run serially.
+Cannot be combined with quiet (status 2), regardless of option order.
 .TP
 .BR \-q ", " \-\-quiet
-Recognized as a request for reduced output; currently does not change output.
-Cannot be combined with verbose.
+Keep requested result data: EXIF fields, statistics/distributions, duplicate
+groups/counts/savings, focus scores, and rename/sort mappings.
+Suppress scan status, operation summaries, and non-critical warnings.
+Successful compress and scrub operations produce no standard output.
+Errors explaining non-zero exits remain on standard error, including warnings
+for failed duplicate/focus processing and blocked rename/sort entries.
+Help and version output remain available.
+Cannot be combined with verbose (status 2), regardless of option order.
 .TP
 .B \-\-json
 Print structured JSON for
@@ -365,7 +375,9 @@ and
 Optional metadata is null, presence fields are booleans, and numbers remain
 numeric.
 No human-readable decorations are printed on standard output.
-Warnings and errors remain on standard error; no JSON error envelope is emitted.
+Verbosity does not change the JSON schema or its scan/error counters.
+Verbose diagnostics, warnings, and errors use standard error; quiet suppresses
+non-critical warnings. No JSON error envelope is emitted.
 Other implemented commands reject this option with status 2.
 .SH SAFETY
 .B rename

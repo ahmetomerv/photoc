@@ -27,8 +27,10 @@ originals without creating a backup. See the
 and command guides before changing or sharing important photos.
 
 Image commands currently support JPEG files. Sharpness scores are review hints,
-not proof of blur. `--verbose` and `--quiet` are accepted but do not change
-output yet. The command-line interface may change during the `0.x` series;
+not proof of blur. In v0.1.0, `--verbose` and `--quiet` are accepted but do not
+change output. The current source implements [output verbosity](../README.md#output-verbosity);
+use a build from source until a release includes it. The command-line interface
+may change during the `0.x` series;
 review each release's notes before upgrading.
 
 ## Downloads and requirements
