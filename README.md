@@ -1,5 +1,8 @@
 # photoc
 
+<img src="assets/photoc.svg#gh-dark-mode-only" alt="photoc icon" width="96" height="96">
+<img src="assets/photoc-light.svg#gh-light-mode-only" alt="photoc icon" width="96" height="96">
+
 [![Version](https://img.shields.io/github/v/release/ahmetomerv/photoc?label=version)](https://github.com/ahmetomerv/photoc/releases/latest)
 [![Tests / CI](https://img.shields.io/github/actions/workflow/status/ahmetomerv/photoc/ci.yml?branch=main&event=push&label=tests%20%2F%20CI)](https://github.com/ahmetomerv/photoc/actions/workflows/ci.yml)
 [![Release / CD](https://img.shields.io/github/actions/workflow/status/ahmetomerv/photoc/release.yml?event=push&label=release%20%2F%20CD)](https://github.com/ahmetomerv/photoc/actions/workflows/release.yml)
