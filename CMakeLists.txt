@@ -5,6 +5,17 @@ project(photoc VERSION 0.1.0 LANGUAGES C)
 option(PHOTOC_SANITIZERS
     "Build with AddressSanitizer and UndefinedBehaviorSanitizer"
     OFF)
+option(PHOTOC_THREAD_SANITIZER "Build with ThreadSanitizer" OFF)
+if(PHOTOC_SANITIZERS AND PHOTOC_THREAD_SANITIZER)
+    message(FATAL_ERROR "ThreadSanitizer cannot be combined with AddressSanitizer")
+endif()
+if(PHOTOC_THREAD_SANITIZER)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+        message(FATAL_ERROR "PHOTOC_THREAD_SANITIZER requires GCC or Clang")
+    endif()
+    add_compile_options(-fsanitize=thread -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=thread)
+endif()
 if(PHOTOC_SANITIZERS)
     if(NOT CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
         message(FATAL_ERROR "PHOTOC_SANITIZERS requires GCC or Clang")
@@ -18,6 +29,7 @@ if(PHOTOC_SANITIZERS)
 endif()
 
 find_package(PkgConfig REQUIRED)
+find_package(Threads REQUIRED)
 pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
 pkg_check_modules(TURBOJPEG REQUIRED IMPORTED_TARGET libturbojpeg)
 
@@ -79,10 +91,11 @@ add_library(photoc_core STATIC
     src/core/sharpness.c
     src/core/stats.c
     src/core/timestamp.c
+    src/core/thread_pool.c
 )
 photoc_configure_c_target(photoc_core)
 target_include_directories(photoc_core PUBLIC include)
-target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF PkgConfig::TURBOJPEG)
+target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF PkgConfig::TURBOJPEG Threads::Threads)
 
 add_executable(photoc
     src/main.c
@@ -113,7 +126,27 @@ target_include_directories(photoc PRIVATE
 
 include(CTest)
 
+option(PHOTOC_BENCHMARKS "Build optional concurrency benchmarks" OFF)
+if(PHOTOC_BENCHMARKS)
+    add_executable(benchmark_concurrency benchmarks/concurrency.c)
+    photoc_configure_c_target(benchmark_concurrency)
+    target_link_libraries(benchmark_concurrency PRIVATE photoc_core)
+endif()
+
 if(BUILD_TESTING)
+    add_executable(test_thread_pool tests/test_thread_pool.c)
+    photoc_configure_c_target(test_thread_pool)
+    target_link_libraries(test_thread_pool PRIVATE photoc_core)
+    add_test(NAME thread_pool COMMAND test_thread_pool)
+
+    add_executable(test_concurrency tests/test_concurrency.c)
+    photoc_configure_c_target(test_concurrency)
+    target_link_libraries(test_concurrency PRIVATE photoc_core)
+    target_compile_definitions(test_concurrency PRIVATE
+        PHOTOC_CONCURRENCY_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+    )
+    add_test(NAME concurrent_scanning COMMAND test_concurrency)
+
     add_executable(test_fs tests/test_fs.c)
     photoc_configure_c_target(test_fs)
     target_link_libraries(test_fs PRIVATE photoc_core)

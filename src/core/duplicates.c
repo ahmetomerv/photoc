@@ -7,6 +7,7 @@
 
 #include "photoc/fs.h"
 #include "photoc/hash.h"
+#include "photoc/thread_pool.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -34,6 +35,8 @@ typedef struct {
     uint64_t size;
     unsigned char digest[PHOTOC_SHA256_DIGEST_SIZE];
     bool hashed;
+    bool needs_hash;
+    int hash_error;
 } file_record;
 
 typedef struct {
@@ -272,16 +275,10 @@ static void mark_empty_hashes(find_context *context, size_t start, size_t end)
     }
 }
 
-static void hash_records(find_context *context, size_t start, size_t end)
+static void mark_for_hashing(find_context *context, size_t start, size_t end)
 {
     for (size_t i = start; i < end; ++i) {
-        file_record *file = &context->files[i];
-        if (photoc_hash_file_sha256(file->path, file->digest) != 0) {
-            warn_file(context, file->path, errno);
-        } else {
-            file->hashed = true;
-            ++context->result->files_hashed;
-        }
+        context->files[i].needs_hash = true;
     }
 }
 
@@ -304,7 +301,7 @@ static void hash_size_group(find_context *context, size_t start, size_t end)
     if (entries == NULL || prefix_bytes == NULL) {
         free(entries);
         free(prefix_bytes);
-        hash_records(context, start, end);
+        mark_for_hashing(context, start, end);
         return;
     }
 
@@ -339,20 +336,18 @@ static void hash_size_group(find_context *context, size_t start, size_t end)
         if (group_end - group_start > 1) {
             for (size_t i = group_start; i < group_end; ++i) {
                 file_record *file = &context->files[entries[i].index];
-                int hash_status;
                 /* Whole file already in the prefix buffer: hash in place. */
                 if ((uint64_t)entries[i].length == file->size) {
-                    hash_status = photoc_hash_bytes_sha256(
+                    int hash_status = photoc_hash_bytes_sha256(
                         entries[i].prefix, entries[i].length, file->digest);
+                    if (hash_status != 0) {
+                        warn_file(context, file->path, errno);
+                    } else {
+                        file->hashed = true;
+                        ++context->result->files_hashed;
+                    }
                 } else {
-                    hash_status = photoc_hash_file_sha256(file->path,
-                                                          file->digest);
-                }
-                if (hash_status != 0) {
-                    warn_file(context, file->path, errno);
-                } else {
-                    file->hashed = true;
-                    ++context->result->files_hashed;
+                    file->needs_hash = true;
                 }
             }
         }
@@ -373,6 +368,65 @@ static void hash_same_size_files(find_context *context)
         }
         hash_size_group(context, start, end);
         start = end;
+    }
+}
+
+static void hash_one(file_record *file)
+{
+    if (photoc_hash_file_sha256(file->path, file->digest) != 0) {
+        file->hash_error = errno;
+    } else {
+        file->hashed = true;
+    }
+}
+
+static void hash_task(size_t index, void *user_data)
+{
+    file_record **files = user_data;
+    hash_one(files[index]);
+}
+
+static void hash_candidates(find_context *context, size_t workers)
+{
+    size_t count = 0;
+    uint64_t bytes = 0;
+    for (size_t i = 0; i < context->count; ++i) {
+        if (context->files[i].needs_hash) {
+            ++count;
+            uint64_t size = context->files[i].size;
+            bytes = size > UINT64_MAX - bytes ? UINT64_MAX : bytes + size;
+        }
+    }
+    photoc_thread_pool *pool = NULL;
+    file_record **jobs = NULL;
+    /* Avoid thread startup and scheduling for tiny/mostly filtered corpora. */
+    if (workers != 1 && count >= 4 && bytes >= UINT64_C(1048576) &&
+        count <= SIZE_MAX / sizeof(*jobs)) {
+        jobs = malloc(count * sizeof(*jobs));
+        if (jobs != NULL) pool = photoc_thread_pool_create(workers);
+    }
+    if (pool != NULL) {
+        size_t next = 0;
+        for (size_t i = 0; i < context->count; ++i) {
+            if (context->files[i].needs_hash) jobs[next++] = &context->files[i];
+        }
+        if (photoc_thread_pool_run(pool, count, hash_task, jobs) != 0) {
+            for (size_t i = 0; i < count; ++i) hash_one(jobs[i]);
+        }
+    } else {
+        for (size_t i = 0; i < context->count; ++i) {
+            if (context->files[i].needs_hash) hash_one(&context->files[i]);
+        }
+    }
+    photoc_thread_pool_destroy(pool);
+    free(jobs);
+    /* Warning callbacks and counters are serial and independent of completion
+       order. No worker shares a digest buffer with another worker. */
+    for (size_t i = 0; i < context->count; ++i) {
+        file_record *file = &context->files[i];
+        if (!file->needs_hash) continue;
+        if (file->hashed) ++context->result->files_hashed;
+        else warn_file(context, file->path, file->hash_error);
     }
 }
 
@@ -474,11 +528,13 @@ static int assemble_groups(find_context *context)
     return 0;
 }
 
-int photoc_duplicates_find(const char *directory, bool recursive,
+int photoc_duplicates_find_with_workers(const char *directory, bool recursive,
+                           size_t workers,
                            photoc_duplicates_warning_fn on_warning,
                            void *user_data, photoc_duplicates_result *result)
 {
-    if (result == NULL || directory == NULL || directory[0] == '\0') {
+    if (result == NULL || directory == NULL || directory[0] == '\0' ||
+        workers > PHOTOC_MAX_WORKERS) {
         errno = EINVAL;
         return -1;
     }
@@ -496,6 +552,7 @@ int photoc_duplicates_find(const char *directory, bool recursive,
                   compare_size);
         }
         hash_same_size_files(&context);
+        hash_candidates(&context, workers);
         if (assemble_groups(&context) != 0) {
             saved_errno = errno;
             walk_result = -1;
@@ -509,4 +566,12 @@ int photoc_duplicates_find(const char *directory, bool recursive,
         return -1;
     }
     return 0;
+}
+
+int photoc_duplicates_find(const char *directory, bool recursive,
+                           photoc_duplicates_warning_fn on_warning,
+                           void *user_data, photoc_duplicates_result *result)
+{
+    return photoc_duplicates_find_with_workers(directory, recursive, 0,
+                           on_warning, user_data, result);
 }

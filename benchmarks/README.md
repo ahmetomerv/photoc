@@ -77,10 +77,10 @@ concurrency:
 4. **In-memory hash for tiny files** — When the prefix read already consumed the
    whole file, SHA-256 runs over that buffer instead of re-opening the path.
 
-Concurrency was not added: single-threaded hashing remains the clear bottleneck
+At this baseline, concurrency was not added: single-threaded hashing remained the clear bottleneck
 only when many files share both size and prefix (true near-duplicate or
 duplicate sets). Prefix filtering removes most of that work for typical photo
-libraries with unique content.
+libraries with unique content. The later bounded-concurrency measurements are below.
 
 ### Remaining bottlenecks
 
@@ -93,11 +93,73 @@ libraries with unique content.
 4. **Path arena + result copies** — Duplicate-heavy trees copy winning paths
    into owned group strings.
 
-## `photoc stats` bottlenecks (unchanged)
+## `photoc stats` bottlenecks
 
 1. **Per-JPEG metadata load** — `photo_load_metadata` for every JPEG.
 2. **Directory walk** — recursive `photoc_fs_walk_recursive`.
 3. **Aggregation / stdout** — minor next to metadata I/O.
+
+## Bounded concurrency
+
+```sh
+cmake -S . -B build-bench -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTING=OFF -DPHOTOC_BENCHMARKS=ON
+cmake --build build-bench
+python3 scripts/benchmark-concurrency.py
+```
+
+The script uses temporary synthetic data, warms each workload once per worker
+count, and reports the median of three measured runs. It validates matching
+result checksums across worker counts. Focus requires `cjpeg` (from
+libjpeg-turbo) to generate a 2048×2048 checkerboard JPEG. No user photos are
+read or changed. The optional C harness links to the same core library as the
+CLI; metadata and duplicates timings include directory traversal and pool
+startup, while focus includes traversal, scaled decode, and analysis.
+
+Measured on 2026-09-28, Apple Silicon, macOS 27, Release build, warm cache:
+
+| Workload | Files | 1 worker | 2 workers | 4 workers | Gain with 2 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| EXIF scan, mixed tiny JPEG fixtures | 4000 | 0.1524 s | 0.0944 s | 0.0707 s | 1.61× |
+| Small EXIF scan (stays serial) | 8 | 0.0004 s | 0.0004 s | 0.0003 s | 1.01× |
+| Duplicate scan, shared prefix, 2 MiB each | 64 | 0.2955 s | 0.1513 s | 0.0842 s | 1.95× |
+| Duplicate scan, unique prefixes, 4 KiB each | 1000 | 0.0156 s | 0.0150 s | 0.0152 s | 1.04× |
+| Sharpness API, generated checkerboards | 128 | 0.6857 s | 0.3546 s | 0.1875 s | 1.93× |
+
+These results justify two workers for substantial full-hash workloads and
+batched EXIF loading. They do not establish a benefit for prefix filtering or
+directory enumeration, which remain serial. Disk/cache behavior and CPU count
+can change the gains; these are synthetic warm-cache measurements, not claims
+about every photo library.
+
+- The shared pool defaults to **2** workers, accepts **1** for serial execution,
+  and rejects counts above **8**. Core APIs accept a worker count for future
+  configuration; there is no new CLI flag.
+- Duplicates starts a pool only with at least **4** full-hash candidates totaling
+  at least **1 MiB**. Prefix filtering, tiny in-memory hashes, and empty-file
+  hashes stay serial. Resource failures fall back to serial work.
+- The scanner buffers at most **32** regular entries and parallelizes batches
+  containing at least **8** JPEGs once a pool exists. Pool startup requires a
+  batch with at least **16** JPEGs; an 8-file scan measured slightly slower
+  with thread startup, so it stays serial. Boundary trials measured 1.22× for
+  16 JPEGs and 1.81× for four 256 KiB full-hash candidates. Each task owns its
+  `Photo` and libexif handles.
+  This follows [libexif's thread-safety requirements](https://libexif.github.io/api/).
+  Metadata and path memory is bounded by the batch, rather than directory size.
+- Tasks write to separate result slots. Warnings, aggregation, and user callbacks
+  run on the calling thread in input/traversal order. Output never depends on
+  worker completion order. Pools finish outstanding tasks and join all workers
+  before resources are freed. Callback stop discards loaded results after that
+  callback and retains only preceding scan counts.
+- Focus has no collection command yet. Its benchmark exercises independent
+  existing sharpness calls through the pool; the CLI remains unimplemented.
+  Analysis buffers scale with active workers, so the conservative default also
+  limits memory use.
+
+The full test suite was run with ThreadSanitizer without race reports. System
+libexif and TurboJPEG binaries are not themselves rebuilt with sanitizer
+instrumentation; the test verifies instrumented project code and observed
+library calls, and does not prove all possible executions race-free.
 
 ## Interpreting changes
 

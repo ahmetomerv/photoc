@@ -1,6 +1,8 @@
 /build/
 /build-san/
 /build-analyze/
+/build-bench/
+/build-tsan/
 /cmake-build-*/
 /out/
 /benchmarks/data/

@@ -70,4 +70,15 @@ Thanks for helping build `photoc`.
 6. Optional: for scan-heavy changes, run `python3 scripts/benchmark.py` and note
    any large shift versus [`benchmarks/README.md`](benchmarks/README.md). Do not
    chase micro-optimizations without a measured regression.
-7. Describe what changed and how it was tested in your pull request.
+7. For concurrency changes, use a separate ThreadSanitizer build when supported:
+
+   ```sh
+   cmake -S . -B build-tsan -DPHOTOC_THREAD_SANITIZER=ON
+   cmake --build build-tsan
+   ctest --test-dir build-tsan --output-on-failure
+   ```
+
+   This option is separate from `PHOTOC_SANITIZERS`; ThreadSanitizer and
+   AddressSanitizer cannot be enabled together. Reproducible worker-count
+   benchmarks are documented in [`benchmarks/README.md`](benchmarks/README.md).
+8. Describe what changed and how it was tested in your pull request.

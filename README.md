@@ -220,6 +220,14 @@ text. An unrecognized option names the command and points at
 
 ## Shared filesystem utilities
 
+Large duplicate-hashing workloads and batched JPEG metadata scans use a small
+POSIX thread pool with two workers by default and a hard limit of eight.
+Callbacks, warnings, and output are delivered serially; small workloads stay
+serial. Worker counts can be set through the shared C APIs for future CLI
+configuration. See [`benchmarks/README.md`](benchmarks/README.md) for measured
+gains and [`include/photoc/thread_pool.h`](include/photoc/thread_pool.h) for
+ownership and shutdown rules. The `focus` CLI remains unimplemented.
+
 [`include/photoc/fs.h`](include/photoc/fs.h) defines the filesystem API used by future commands. It covers path inspection, filename and extension extraction, safe path joining, and callback-based directory walks. [`include/photoc/photo.h`](include/photoc/photo.h) defines the shared `Photo` metadata model. Both headers document ownership and unavailable values.
 
 [`include/photoc/json.h`](include/photoc/json.h) provides a small string writer

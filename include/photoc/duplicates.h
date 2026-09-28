@@ -43,6 +43,15 @@ int photoc_duplicates_find(const char *directory, bool recursive,
                            photoc_duplicates_warning_fn on_warning,
                            void *user_data, photoc_duplicates_result *result);
 
+/* Same contract with bounded concurrency for full-hash candidates. Zero uses
+   two workers, one is serial, and values above PHOTOC_MAX_WORKERS
+   (thread_pool.h) are invalid. Small workloads and thread startup failures
+   run serially. Warnings run on the caller, never on a worker. */
+int photoc_duplicates_find_with_workers(const char *directory, bool recursive,
+                           size_t workers,
+                           photoc_duplicates_warning_fn on_warning,
+                           void *user_data, photoc_duplicates_result *result);
+
 void photoc_duplicates_cleanup(photoc_duplicates_result *result);
 
 #endif

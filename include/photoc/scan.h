@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct {
     uint64_t files_visited;    /* Regular files examined; directories excluded. */
@@ -30,9 +31,22 @@ typedef void (*photoc_scan_warning_fn)(const char *path,
    invalid arguments, directory traversal failure, or memory exhaustion.
    stats is zeroed before scanning and retains partial counts on early return.
    Per-file JPEG failures warn, increment errors/skipped_files, and do not stop
-   the scan. Neither callback is retained; user_data is borrowed. */
+   the scan. Loads use at most two workers and 32 buffered regular entries.
+   Callbacks run serially on the caller in traversal order (the filesystem's
+   order, not lexical order). Read-only loads may run ahead within a batch;
+   stopping discards later results and excludes them from stats. Neither
+   callback is retained; user_data is borrowed. */
 int photoc_scan_directory(const char *directory, bool recursive,
                           photoc_scan_photo_fn on_photo,
+                          photoc_scan_warning_fn on_warning,
+                          void *user_data, photoc_scan_stats *stats);
+
+/* Same contract, with an explicit bounded worker count: zero uses the default,
+   one is serial, and values above PHOTOC_MAX_WORKERS (thread_pool.h) are
+   invalid. Small batches run serially; thread startup failure falls back to
+   serial loading. No new CLI option is introduced. */
+int photoc_scan_directory_with_workers(const char *directory, bool recursive,
+                          size_t workers, photoc_scan_photo_fn on_photo,
                           photoc_scan_warning_fn on_warning,
                           void *user_data, photoc_scan_stats *stats);
 
