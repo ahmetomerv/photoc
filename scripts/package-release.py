@@ -16,10 +16,18 @@ ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = ("darwin-arm64", "darwin-x86_64", "linux-x86_64")
 
 
+def project_version():
+    version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
+    if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+        raise ValueError("VERSION must contain MAJOR.MINOR.PATCH without leading zeroes")
+    return version
+
+
 def release_version(tag):
-    if not re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag):
-        raise ValueError("release tag must be vMAJOR.MINOR.PATCH without leading zeroes")
-    return tag[1:]
+    version = project_version()
+    if tag != "v" + version:
+        raise ValueError(f"release tag {tag!r} does not match VERSION; expected 'v{version}'")
+    return version
 
 
 def asset_names(tag, platform):
@@ -63,7 +71,7 @@ def package(tag, platform, binary, output):
         man = bundle / "share/man/man1/photoc.1"
         man.parent.mkdir(parents=True)
         shutil.copyfile(ROOT / "man/photoc.1", man)
-        for name in ("LICENSE", "README.md", "CONTRIBUTING.md", "AGENTS.md"):
+        for name in ("VERSION", "LICENSE", "README.md", "CONTRIBUTING.md", "AGENTS.md"):
             shutil.copyfile(ROOT / name, bundle / name)
         for name in ("docs", "completions"):
             shutil.copytree(ROOT / name, bundle / name)
@@ -128,6 +136,8 @@ def collect_checksums(tag, directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    version = commands.add_parser("version", help="read VERSION and optionally validate a release tag")
+    version.add_argument("--tag")
     packaging = commands.add_parser("package", help="package a tested native executable")
     packaging.add_argument("--tag", required=True)
     packaging.add_argument("--platform", choices=PLATFORMS, required=True)
@@ -138,7 +148,9 @@ def main():
     checksums.add_argument("--directory", type=Path, default=Path("dist"))
     args = parser.parse_args()
     try:
-        if args.command == "package":
+        if args.command == "version":
+            print(release_version(args.tag) if args.tag is not None else project_version())
+        elif args.command == "package":
             package(args.tag, args.platform, args.binary, args.output)
         else:
             collect_checksums(args.tag, args.directory)

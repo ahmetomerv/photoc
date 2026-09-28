@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(photoc VERSION 0.1.0 LANGUAGES C)
+include(cmake/Version.cmake)
+project(photoc VERSION "${PHOTOC_VERSION}" LANGUAGES C)
 
 include(GNUInstallDirs)
 
@@ -155,10 +156,16 @@ if(BUILD_TESTING)
             add_test(NAME release_packaging
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_RELEASE_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_release_packaging.py")
-            set_tests_properties(release_installer release_uninstaller release_packaging
+            add_test(NAME versioning
+                COMMAND "${CMAKE_COMMAND}" -E env
+                    "PHOTOC_VERSION_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "PHOTOC_VERSION_TEST_CMAKE=${CMAKE_COMMAND}"
+                    "PHOTOC_VERSION_TEST_COMPILER=${CMAKE_C_COMPILER}"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_versioning.py")
+            set_tests_properties(release_installer release_uninstaller release_packaging versioning
                 PROPERTIES TIMEOUT 60)
         else()
-            message(STATUS "Python 3 not found; offline install/uninstall tests are not registered")
+            message(STATUS "Python 3 not found; release script and versioning tests are not registered")
         endif()
         add_test(
             NAME installation

@@ -11,6 +11,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,10 +51,11 @@ class ReleasePackagingTests(unittest.TestCase):
         self.assertEqual((self.output / raw).stat().st_mode & 0o777, 0o755)
         base = archive.removesuffix(".tar.gz")
         with tarfile.open(self.output / archive) as bundle:
-            for name in ("bin/photoc", "LICENSE", "README.md", "share/man/man1/photoc.1",
+            for name in ("bin/photoc", "VERSION", "LICENSE", "README.md", "share/man/man1/photoc.1",
                          "completions/bash/photoc", "completions/zsh/_photoc",
                          "completions/fish/photoc.fish", "docs/exif.md", "scripts/uninstall.sh"):
                 self.assertTrue(bundle.getmember(base + "/" + name).isfile(), name)
+            self.assertEqual(bundle.extractfile(base + "/VERSION").read(), (ROOT / "VERSION").read_bytes())
             binary_member = bundle.getmember(base + "/bin/photoc")
             self.assertEqual(binary_member.mode, 0o755)
             self.assertTrue(all(member.uid == 0 and member.gid == 0 and member.mtime == 0
@@ -77,11 +79,20 @@ class ReleasePackagingTests(unittest.TestCase):
                 release.package(tag, self.platform, BINARY, self.output)
         self.assertFalse(self.output.exists())
 
-    def test_tag_must_match_compiled_version(self):
+    def test_tag_must_match_canonical_version(self):
         major, minor, patch = map(int, self.tag[1:].split("."))
         wrong = f"v{major}.{minor}.{patch + 1}"
-        with self.assertRaisesRegex(ValueError, "does not match"):
+        with self.assertRaisesRegex(ValueError, "does not match VERSION"):
             release.package(wrong, self.platform, BINARY, self.output)
+        self.assertFalse(self.output.exists())
+
+    def test_stale_binary_is_rejected_before_packaging(self):
+        major, minor, patch = map(int, self.tag[1:].split("."))
+        version = f"{major}.{minor}.{patch + 1}"
+        (self.root / "VERSION").write_text(version + "\n", encoding="ascii")
+        with mock.patch.object(release, "ROOT", self.root):
+            with self.assertRaisesRegex(ValueError, "does not match binary version"):
+                release.package("v" + version, self.platform, BINARY, self.output)
         self.assertFalse(self.output.exists())
 
     def test_existing_asset_is_preserved(self):
