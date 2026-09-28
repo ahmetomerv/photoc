@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.21)
+
 if(NOT DEFINED PHOTOC OR NOT DEFINED FIXTURE_DIR OR NOT DEFINED CASE)
     message(FATAL_ERROR "PHOTOC, FIXTURE_DIR, and CASE are required")
 endif()
