@@ -15,6 +15,7 @@ The default is the latest release, installed to $HOME/.local/bin.
   -h, --help              Show this help.
 
 The SHA-256 checksum is verified before the executable is run or installed.
+An ownership receipt is recorded for scripts/uninstall.sh.
 Existing files and symlinks are never replaced. No sudo is used.
 EOF
 }
@@ -62,7 +63,7 @@ case "$install_dir" in
     *:*) die "installation directory cannot contain ':' (the PATH separator)" ;;
 esac
 
-for tool in uname curl mktemp mkdir cp chmod ln rm awk sed; do
+for tool in uname curl mktemp mkdir cp chmod ln rm awk sed stat; do
     command -v "$tool" >/dev/null 2>&1 || die "required tool not found: $tool"
 done
 if command -v sha256sum >/dev/null 2>&1; then
@@ -83,13 +84,24 @@ case "$os:$arch" in
 esac
 
 destination=$install_dir/photoc
+receipt=$install_dir/.photoc-install-receipt
 if [ -e "$destination" ] || [ -L "$destination" ]; then
-    die "$destination already exists; move it aside before installing"
+    die "$destination already exists; preview scripts/uninstall.sh or move an untracked file aside"
+fi
+if [ -e "$receipt" ] || [ -L "$receipt" ]; then
+    die "$receipt already exists; use scripts/uninstall.sh to inspect the tracked installation"
 fi
 
 work_dir=
 stage_dir=
 cleanup() {
+    # Roll back our receipt if publishing the binary failed. Keep receipts for
+    # completed installs, including a signal just after the binary was linked.
+    if [ -n "$stage_dir" ] && [ ! -L "$receipt" ] &&
+       [ "$receipt" -ef "$stage_dir/.photoc-install-receipt" ] &&
+       ! [ "$destination" -ef "$stage_dir/photoc" ]; then
+        rm -f -- "$receipt"
+    fi
     if [ -n "$stage_dir" ]; then rm -rf -- "$stage_dir"; fi
     if [ -n "$work_dir" ]; then rm -rf -- "$work_dir"; fi
 }
@@ -156,11 +168,27 @@ case "$binary_version" in
     *) die "downloaded executable did not report a photoc version" ;;
 esac
 
+if [ "$checksum_tool" = sha256sum ]; then
+    staged_hash=$(sha256sum "$stage_dir/photoc") || die "cannot verify staged executable"
+else
+    staged_hash=$(shasum -a 256 "$stage_dir/photoc") || die "cannot verify staged executable"
+fi
+[ "${staged_hash%% *}" = "$expected" ] || die "staged executable changed; nothing was installed"
+case "$os" in
+    Darwin) identity=$(stat -f '%d:%i' "$stage_dir/photoc") ;;
+    Linux) identity=$(stat -c '%d:%i' "$stage_dir/photoc") ;;
+esac
+printf 'photoc-install-v1\nsha256 %s\nidentity %s\n' "$expected" "$identity" \
+    > "$stage_dir/.photoc-install-receipt"
+ln "$stage_dir/.photoc-install-receipt" "$install_dir" \
+    || die "cannot record installation receipt in $install_dir"
+
 # Linking a staged file named photoc into the directory atomically creates the
 # final name without replacing any existing file, directory, or symlink.
 ln "$stage_dir/photoc" "$install_dir" \
     || die "cannot install $destination; an existing entry or permissions may block it"
 printf 'Installed %s to %s\n' "$binary_version" "$destination"
+printf 'Recorded install receipt at %s\n' "$receipt"
 
 case ":${PATH:-}:" in
     *":$install_dir:"*) ;;

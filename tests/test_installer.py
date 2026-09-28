@@ -17,7 +17,7 @@ INSTALLER = Path(__file__).resolve().parents[1] / "scripts/install.sh"
 REPOSITORY = "https://github.com/ahmetomerv/photoc"
 
 
-class InstallerTests(unittest.TestCase):
+class InstallerFixture(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="photoc-installer-test-")
         self.addCleanup(self.temporary.cleanup)
@@ -29,6 +29,7 @@ class InstallerTests(unittest.TestCase):
         self.home = self.root / "home"
         self.home.mkdir()
         self.destination = self.home / ".local/bin/photoc"
+        self.receipt = self.destination.parent / ".photoc-install-receipt"
         self.calls = self.root / "curl-calls.jsonl"
         self.binary = self.root / "release-binary"
         self.manifest = self.root / "SHA256SUMS"
@@ -47,7 +48,8 @@ class InstallerTests(unittest.TestCase):
             "MOCK_EXECUTED": str(self.executed),
             "MOCK_DESTINATION": str(self.destination),
         }
-        for tool in ("cat", "chmod", "cp", "ln", "mkdir", "mktemp", "rm", "awk", "sed"):
+        for tool in ("cat", "chmod", "cp", "ln", "mkdir", "mktemp", "rm", "rmdir",
+                     "mv", "awk", "sed"):
             location = shutil.which(tool)
             if location is None:
                 self.fail(f"required test tool is missing: {tool}")
@@ -59,6 +61,14 @@ case "$1" in
     *) exit 1 ;;
 esac
 """)
+        self.write_tool("stat", f"#!{sys.executable}\n" + '''
+from pathlib import Path
+import sys
+assert sys.argv[1] in ("-f", "-c")
+assert sys.argv[2] == "%d:%i"
+info = Path(sys.argv[3]).stat()
+print(f"{info.st_dev}:{info.st_ino}")
+''')
         self.write_tool("curl", f"#!{sys.executable}\n" + '''
 import json
 import os
@@ -128,6 +138,7 @@ case "${{MOCK_RACE:-}}" in
     file) printf original > "$MOCK_DESTINATION" ;;
     directory) mkdir "$MOCK_DESTINATION" ;;
     symlink) ln -s "$MOCK_BINARY" "$MOCK_DESTINATION" ;;
+    receipt) printf 'user receipt' > "${{MOCK_DESTINATION%/*}}/.photoc-install-receipt" ;;
 esac
 printf '%s\\n' '{output}'
 exit {status}
@@ -152,6 +163,10 @@ exit {status}
         self.assertIn(message, result.stderr)
         self.assertFalse(self.destination.exists())
         self.assertFalse(self.destination.is_symlink())
+        self.assertFalse(self.receipt.exists())
+
+
+class InstallerTests(InstallerFixture):
 
     def test_platforms_and_pinned_latest(self):
         for os_name, arch in (("Darwin", "arm64"), ("Darwin", "x86_64"),
@@ -162,11 +177,17 @@ exit {status}
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(self.destination.read_bytes(), self.binary.read_bytes())
                 self.assertEqual(self.destination.stat().st_mode & 0o777, 0o755)
+                self.assertEqual(self.receipt.stat().st_mode & 0o777, 0o600)
+                info = self.destination.stat()
+                self.assertEqual(self.receipt.read_text().splitlines(), [
+                    "photoc-install-v1", "sha256 " + self.digest,
+                    f"identity {info.st_dev}:{info.st_ino}"])
                 self.assertIn("Installed photoc 1.2.3", result.stdout)
                 calls = [json.loads(line) for line in self.calls.read_text().splitlines()]
                 self.assertEqual(calls[0], REPOSITORY + "/releases/latest")
                 self.assertTrue(all("/releases/download/v1.2.3/" in url for url in calls[1:]))
                 self.destination.unlink()
+                self.receipt.unlink()
                 self.calls.unlink()
 
     def test_specific_tag_and_shasum_fallback(self):
@@ -307,6 +328,23 @@ exit {status}
         self.environment["MOCK_SIGNAL"] = "1"
         result = self.run_installer()
         self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.destination.exists())
+
+    def test_existing_receipt_is_preserved(self):
+        self.receipt.parent.mkdir(parents=True)
+        self.receipt.write_text("user receipt")
+        result = self.run_installer()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("already exists", result.stderr)
+        self.assertEqual(self.receipt.read_text(), "user receipt")
+        self.assertFalse(self.calls.exists())
+
+    def test_receipt_created_during_install_is_preserved(self):
+        self.environment["MOCK_RACE"] = "receipt"
+        result = self.run_installer()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cannot record", result.stderr)
+        self.assertEqual(self.receipt.read_text(), "user receipt")
         self.assertFalse(self.destination.exists())
 
 

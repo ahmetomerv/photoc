@@ -67,11 +67,12 @@ jobs:
           brew install cmake pkgconf libexif jpeg-turbo fish
           echo "PKG_CONFIG_PATH=$(brew --prefix libexif)/lib/pkgconfig:$(brew --prefix jpeg-turbo)/lib/pkgconfig" >> "$GITHUB_ENV"
 
-      - name: Check installer shell script
+      - name: Check installation shell scripts
         if: runner.os == 'Linux'
         run: |
           sh -n scripts/install.sh
-          shellcheck --shell=sh scripts/install.sh
+          sh -n scripts/uninstall.sh
+          shellcheck --shell=sh scripts/install.sh scripts/uninstall.sh
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON

@@ -45,13 +45,16 @@ and cannot contain `:` because that separates entries in `PATH`.
   release notes; the installer does not install libraries.
 - Creates the final filename atomically without replacing existing files,
   directories, or symlinks, including entries created during installation.
-  To upgrade, move your current `photoc` aside first and keep it until the new
-  installation succeeds.
+- Records the installed binary's SHA-256 digest and device/inode identity in
+  `.photoc-install-receipt` next to the executable. This private receipt enables
+  safe removal; it is never overwritten. To upgrade, back up the binary if
+  needed, use the tracked uninstall flow below, then install the new release.
 - Cleans temporary downloads and staging files on normal exits and handled
   signals. Errors go to stderr and return a nonzero status: `1` for an
   installation failure or `2` for invalid options.
-- Installs only the executable. For the man page and completions, use the
-  source installation and [completion instructions](../completions/README.md).
+- Installs the executable and ownership receipt. For the man page and
+  completions, use the source installation and
+  [completion instructions](../completions/README.md).
 
 If the destination is absent from `PATH`, the installer prints the exact setup
 line for bash/zsh and fish. For the default location:
@@ -63,6 +66,54 @@ export PATH="$HOME/.local/bin:$PATH"
 # fish
 fish_add_path "$HOME/.local/bin"
 ```
+
+## Uninstalling a tracked release installation
+
+From a checkout, preview first, then explicitly apply removal:
+
+```sh
+sh scripts/uninstall.sh
+sh scripts/uninstall.sh --apply
+
+# Use the directory originally passed to install.sh:
+sh scripts/uninstall.sh --install-dir "$HOME/bin" --apply
+```
+
+Without a checkout, download the script:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ahmetomerv/photoc/main/scripts/uninstall.sh \
+  -o uninstall-photoc.sh
+sh uninstall-photoc.sh
+sh uninstall-photoc.sh --apply
+```
+
+The default is a dry run (`--dry-run` is also accepted). `--apply` removes only
+the unchanged `photoc` executable recorded by `scripts/install.sh` and its
+`.photoc-install-receipt`. Both the checksum and file identity must match.
+Replacing, editing, or symlinking the binary blocks removal; a malformed or
+symlinked receipt also blocks it. If the recorded binary is already absent,
+only its valid receipt is removed. Repeated uninstall of an empty location is
+successful and creates no directories.
+
+Configuration, photos, unrelated executables, shell startup/PATH settings,
+completions, man pages, and the installation directory are preserved. The
+script runs locally, does not execute the installed binary, and never uses
+`sudo`. It requires standard Unix utilities plus `sha256sum` or `shasum` on
+macOS or Linux. Exit statuses are `0` for a successful preview/removal, `1` for
+an operational failure, and `2` for invalid options.
+
+During removal, files are moved into a private temporary directory and verified
+again before deletion. If a concurrent change or filesystem error prevents
+safe completion, remaining files are preserved and their location is printed
+to stderr. Restore those files to their original locations manually before
+retrying; the script does not overwrite a replacement file during recovery.
+
+**CMake, manual, and earlier installations without this receipt are untracked.**
+The script refuses to remove them. For a source install, review the corresponding
+`build/install_manifest.txt` and the current files before manually removing
+any entries. The receipt does not authorize deleting a file that was replaced
+by a package manager or another installation.
 
 ## Release asset contract
 

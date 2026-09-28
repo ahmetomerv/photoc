@@ -97,6 +97,21 @@ options, common option values, and paths. See
 [completion installation](completions/README.md) for per-user setup. They use
 native shell facilities and add no runtime dependency.
 
+### Uninstall
+
+For a release installed by `scripts/install.sh`, preview and then apply:
+
+```sh
+sh scripts/uninstall.sh
+sh scripts/uninstall.sh --apply
+```
+
+Use `--install-dir` for a custom location. The script verifies the installer's
+ownership receipt and removes only the unchanged executable and receipt.
+Configuration, shell setup, completions, man pages, and unrelated files remain.
+See [uninstall details](docs/installation.md#uninstalling-a-tracked-release-installation)
+for downloading the script and handling untracked source/manual installs.
+
 ## Quick start
 
 ```sh

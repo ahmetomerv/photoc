@@ -134,7 +134,7 @@ publish releases. The sanitizer build can be reproduced locally with
 `sh scripts/build-and-test-sanitizers.sh`; leak detection depends on platform
 support.
 
-## Release installer checks
+## Install and uninstall script checks
 
 The release installer is POSIX shell and installs only checksum-verified release
 binaries. Its asset contract is in [installation documentation](docs/installation.md).
@@ -142,12 +142,16 @@ Before changing it, run:
 
 ```sh
 sh -n scripts/install.sh
-shellcheck --shell=sh scripts/install.sh
+sh -n scripts/uninstall.sh
+shellcheck --shell=sh scripts/install.sh scripts/uninstall.sh
 python3 tests/test_installer.py
+python3 tests/test_uninstaller.py
 ```
 
 The Python test uses only the standard library, mocks GitHub downloads and
 platform detection, and installs into temporary directories. It covers all
 supported platforms, checksum and download failures, PATH guidance, cleanup,
-and preservation of existing files. CTest runs it when Python 3 is available;
+and preservation of existing files. Uninstall tests also cover the receipt,
+file identity checks, previews, and preservation of modified or untracked
+files and user configuration. CTest runs both suites when Python 3 is available;
 Ubuntu CI also runs ShellCheck. Neither tool is a runtime dependency.
