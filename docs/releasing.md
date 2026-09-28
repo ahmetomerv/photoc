@@ -22,7 +22,7 @@ enabled, and run CTest before packaging.
 
 The runner architecture is checked before building. macOS builds set an
 explicit architecture and macOS 15 deployment target. Dependencies are installed
-with Homebrew or apt and remain dynamically linked. Runtime installation
+with the system package manager and remain dynamically linked. Runtime installation
 commands and limits are included in the release notes.
 
 ## Assets
@@ -66,7 +66,7 @@ runs for the same tag from publishing at once.
 
 Do not move tags associated with published releases. Keep release publishing
 limited to trusted maintainers who can push version tags. This workflow does
-not sign/notarize macOS binaries or publish a Homebrew formula.
+not sign/notarize macOS binaries.
 
 ## Local packaging check
 

@@ -134,38 +134,6 @@ def collect_checksums(tag, directory):
     print("Verified all three platforms and wrote SHA256SUMS")
 
 
-def homebrew_formula(source_archive, output):
-    version = project_version()
-    # Read only the top-level version and source entries; never extract an archive.
-    with tarfile.open(source_archive, "r:gz") as archive:
-        versions = [member for member in archive.getmembers()
-                    if member.isfile() and len(member.name.split("/")) == 2
-                    and member.name.endswith("/VERSION")]
-        if len(versions) != 1:
-            raise ValueError("source archive must contain one top-level VERSION file")
-        member = versions[0]
-        archived_version = archive.extractfile(member).read(128).decode("ascii").strip()
-        if archived_version != version:
-            raise ValueError(f"source archive VERSION does not match {version}")
-        root = member.name.split("/")[0]
-        required = ("CMakeLists.txt", "cmake/Version.cmake", "src/main.c",
-                    "man/photoc.1", "completions/bash/photoc", "completions/zsh/_photoc",
-                    "completions/fish/photoc.fish")
-        for name in required:
-            try:
-                present = archive.getmember(root + "/" + name).isfile()
-            except KeyError:
-                present = False
-            if not present:
-                raise ValueError(f"source archive is missing {name}")
-    template = (ROOT / "packaging/homebrew/photoc.rb.in").read_text(encoding="utf-8")
-    formula = template.replace("@VERSION@", version).replace("@SHA256@", sha256(source_archive))
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("x", encoding="utf-8") as stream:
-        stream.write(formula)
-    print(f"Wrote {output} for v{version}")
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -179,9 +147,6 @@ def main():
     checksums = commands.add_parser("checksums", help="verify all platforms and combine checksums")
     checksums.add_argument("--tag", required=True)
     checksums.add_argument("--directory", type=Path, default=Path("dist"))
-    homebrew = commands.add_parser("homebrew", help="generate a tap formula from tagged source")
-    homebrew.add_argument("--source-archive", type=Path, required=True)
-    homebrew.add_argument("--output", type=Path, default=Path("dist/homebrew/photoc.rb"))
     args = parser.parse_args()
     try:
         if args.command == "version":
@@ -190,8 +155,6 @@ def main():
             package(args.tag, args.platform, args.binary, args.output)
         elif args.command == "checksums":
             collect_checksums(args.tag, args.directory)
-        else:
-            homebrew_formula(args.source_archive, args.output)
     except (OSError, ValueError, subprocess.SubprocessError, tarfile.TarError) as error:
         parser.exit(1, f"release: error: {error}\n")
 

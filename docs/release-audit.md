@@ -44,7 +44,7 @@ macOS 15 / Ubuntu 22.04 baselines; this newer local system does not prove them.
 | Clang static analyzer | **51 C files** checked without findings. `clang-tidy` was unavailable. |
 | C formatting | clang-format **18.1.8** check passed. |
 | Shell scripts and workflows | Shell syntax tests, ShellCheck **0.11**, and actionlint **1.7.12** passed. Installer/uninstaller tests simulate all three release platforms and failed downloads/checksums, collisions, receipts, and concurrent replacement. |
-| Packaging/version/install | CTest checks native executable version, archives, no-overwrite gates, checksums, canonical version/tag matching, Homebrew formula generation, and staged CMake installation. Dependencies are dynamically linked, not bundled. |
+| Packaging/version/install | CTest checks native executable version, archives, no-overwrite gates, checksums, canonical version/tag matching, and staged CMake installation. Dependencies are dynamically linked, not bundled. |
 | Documentation/help/README | All local Markdown link targets exist. Help snapshots, command routing, option/error cases, and man-page lint pass. **51 README/help invocations** succeeded on disposable fixtures with the documented exit codes and original-preservation checks. |
 | Documented JSON schemas | Parsed schemas for exif/stats/duplicates match five live reports, including missing EXIF, GPS, distributions, and duplicate groups. Existing JSON tests cover escaping and numeric/null/boolean types. |
 | Malformed input and file safety | Existing tests cover invalid JPEG/EXIF, collisions, permissions, unsafe links, rollback, content preservation, and GPS removal. An additional **96 bounded malformed-input invocations** under ASan/UBSan had no crashes, findings, or original changes. This is a smoke check, not exhaustive fuzzing. |
@@ -89,9 +89,8 @@ or executions safe.
   the final no-overwrite guard.
 - **Distribution:** downloads need separately installed runtime libraries.
   macOS binaries are not developer-signed or notarized. Linux release binaries
-  require x86_64/glibc 2.35+; no Linux arm64 or musl assets. No Homebrew tap is
-  published by this repository, and no real GitHub release/installer download
-  was published or exercised by this audit.
+  require x86_64/glibc 2.35+; no Linux arm64 or musl assets. No real GitHub
+  release/installer download was published or exercised by this audit.
 
 ## Reproduce the release checks
 

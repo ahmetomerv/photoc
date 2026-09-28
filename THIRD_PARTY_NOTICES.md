@@ -30,7 +30,7 @@ upstream. The TurboJPEG API wraps the libjpeg implementation, so both IJG
 and Modified BSD terms apply. The unaltered IJG README is included in
 `licenses/libjpeg-turbo/README.ijg`.
 
-The full upstream license summaries for 3.2.0 (the audited Homebrew library)
+The full upstream license summaries for 3.2.0 (the audited macOS library)
 and 2.1.2 (the Ubuntu 22.04 release build dependency) are included in
 `licenses/libjpeg-turbo/`. Package managers can update these versions; check
 their installed notices as well. Both BSD notices follow so these materials

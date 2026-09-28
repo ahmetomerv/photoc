@@ -24,7 +24,7 @@ Provide minimal steps and the exact command, using disposable files:
 
 - `photoc --version` (or commit):
 - OS and architecture:
-- Installation method (source, release installer, or Homebrew):
+- Installation method (source or release installer):
 - libexif/TurboJPEG versions, if known:
 
 ## Output and context
