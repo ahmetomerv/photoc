@@ -1,349 +1,212 @@
 # photoc
 
-`photoc` is a command-line toolkit for photographers, written in C. It can
-inspect JPEG metadata, summarize JPEG collections, find exact duplicate files,
-rename JPEGs, sort JPEGs, and create JPEG copies without EXIF GPS tags.
-Other planned commands are placeholders.
+**Unix-style photography tools for the terminal.**
 
-## Build and test
+`photoc` is a command-line toolkit written in C17 for photographers who work
+with local collections, shell scripts, and repeatable workflows. Inspect
+metadata, summarize a shoot, find exact duplicates, organize filenames and
+folders, compress JPEG copies, or remove EXIF GPS tags.
 
-Requires a C17 compiler, CMake 3.21 or newer, a `pkg-config` implementation,
-the libexif development package, and libjpeg-turbo's TurboJPEG development
-package:
+The philosophy is simple: focused commands, readable output, small
+dependencies, and explicit file changes. Normal output goes to stdout;
+diagnostics go to stderr. Selected commands also provide JSON for scripts.
+
+## Platforms and scope
+
+- **macOS and Linux** are the initial supported platforms.
+- Image and metadata operations currently support **JPEG** (`.jpg` and `.jpeg`,
+  case-insensitive). RAW, HEIC, and other image formats are not supported yet.
+- `duplicates` compares regular files of **any type**, by exact file contents.
+  It does not detect visually similar images.
+- `focus` is **not implemented**. A shared sharpness metric exists, but there is
+  no working focus command or focus JSON output yet.
+
+## Installation
+
+Build from source using a C17 compiler (Clang or GCC), CMake **3.21+**,
+`pkg-config`, [libexif](https://libexif.github.io/), and
+[libjpeg-turbo](https://libjpeg-turbo.org/) with its TurboJPEG development files.
+Dependencies are installed through the system package manager, not vendored.
+
+**macOS — Homebrew**
+
+Install Xcode Command Line Tools if needed (`xcode-select --install`), then:
 
 ```sh
-# macOS (Homebrew)
 brew install cmake pkgconf libexif jpeg-turbo
-
-# Debian/Ubuntu
-sudo apt install cmake pkg-config libexif-dev libturbojpeg0-dev
-
-# Fedora
-sudo dnf install cmake pkgconf-pkg-config libexif-devel turbojpeg-devel
 ```
 
+**Debian / Ubuntu**
+
 ```sh
-cmake -S . -B build
+sudo apt install build-essential git cmake pkg-config libexif-dev libturbojpeg0-dev
+```
+
+Other Linux distributions need the equivalent development packages for libexif
+and TurboJPEG.
+
+### Build from source
+
+```sh
+git clone https://github.com/ahmetomerv/photoc.git
+cd photoc
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build --output-on-failure
-```
-
-You can run the same steps with `sh scripts/build-and-test.sh`.
-
-GCC and Clang can also build with AddressSanitizer and
-UndefinedBehaviorSanitizer. Use a separate build directory so those
-instrumented binaries are not mixed with a normal build:
-
-```sh
-cmake -S . -B build-san -DPHOTOC_SANITIZERS=ON
-cmake --build build-san
-ctest --test-dir build-san --output-on-failure
-```
-
-`sh scripts/build-and-test-sanitizers.sh` runs that configure, build, and
-test. Undefined behavior fails the test immediately. On Linux, AddressSanitizer
-also reports leaks. macOS AddressSanitizer detects memory errors but does not
-include LeakSanitizer.
-
-## Benchmarks
-
-Lightweight timings for `photoc stats` and `photoc duplicates` against generated
-directories:
-
-```sh
-python3 scripts/benchmark.py
-python3 scripts/benchmark.py --count 5000
-```
-
-Reports elapsed time, files/sec, and peak child RSS. Baseline numbers and
-likely bottlenecks are in [`benchmarks/README.md`](benchmarks/README.md).
-
-## CLI
-
-```sh
-./build/photoc --help
 ./build/photoc --version
-./build/photoc compress photo.jpg --quality 80
-./build/photoc compress photo.jpg --target 2MB --min-quality 30
-./build/photoc exif --help
-./build/photoc exif photo.jpg
-./build/photoc exif photo.jpg --json
-./build/photoc stats ~/Pictures --recursive
-./build/photoc stats ~/Pictures --json
-./build/photoc duplicates ~/Pictures --recursive
-./build/photoc duplicates ~/Pictures --json
-./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}"
-./build/photoc rename ~/Pictures --format "{date}_{camera}_{sequence}.{ext}" --apply
-./build/photoc sort ~/Pictures --by date --recursive
-./build/photoc sort ~/Pictures --by session --gap 30m
-./build/photoc sort ~/Pictures --by date --apply
-./build/photoc scrub photo.jpg --gps
-./build/photoc scrub ~/Pictures --gps --recursive
-./build/photoc scrub photo.jpg --gps --in-place
 ```
 
-`exif <file>` prints file, image, camera, exposure, date, and location details
-for one JPEG. Unavailable EXIF fields are labeled `Unavailable`.
+Run `./build/photoc` directly, or install the binary into your user bin directory:
 
-`compress <file|directory> [--quality <1-100> | --target <size> [--min-quality <1-100>]] [--recursive] [--output-dir <directory>]`
-re-encodes JPEGs at quality 80 by default. It creates `photo.compressed.jpg`
-beside `photo.jpg`, or in the requested output directory. Directory scans are
-flat unless `--recursive` is given. A separate output directory preserves the
-source's relative subdirectories and is created if needed. Existing outputs
-are skipped in directory mode; originals are never changed or replaced.
-Directory reports include processed, skipped, and failed counts, input and
-output byte totals for successful files, and total savings. Single-file reports
-show both sizes, bytes saved, and percentage saved. Savings can be negative if
-the new files are larger. JPEG EXIF fields, including GPS, are copied where libexif can
-represent them. Other metadata segments such as ICC or XMP are not copied.
-Re-encoding is lossy, so keep the original when image quality matters.
+```sh
+mkdir -p "$HOME/.local/bin"
+install -m 755 build/photoc "$HOME/.local/bin/photoc"
+```
 
-Use `--target <size>` instead of `--quality` to search for the highest quality
-whose output fits the requested size. Sizes are positive integer bytes, or
-`KB`/`MB`/`GB` (decimal) and `KiB`/`MiB`/`GiB` (binary); for example, `2MB`
-means 2,000,000 bytes. `--min-quality <1-100>` sets the floor (default 20).
-The reported quality and achieved size include copied EXIF. If the target is
-unreachable at the minimum quality, photoc writes that best-effort copy,
-reports the miss, and exits with status 1. This also works per JPEG in a
-directory scan.
+Add `~/.local/bin` to your `PATH` if needed. The examples below assume `photoc`
+is on `PATH`; otherwise use `./build/photoc`. Keep the dependency libraries
+installed when using the binary.
 
-`stats <directory> [--recursive]` reports parsed photo count, total storage,
-average file size, earliest and latest valid EXIF capture timestamps, and the
-most-used camera model, ISO, aperture, and focal length. Its distributions show
-counts and percentages of all successfully parsed photos; missing EXIF values
-are omitted, so a distribution can total less than 100%. It scans one directory
-level by default. Unreadable or invalid JPEGs produce warnings on stderr while
-the scan continues. Counts are sorted by frequency, with deterministic ties.
+## Quick start
 
-`duplicates <directory> [--recursive]` compares regular files of any type by
-size, then hashes only same-size candidates with SHA-256. It reports each exact
-duplicate group in deterministic order. `Total duplicate files` includes every
-file in those groups; potential savings count all but one file per group. The
-savings estimate is based on file sizes and does not account for hard links or
-filesystem sharing. The command never deletes or changes files. Symlinks are
-ignored; unreadable files produce warnings and a non-zero exit status.
-Use `--json` for a structured report with `duplicate_group_count`,
-`duplicate_file_count`, `potential_savings_bytes`, and `groups`. Each group
-contains `file_size_bytes`, a lowercase `sha256` digest, and `paths`. JSON
-paths are escaped, and the command emits no human-readable text in JSON mode.
+```sh
+photoc --help
+photoc exif photo.jpg
+photoc stats ./photos --recursive
+```
 
-`rename <directory> --format <template> [--recursive] [--apply]` is a dry run
-by default. It prints planned JPEG renames as `old_name -> new_name` and makes
-no changes. Add `--apply` to perform them. Recursive output uses paths relative
-to the supplied directory. JPEGs are sorted by path before sequence numbers
-are assigned, starting at 0001;
-invalid JPEGs and entries missing required EXIF fields still consume a number.
-The original extension's casing is preserved when using `{ext}`. Existing
-destinations and duplicate planned destinations (including ASCII case-only
-differences) are blocked. Each blocked JPEG gets a reason on stderr. With
-`--apply`, the entire set is checked before any file is changed; a blocked
-entry cancels the whole apply. The command uses an exclusive rename operation
-so a destination that appears later is never overwritten. If a rename fails
-midway, photoc attempts to restore earlier names in reverse order and reports
-any restoration failure. Another process creating a former source name can
-prevent complete rollback; photoc will leave that file in its new location
-rather than overwrite the competing path. The summary reports JPEG, planned,
-unchanged, blocked, applied, and rolled-back counts. Exit status is 1 for
-blocked or failed operations. A missing date does not fall back to file
-timestamps. Use `photoc rename --help` for examples.
+Use `photoc <command> --help` for usage and options. Directory scans include
+one level by default; `--recursive` includes nested directories. Scans do not
+follow symlinks. Use `--` before a path that begins with `-`, and quote paths
+containing spaces.
 
-`sort <directory> --by date [--recursive] [--apply]` groups JPEGs into
-`YYYY/MM/DD/` folders using valid EXIF capture dates. It preserves filenames,
-prints paths relative to the supplied directory, and previews changes by
-default. It reports missing dates, invalid JPEGs, existing destinations, and
-duplicate planned destinations as blocked; a blocked JPEG gives exit status 1.
-Existing files or symlinks in the destination date path are also reported.
-Use `--recursive` to scan nested directories. The plan is sorted by source
-path for predictable output.
+## Commands
 
-`sort <directory> --by session [--gap <duration>] [--recursive] [--apply]` plans
-moving JPEGs into `session-001/`, `session-002/`, and so on. Session numbers
-follow EXIF capture-time order, with source path breaking timestamp ties.
-Consecutive photos remain together when their gap is no greater than the
-threshold. The default is 60 minutes; `--gap 30m` and `--gap 2h` set other
-thresholds. Missing or invalid dates are blocked. Session plans use the same
-collision checks as date plans. `--gap` is accepted only with `--by session`.
+| Command | Purpose | Default behavior |
+| --- | --- | --- |
+| `compress` | Re-encode JPEGs by quality or target size | Write new copies |
+| `exif` | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
+| `duplicates` | Report SHA-256 duplicate groups and potential savings | Read only; JSON supported |
+| `stats` | Summarize storage, capture dates, and camera/exposure distributions | Read only; JSON supported |
+| `rename` | Rename JPEGs using metadata templates | Dry run; `--apply` to rename |
+| `sort` | Organize JPEGs by capture date or session | Dry run; `--apply` to move |
+| `focus` | Planned sharpness analysis | Not implemented; exit status 3 |
+| `scrub` | Remove EXIF GPS tags from JPEGs | Write new copies |
 
-Add `--apply` to either sort mode to create destination directories and move
-the files. The whole plan is checked first; any blocked entry prevents every
-move. Destination directories are opened without following symlinks, and moves
-use an exclusive operation that will not overwrite a file created after
-preflight. If a later step fails, photoc attempts to move earlier files back
-and remove directories it created, reporting any restoration failure. Preview
-and apply use the same summary: JPEG, planned, unchanged, blocked, applied,
-and rolled-back counts. A preview leaves applied and rolled-back at zero.
-Concurrent filesystem changes can prevent full restoration; photoc will not
-overwrite a competing file to complete rollback.
+### Examples
 
-`scrub <file|directory> --gps [--recursive] [--in-place]` removes EXIF GPS tags
-from JPEGs. By default it creates copies named like `photo.scrubbed.jpg`; it
-never changes the source or replaces an existing destination. Directory scans
-include one level by default and can include nested directories with
-`--recursive`. JPEGs without GPS tags and non-JPEG directory entries are
-skipped. The report lists each file whose GPS
-tags were removed and totals files processed, skipped, failed, and GPS-removed.
-Invalid or unreadable JPEGs and output collisions count as failures, while
-other files continue processing. Scrub does not remove location data from XMP
-or MakerNotes.
+```sh
+# Compression: quality defaults to 80; quality and target are alternatives.
+photoc compress photo.jpg --quality 75
+photoc compress photo.jpg --target 2MB --min-quality 30
+photoc compress ./photos --recursive --output-dir ./compressed
 
-**Warning:** `--in-place` replaces each original JPEG after writing and
-verifying a temporary file in the same directory. It creates no backup.
-The replacement keeps POSIX permission bits and group ownership. It refuses
-symlinks, hard links, files owned by another user, and sources changed since
-metadata was read. ACLs and extended attributes are not copied. If permission
-preservation, writing, or verification fails, the original remains in place
-and the temporary file is removed. The final
-rename is atomic on a local filesystem; as with other portable POSIX tools,
-concurrent replacement of the same path cannot be prevented completely.
+# Read metadata, find duplicates, and summarize a collection.
+photoc exif photo.jpg
+photoc duplicates ./photos --recursive
+photoc stats ./photos --recursive
 
-The planned `focus` command still reports that it is not implemented.
+# Preview renames and moves; these commands do not modify files by default.
+photoc rename ./photos --format "{date}_{camera}_{sequence}.{ext}"
+photoc sort ./photos --by date --recursive
+photoc sort ./photos --by session --gap 30m
 
-With `exif --json`, details are grouped under `file`, `image`, `camera`,
-`exposure`, `date`, and `location`. Missing values are `null`; `has_gps` is a
-boolean, and sizes, dimensions, exposure values, and coordinates are numbers.
-With `stats --json`, output has `scan`, `storage`, `capture_dates`, and
-`distributions` objects. Distributions contain sorted arrays of camera models,
-ISO values, apertures, and focal lengths, each with `value`, `count`, and
-`percentage_of_photos` fields. Numeric metadata stays numeric, unavailable
-dates and averages are `null`, and per-file warnings still go to stderr.
+# Planned syntax only: currently reports "not implemented".
+photoc focus photo.jpg
 
-Global options are `-h`/`--help`, `--version` (also `-V`), `-v`/`--verbose`, `-q`/`--quiet`, and `--json`. Options can appear before or after a command. `--` ends option parsing. Verbose and quiet cannot be combined; they do not alter command output yet. JSON output is available for `exif`, `stats`, and `duplicates`.
+# Create photo.scrubbed.jpg with EXIF GPS tags removed.
+photoc scrub photo.jpg --gps
+photoc scrub ./photos --gps --recursive
+```
 
-Exit status is `0` for success, `1` for operational failures, `2` for invalid
-input, and `3` for unimplemented commands. Normal output uses stdout;
-diagnostics use stderr. Invalid input names the command and the problem.
-Other failures name one class: `unsupported file`, `file I/O error`,
-`metadata error`, `image decode error`, `collision`, or `internal error`.
-A system message, when present, follows that class and is never the only
-text. An unrecognized option names the command and points at
-`photoc <command> --help`.
+Rename templates support `{date}`, `{datetime}`, `{camera}`, `{make}`, `{iso}`,
+`{aperture}`, `{focal}`, `{sequence}`, `{original}`, and `{ext}`. Unsafe filename
+characters are sanitized; sequence numbers start at `0001` in source-path
+order, and `{ext}` preserves the original extension's casing. Missing metadata
+required by a template blocks that rename.
 
-## Shared filesystem utilities
+Date sorting uses `YYYY/MM/DD/`; session sorting uses `session-001/`,
+`session-002/`, and so on. The default session gap is 60 minutes; `--gap 30m`
+and `--gap 2h` override it. Missing capture dates are reported and blocked.
 
-Large duplicate-hashing workloads and batched JPEG metadata scans use a small
-POSIX thread pool with two workers by default and a hard limit of eight.
-Callbacks, warnings, and output are delivered serially; small workloads stay
-serial. Worker counts can be set through the shared C APIs for future CLI
-configuration. See [`benchmarks/README.md`](benchmarks/README.md) for measured
-gains and [`include/photoc/thread_pool.h`](include/photoc/thread_pool.h) for
-ownership and shutdown rules. The `focus` CLI remains unimplemented.
+Stats omit unavailable metadata from distributions and sort counts by
+frequency with deterministic ties. Scans can continue past individual file
+errors, so check warnings and scan summaries when completeness matters.
 
-[`include/photoc/fs.h`](include/photoc/fs.h) defines the filesystem API used by future commands. It covers path inspection, filename and extension extraction, safe path joining, and callback-based directory walks. [`include/photoc/photo.h`](include/photoc/photo.h) defines the shared `Photo` metadata model. Both headers document ownership and unavailable values.
+## File safety
 
-[`include/photoc/json.h`](include/photoc/json.h) provides a small string writer
-for JSON output without another dependency.
+- **Rename and sort:** preview first, then add `--apply` to the same command.
+  The entire plan is checked before changes; a blocked entry prevents the
+  apply. Existing destinations are never overwritten. Failures during apply
+  trigger rollback attempts, but concurrent filesystem changes can prevent
+  full restoration. Keep backups of important collections.
+- **Compress:** originals stay unchanged; outputs are named
+  `photo.compressed.jpg`. Existing outputs are skipped in directory mode and
+  rejected in single-file mode. Compression is lossy and can produce a larger
+  file. EXIF, including GPS, is preserved where possible; ICC and XMP segments
+  are not copied. An unreachable size target writes a best-effort copy at the
+  minimum quality and returns exit status 1. `MB` is decimal; `MiB` is binary.
+- **Scrub:** originals stay unchanged by default, and existing copy destinations
+  are rejected. JPEG image data is preserved without recompression; non-GPS
+  EXIF is retained where libexif can represent it. Unusual MakerNotes may
+  change. GPS data in XMP or MakerNotes is outside this command's scope.
+- **Explicit in-place scrub:** `photoc scrub photo.jpg --gps --in-place`
+  verifies a temporary file before atomic replacement. **It creates no backup.**
+  Unsafe sources, including symlinks, hard links, and changed files, are refused.
+  POSIX permission bits and group ownership are preserved; ACLs and extended
+  attributes are not copied.
 
-[`include/photoc/hash.h`](include/photoc/hash.h) provides streaming SHA-256
-hashing of regular files and lowercase hex formatting. The digest and hex
-buffers belong to the caller. Hashing failures return `-1` with `errno` set,
-and leave the digest buffer unchanged. The implementation is portable C17 and
-adds no external dependency.
+## JSON output
 
-[`include/photoc/image.h`](include/photoc/image.h) provides JPEG dimensions,
-RGB decoding, and quality-configurable JPEG encoding for `photoc compress`.
-Decoded pixels and encoded bytes have separate cleanup helpers; encoding returns
-bytes in memory and does not write a file or preserve source EXIF/ICC metadata.
-The command uses the shared JPEG writer to attach EXIF to the new file.
+Available for `exif`, `stats`, and `duplicates`:
 
-[`include/photoc/image_analysis.h`](include/photoc/image_analysis.h) provides
-grayscale conversion with optional pixel sampling, a 4-neighbor Laplacian, and
-population variance. The grayscale and Laplacian buffers have explicit cleanup
-helpers and a 16-million-pixel cap; the variance calculation allocates nothing.
-These shared functions do not change JPEG files or enable the planned `focus`
-command yet.
+```sh
+photoc exif photo.jpg --json
+photoc stats ./photos --recursive --json > stats.json
+photoc duplicates ./photos --recursive --json > duplicates.json
 
-[`include/photoc/sharpness.h`](include/photoc/sharpness.h) computes variance of
-the grayscale Laplacian for a JPEG. It uses TurboJPEG's scaled decode, with a
-recommended analysis limit of 1024 pixels on either side and a cap of
-4 million pixels for the decoded RGB buffer. The compressed JPEG is still read into
-memory. Higher scores indicate more local edge variation, but texture, noise,
-JPEG artifacts, and sharpening can also raise the score. Compare images at the
-same analysis limit; the value is not an artistic-quality rating or an absolute
-sharp/blurred threshold. The `focus` command remains unimplemented.
+# Optional: use jq to select exposure metadata.
+photoc exif photo.jpg --json | jq '.exposure'
+```
 
-The image module uses [libjpeg-turbo's TurboJPEG C API](https://libjpeg-turbo.org/Documentation/Documentation).
-CMake finds the system library through `libturbojpeg.pc`; it is not vendored.
+Example exposure object:
 
-[`include/photoc/duplicates.h`](include/photoc/duplicates.h) defines the
-read-only duplicate-finding API. The result owns its groups and paths; callers
-release them with `photoc_duplicates_cleanup`.
+```json
+{
+  "iso": 200,
+  "aperture": 2.8,
+  "exposure_time_seconds": 0.008,
+  "focal_length_mm": 50
+}
+```
 
-`photo_load_metadata` loads JPEG dimensions, file size, and available EXIF fields
-into a `Photo`. It reports distinct results for unsupported extensions, invalid
-JPEG data, filesystem errors, and allocation failures. Missing EXIF fields are
-left unavailable. Call `photo_cleanup` after a successful load.
+Unavailable values are `null`; presence fields such as `has_gps` are booleans,
+and numeric values stay numeric. JSON mode emits no human-readable decoration
+on stdout; warnings still go to stderr. `jq` is optional, not a photoc dependency.
 
-[`include/photoc/scan.h`](include/photoc/scan.h) defines a reusable directory
-scanner. It can walk one level or recurse, loads each JPEG into a temporary
-`Photo`, and calls the supplied photo callback. A warning callback receives
-per-file JPEG failures while scanning continues. Aggregate counts distinguish
-regular files visited, JPEGs found, photos parsed, skipped files, and errors.
-The scanner owns and frees each `Photo` after its callback returns.
+Exit statuses: **0** success, **1** operational failure, **2** invalid usage,
+**3** unimplemented command. `stats` can finish successfully with per-file
+warnings; its scan summary records those errors. `--verbose` and `--quiet`
+are recognized but do not change output yet.
 
-[`include/photoc/stats.h`](include/photoc/stats.h) defines the reusable
-aggregation API used by `photoc stats`. It owns frequency labels, ignores
-unavailable values, and sorts frequency tables separately from CLI formatting.
+## Roadmap
 
-[`include/photoc/session.h`](include/photoc/session.h) groups photos already
-sorted by EXIF capture time. Consecutive photos stay in one session when their
-gap is at most the configured threshold (60 minutes by default). It writes
-stable, 1-based IDs to a caller-owned array; missing timestamps receive ID 0
-and break the session chain. Invalid or out-of-order timestamps return an error
-without changing the output. The sort command uses it for session plans.
+Planned work, without release dates:
 
-[`include/photoc/filename_template.h`](include/photoc/filename_template.h)
-defines the filename-template API for future rename operations. It expands
-`{date}`, `{datetime}`, `{camera}`, `{make}`, `{iso}`, `{aperture}`, `{focal}`,
-`{sequence}`, `{original}`, and `{ext}` using a `Photo`. For example,
-`{date}_{camera}_{sequence}.{ext}` can produce
-`2026-09-27_EOS_R5_0007.JpEg` with sequence width 4. Dates use the captured
-EXIF time (`YYYY-MM-DD` or `YYYY-MM-DD_HH-MM-SS`); missing required metadata
-returns an error. The original filename stem and extension retain their
-letter case. Unsafe filename characters become underscores. The rename command
-uses this API for both previews and applied changes.
-
-## JPEG metadata writing API
-
-[`include/photoc/jpeg_write.h`](include/photoc/jpeg_write.h) exposes reusable
-functions to load an editable EXIF copy, deep-copy it, inspect and remove its
-GPS IFD, and write a new JPEG. `photoc scrub` uses this API. By default the
-source stays untouched; the destination must not exist. The writer creates a
-mode-0600 temporary file
-beside the destination, flushes and syncs it, reopens and validates the JPEG and
-EXIF, compares all bytes outside the replaced EXIF segment with the source,
-then uses a no-overwrite rename. It copies compressed image data verbatim, with
-no decoding or recompression. Failure paths attempt to remove the temporary
-file.
-
-`photoc_jpeg_write_encoded` publishes a JPEG buffer through a verified
-temporary file and optionally inserts an EXIF copy. It never replaces an
-existing destination.
-
-For explicit in-place scrubbing, `photoc_jpeg_replace_with_exif` uses the same
-temporary-file verification, restores the original mode bits and group, checks
-the source identity again, then atomically replaces it. It refuses sources with multiple
-hard links, symlinks, changed timestamps or identity, or different ownership.
-
-The writer preserves other JPEG segments byte-for-byte and retains non-GPS
-EXIF fields that libexif can represent. It rejects ambiguous files with
-multiple EXIF APP1 segments or EXIF after the first image scan. libexif has
-limited support for some MakerNotes, so unusual maker-specific EXIF may change
-when serialized. GPS stored outside the EXIF GPS IFD, such as in XMP or a
-MakerNote, is outside this API's scope. Copy mode retains the original for
-inspection or recovery.
-
-## EXIF dependency
-
-[`libexif`](https://libexif.github.io/) is a C library for reading, editing,
-and serializing EXIF metadata. CMake finds the system installation through its
-`libexif.pc` file; the library is not vendored. It is LGPL-licensed and remains
-separate from photoc's MIT-licensed source. Binary distributors must meet the
-LGPL requirements for the library they ship or link.
-
-libexif's direct file-loading API targets JPEG. Its save API produces an EXIF
-data buffer, so safely writing modified metadata back into an image file will
-need additional work. RAW and HEIC support are outside this integration.
+- Expose the existing sharpness metric through `focus`, with human and JSON
+  output. Sharpness measures edge variation, not artistic quality.
+- Improve installation and release packaging.
+- Evaluate additional image formats while retaining safe file handling.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The project is licensed under the [MIT License](LICENSE).
+Bug reports, documentation improvements, and focused patches are welcome.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, sanitizers, and static analysis,
+[AGENTS.md](AGENTS.md) for repository conventions, and
+[benchmarks/README.md](benchmarks/README.md) for reproducible performance checks.
+Shared C APIs and ownership rules are documented in [include/photoc](include/photoc).
+
+## License
+
+photoc's source is licensed under the [MIT License](LICENSE).
+Dependencies retain their own licenses.
