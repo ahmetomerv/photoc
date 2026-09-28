@@ -170,6 +170,8 @@ case "$binary_version" in
     'photoc '[0-9]*) ;;
     *) die "downloaded executable did not report a photoc version" ;;
 esac
+[ "$binary_version" = "photoc ${version#v}" ] \
+    || die "downloaded executable version does not match release $version; nothing was installed"
 
 if [ "$checksum_tool" = sha256sum ]; then
     staged_hash=$(sha256sum "$stage_dir/photoc") || die "cannot verify staged executable"

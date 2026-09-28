@@ -196,6 +196,13 @@ class InstallerTests(InstallerFixture):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("/releases/latest", self.calls.read_text())
 
+    def test_wrong_binary_version_is_not_installed(self):
+        for output in ("photoc 1.2.4", "photoc 1.2.3 extra"):
+            with self.subTest(output=output):
+                self.set_binary(output=output)
+                self.assert_failed(self.run_installer("--version", "v1.2.3"),
+                                   "version does not match release v1.2.3")
+
     def test_custom_path_with_spaces_and_quotes(self):
         directory = self.root / "bin 'with spaces'"
         result = self.run_installer("--install-dir", str(directory))

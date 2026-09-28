@@ -40,7 +40,8 @@ and cannot contain `:` because that separates entries in `PATH`.
 - Downloads use HTTPS, including redirects. The binary's SHA-256 digest must
   match exactly one entry in the release's `SHA256SUMS` before it is executed.
 - Stages the binary in a private temporary directory, sets executable
-  permissions, and checks `photoc --version` before installing it. If the binary
+  permissions, and checks that `photoc --version` matches the release tag before
+  installing it. If the binary
   cannot run (for example, because of missing runtime libraries), installation
   fails with an error. Release-specific runtime requirements belong in the
   release notes; the installer does not install libraries.
@@ -70,6 +71,47 @@ export PATH="$HOME/.local/bin:$PATH"
 # fish
 fish_add_path "$HOME/.local/bin"
 ```
+
+## Upgrading
+
+Installed copies do not update automatically. Read the
+[release notes](https://github.com/ahmetomerv/photoc/releases) and check your
+current version with `photoc --version` before upgrading.
+
+From a checkout, run:
+
+```sh
+# 1. Preview removal of your current tracked installation.
+sh scripts/uninstall.sh
+
+# 2. After reviewing the preview, remove it.
+sh scripts/uninstall.sh --apply
+
+# 3. Install the latest published release and check its version.
+sh scripts/install.sh
+"$HOME/.local/bin/photoc" --version
+```
+
+Without a checkout, download the installer as described above and the
+uninstaller as described below. Use `sh uninstall-photoc.sh`,
+`sh uninstall-photoc.sh --apply`, and `sh install-photoc.sh` in the same order.
+
+For a custom directory, pass the same `--install-dir` to every install and
+uninstall command, then run the executable from that directory to verify it.
+The installer will not overwrite an existing copy. If the uninstaller reports
+a modified file or an installation without a receipt, follow the manual/source
+installation guidance below before proceeding.
+
+You can select a version by adding `--version v0.1.0` to the install command.
+To return to an earlier release, uninstall the current tracked copy and install
+that earlier tag. Keep any backup you need before uninstalling: the upgrade
+steps remove the old executable before downloading the new one. A failed
+download or a missing runtime library leaves photoc uninstalled until you
+successfully install a release again. Photos and shell configuration are kept.
+
+Source installations use a different update process: rebuild, test, and run
+`cmake --install` with your original prefix. See
+[Updating after local changes](../README.md#updating-after-local-changes).
 
 ## Uninstalling a tracked release installation
 

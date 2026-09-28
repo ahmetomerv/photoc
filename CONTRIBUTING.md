@@ -166,7 +166,7 @@ Ubuntu CI also runs ShellCheck. Neither tool is a runtime dependency.
 ### Version policy
 
 photoc uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-[`VERSION`](VERSION) is the only manually maintained version source: one
+[`VERSION`](VERSION) is the single version source: one
 `MAJOR.MINOR.PATCH` value, without a `v` prefix or leading zeroes. Stable versions
 are supported; prerelease and build metadata suffixes are not supported yet.
 
@@ -185,41 +185,23 @@ same file and rejects tags or binaries that disagree with it.
 
 ### Publish a release
 
-1. Commit and review the intended changes and release notes, then update
-   **only `VERSION`** to set the next version.
-2. Configure, build, and run all tests from the repository root:
+Follow the numbered [release guide](docs/releasing.md) for the complete process:
 
-   ```sh
-   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-   cmake --build build
-   ctest --test-dir build --output-on-failure
-   ./build/photoc --version
-   ```
+1. Keep `0.1.0` for the first release. For later releases, preview a bump with
+   `python3 scripts/package-release.py bump patch`, then add `--apply` to update
+   `VERSION`. Use `minor` or `major` according to the policy above.
+2. Update `docs/release-notes.md`, including any breaking changes, and review
+   third-party notices against the release dependencies.
+3. Build and test locally, commit the reviewed changes to `main`, and push them.
+4. Wait for passing hosted CI on that exact commit, including macOS, Ubuntu,
+   formatting, and the Linux sanitizer job.
+5. Create and push an annotated `v<version>` tag. The release workflow enforces
+   the version and CI checks before building and testing all three platforms.
+6. Verify the published notes, assets, checksums, and a real installer download.
 
-3. Commit the version change, then create and push an annotated tag whose name
-   is `v` followed by the canonical version:
-
-   Before tagging, require green CI for the reviewed commit on macOS and Ubuntu,
-   including the Linux sanitizer job. Review `THIRD_PARTY_NOTICES.md` and the
-   included license texts against the dependency versions used for the release.
-
-   ```sh
-   version=$(python3 scripts/package-release.py version)
-   git add VERSION
-   git commit -m "chore: release $version"
-   git tag -a "v$version" -m "photoc $version"
-   git push origin HEAD
-   git push origin "v$version"
-   ```
-
-4. Watch the Release workflow. It validates the tag against `VERSION`, builds
-   and tests native macOS arm64, macOS x86_64, and Linux x86_64 binaries, checks
-   their versions, and uploads verified assets before publishing the draft.
-   Inspect the published assets and notes. Never move a published tag or replace
-   published assets; fixes require a new version.
-
-See [docs/releasing.md](docs/releasing.md) for asset names, runtime requirements,
-and retry behavior. Packaging and versioning checks use Python's standard
+Never move a published tag or replace published assets; fixes require a new
+version. For asset names, runtime requirements, and retry behavior, see the
+release guide. Packaging and versioning checks use Python's standard
 library and run through CTest when Python 3 is available, or directly with:
 
 ```sh

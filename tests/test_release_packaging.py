@@ -56,7 +56,8 @@ class ReleasePackagingTests(unittest.TestCase):
                          "licenses/libexif/COPYING", "licenses/libjpeg-turbo/README.ijg",
                          "licenses/libjpeg-turbo/LICENSE-3.2.0.md",
                          "licenses/libjpeg-turbo/LICENSE-2.1.2.md",
-                         "README.md", "share/man/man1/photoc.1",
+                         "README.md", "assets/photoc.svg", "assets/photoc-light.svg",
+                         "share/man/man1/photoc.1",
                          "completions/bash/photoc", "completions/zsh/_photoc",
                          "completions/fish/photoc.fish", "docs/exif.md", "scripts/uninstall.sh"):
                 self.assertTrue(bundle.getmember(base + "/" + name).isfile(), name)

@@ -85,6 +85,68 @@ class VersioningTests(unittest.TestCase):
         self.assertIn("does not match VERSION", result.stderr)
         self.assertIn("expected 'v" + release.project_version() + "'", result.stderr)
 
+    def test_bump_preview_preserves_version_file(self):
+        source = self.root / "VERSION"
+        source.write_text("0.1.9\n", encoding="ascii")
+        with mock.patch.object(release, "ROOT", self.root):
+            for part, expected in (("patch", "0.1.10"), ("minor", "0.2.0"), ("major", "1.0.0")):
+                with self.subTest(part=part):
+                    self.assertEqual(release.bump_version(part), expected)
+                    self.assertEqual(source.read_text(), "0.1.9\n")
+
+    def test_bump_apply_updates_only_canonical_version(self):
+        source = self.root / "VERSION"
+        protected = self.root / "release-notes.md"
+        protected.write_text("Keep these notes unchanged.\n")
+        for part, expected in (("patch", "1.2.10"), ("minor", "1.3.0"), ("major", "2.0.0")):
+            with self.subTest(part=part):
+                source.write_text("1.2.9\n", encoding="ascii")
+                with mock.patch.object(release, "ROOT", self.root):
+                    self.assertEqual(release.bump_version(part, apply=True), expected)
+                    self.assertEqual(release.release_version("v" + expected), expected)
+                self.assertEqual(source.read_text(), expected + "\n")
+                self.assertEqual(protected.read_text(), "Keep these notes unchanged.\n")
+
+    def test_invalid_bump_preserves_version_file(self):
+        source = self.root / "VERSION"
+        source.write_text("1.2.3\n", encoding="ascii")
+        with mock.patch.object(release, "ROOT", self.root):
+            with self.assertRaisesRegex(ValueError, "unsupported version bump"):
+                release.bump_version("prerelease", apply=True)
+        self.assertEqual(source.read_text(), "1.2.3\n")
+        source.write_text("invalid\n", encoding="ascii")
+        with mock.patch.object(release, "ROOT", self.root):
+            with self.assertRaisesRegex(ValueError, "VERSION must contain"):
+                release.bump_version("patch", apply=True)
+        self.assertEqual(source.read_text(), "invalid\n")
+
+    def test_bump_cli_preview_and_invalid_part(self):
+        canonical = (ROOT / "VERSION").read_bytes()
+        major, minor, patch = map(int, release.project_version().split("."))
+        result = self.run_tool(sys.executable, str(ROOT / "scripts/package-release.py"),
+                               "bump", "patch")
+        self.assert_success(result)
+        self.assertEqual(result.stdout, f"{major}.{minor}.{patch + 1}\n")
+        self.assertEqual((ROOT / "VERSION").read_bytes(), canonical)
+        result = self.run_tool(sys.executable, str(ROOT / "scripts/package-release.py"),
+                               "bump", "invalid", "--apply")
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual((ROOT / "VERSION").read_bytes(), canonical)
+
+    def test_bump_cli_apply_in_isolated_checkout(self):
+        (self.root / "scripts").mkdir()
+        script = self.root / "scripts/package-release.py"
+        shutil.copyfile(ROOT / "scripts/package-release.py", script)
+        source = self.root / "VERSION"
+        source.write_text("0.1.0\n", encoding="ascii")
+        result = self.run_tool(sys.executable, str(script), "bump", "minor", "--apply")
+        self.assert_success(result)
+        self.assertEqual(result.stdout, "0.2.0\n")
+        self.assertEqual(source.read_text(), "0.2.0\n")
+        result = self.run_tool(sys.executable, str(script), "version", "--tag", "v0.2.0")
+        self.assert_success(result)
+        self.assertEqual(result.stdout, "0.2.0\n")
+
     def test_cmake_and_release_tool_agree_on_valid_versions(self):
         self.project()
         for version in ("0.0.0", "1.2.3", "12.34.56"):

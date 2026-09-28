@@ -30,6 +30,23 @@ def release_version(tag):
     return version
 
 
+def bump_version(part, apply=False):
+    """Return the next version; write only VERSION when explicitly applied."""
+    if part not in ("major", "minor", "patch"):
+        raise ValueError(f"unsupported version bump: {part}")
+    major, minor, patch = map(int, project_version().split("."))
+    if part == "major":
+        major, minor, patch = major + 1, 0, 0
+    elif part == "minor":
+        minor, patch = minor + 1, 0
+    else:
+        patch += 1
+    version = f"{major}.{minor}.{patch}"
+    if apply:
+        (ROOT / "VERSION").write_text(version + "\n", encoding="ascii")
+    return version
+
+
 def asset_names(tag, platform):
     version = release_version(tag)
     if platform not in PLATFORMS:
@@ -74,7 +91,7 @@ def package(tag, platform, binary, output):
         for name in ("VERSION", "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md",
                      "CONTRIBUTING.md", "AGENTS.md", "CODE_OF_CONDUCT.md", "SECURITY.md"):
             shutil.copyfile(ROOT / name, bundle / name)
-        for name in ("docs", "completions", "licenses"):
+        for name in ("assets", "docs", "completions", "licenses"):
             shutil.copytree(ROOT / name, bundle / name)
         (bundle / "scripts").mkdir()
         for name in ("install.sh", "uninstall.sh"):
@@ -139,6 +156,9 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     version = commands.add_parser("version", help="read VERSION and optionally validate a release tag")
     version.add_argument("--tag")
+    bump = commands.add_parser("bump", help="preview the next version; use --apply to update VERSION")
+    bump.add_argument("part", choices=("major", "minor", "patch"))
+    bump.add_argument("--apply", action="store_true", help="write the new version to VERSION")
     packaging = commands.add_parser("package", help="package a tested native executable")
     packaging.add_argument("--tag", required=True)
     packaging.add_argument("--platform", choices=PLATFORMS, required=True)
@@ -151,6 +171,8 @@ def main():
     try:
         if args.command == "version":
             print(release_version(args.tag) if args.tag is not None else project_version())
+        elif args.command == "bump":
+            print(bump_version(args.part, args.apply))
         elif args.command == "package":
             package(args.tag, args.platform, args.binary, args.output)
         elif args.command == "checksums":

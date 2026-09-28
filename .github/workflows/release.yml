@@ -16,7 +16,39 @@ defaults:
     shell: bash
 
 jobs:
+  validate:
+    name: Check version and passing CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_SHA: ${{ github.sha }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate tag against VERSION
+        run: python3 scripts/package-release.py version --tag "$RELEASE_TAG"
+
+      - name: Require successful main-branch CI for this commit
+        run: |
+          passed=$(gh run list --workflow ci.yml --commit "$RELEASE_SHA" \
+            --branch main --event push --limit 1 --json status,conclusion \
+            --jq '.[0] | .status == "completed" and .conclusion == "success"')
+          if [[ "$passed" != true ]]; then
+            echo "Release requires passing main-branch CI for $RELEASE_SHA. Wait for CI, then rerun this workflow." >&2
+            exit 1
+          fi
+
   build:
+    needs: validate
     name: Build ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30

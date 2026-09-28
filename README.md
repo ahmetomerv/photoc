@@ -68,7 +68,7 @@ new one. It installs the executable and an ownership receipt; use the source
 installation for the man page and the separate [completion setup](#shell-completions)
 for shell completions.
 
-Release downloads are available only after a version-tagged build succeeds.
+Find available versions on the [GitHub releases page](https://github.com/ahmetomerv/photoc/releases).
 If there is no release for your platform, [build from source](#build-from-source).
 See [installation details](docs/installation.md) for supported release files,
 requirements, and upgrade behavior.
@@ -155,6 +155,21 @@ To change these locations, configure `CMAKE_INSTALL_BINDIR`,
 Read the [man page](man/photoc.1) with `man photoc`. If your shell cannot find
 the installed manual, use `man -M "$HOME/.local/share/man" photoc`. From a
 checkout, use `man ./man/photoc.1`.
+
+### Update a release installation
+
+Installed copies do not update automatically. To install the latest release:
+
+1. Check your version with `photoc --version` and read the
+   [release notes](https://github.com/ahmetomerv/photoc/releases).
+2. Follow the [uninstall steps](#uninstall), including the preview.
+3. Run the installer again using the [GitHub release steps](#github-releases).
+4. Run `photoc --version` to check the result.
+
+Use the same install directory as before. To select a particular release,
+pass `--version v0.1.0` to the installer. See the
+[upgrade guide](docs/installation.md#upgrading) for copyable commands and how
+to return to an earlier version.
 
 ### Updating after local changes
 
@@ -453,6 +468,7 @@ Bug reports, clearer documentation, and focused code changes are welcome.
 - [include/photoc](include/photoc): shared C APIs and rules for owning and freeing memory.
 - [First-release audit](docs/release-audit.md): verification results, remaining limits,
   and checks required before release.
+- [Release guide](docs/releasing.md): how to bump a version, publish it, and verify downloads.
 
 Please follow the [code of conduct](CODE_OF_CONDUCT.md). For file corruption,
 unsafe overwrites, or suspected vulnerabilities, follow the private reporting
