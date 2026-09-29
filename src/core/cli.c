@@ -46,8 +46,7 @@ static const char *const compress_examples[] = {
 static const char *const contact_examples[] = {
     "photoc contact ./photos --output sheet.jpg",
     "photoc contact ./photos --output sheet.jpg --metadata",
-    "photoc contact ./photos --output sheet.jpg --recursive --sort date",
-    NULL};
+    "photoc contact ./photos --output sheet.jpg --recursive --sort date", NULL};
 
 static const photoc_help_option contact_options[] = {
     {"--output <file>", "Required JPEG output path; pages use -001, -002, ..."},
@@ -61,9 +60,9 @@ static const photoc_help_option contact_options[] = {
 
 static const char *const contact_notes[] = {
     "Up to 24 tiles per page and at most 6 rows; pages are never overwritten.",
-    "EXIF orientation is applied to thumbnails. Output has no source EXIF or ICC.",
-    "Non-ASCII filename characters display as '?' in the built-in font.",
-    NULL};
+    "EXIF orientation is applied to thumbnails. Output has no source EXIF or "
+    "ICC.",
+    "Non-ASCII filename characters display as '?' in the built-in font.", NULL};
 
 static const photoc_help_option compress_options[] = {
     {"--quality <1-100>", "JPEG quality (default: 80)"},
@@ -243,7 +242,8 @@ static const char *const scrub_notes[] = {
 #if defined(__GNUC__)
 __attribute__((format(printf, 2, 3)))
 #endif
-static void command_error(const char *command, const char *format, ...)
+static void
+command_error(const char *command, const char *format, ...)
 {
     fprintf(stderr, "photoc %s: ", command);
     va_list args;
@@ -288,8 +288,7 @@ static bool parse_bounded_uint(const char *value, uint32_t minimum,
         if (*digit < '0' || *digit > '9')
             return false;
         uint32_t value_digit = (uint32_t)(*digit - '0');
-        if (value_digit > maximum ||
-            parsed > (maximum - value_digit) / 10u)
+        if (value_digit > maximum || parsed > (maximum - value_digit) / 10u)
             return false;
         parsed = parsed * 10u + value_digit;
     }
@@ -345,8 +344,8 @@ static int run_contact(const photoc_cli_options *options,
             return PHOTOC_EXIT_USAGE;
         }
     }
-    return photoc_command_contact_with_output(options->first_argument,
-                                              &contact, output);
+    return photoc_command_contact_with_output(options->first_argument, &contact,
+                                              output);
 }
 
 static int run_compress(const photoc_cli_options *options,
@@ -629,9 +628,8 @@ static const photoc_command commands[] = {
      "<directory> --output <file.jpg> [--recursive] [--columns <1-8>] "
      "[--thumb-size <96-512>] [--quality <1-100>] [--metadata] "
      "[--sort name|date]",
-     "Status: writes new JPEG sheet(s); never overwrites",
-     contact_examples, contact_options, contact_notes, true, false,
-     run_contact},
+     "Status: writes new JPEG sheet(s); never overwrites", contact_examples,
+     contact_options, contact_notes, true, false, run_contact},
     {"exif", "Inspect JPEG and Sony ARW metadata", "<file>",
      "Status: available for JPEG and Sony ARW metadata", exif_examples,
      exif_options, NULL, true, true, run_exif},
@@ -701,8 +699,8 @@ static void print_global_help(void)
     puts("");
     puts("Exif and stats inspect JPEG/ARW metadata; duplicates compares file "
          "bytes.");
-    puts(
-        "Rename and sort preview by default; compress, scrub, and contact write JPEGs.");
+    puts("Rename and sort preview by default; compress, scrub, and contact "
+         "write JPEGs.");
     puts("Focus scores JPEG sharpness as a review aid, not a blur verdict.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }

@@ -45,12 +45,11 @@ int main(void)
     photoc_image image = {0};
     CHECK(photoc_image_decode_jpeg(source, &image) == PHOTOC_IMAGE_OK);
     photoc_image bounded = {0};
-    CHECK(photoc_image_decode_jpeg_scaled_bounded(source, 4096, 1,
-                                                   &bounded) ==
+    CHECK(photoc_image_decode_jpeg_scaled_bounded(source, 4096, 1, &bounded) ==
           PHOTOC_IMAGE_TOO_LARGE);
     CHECK(bounded.pixels == NULL);
     CHECK(photoc_image_decode_jpeg_scaled_bounded(source, 4096, 67108864,
-                                                   &bounded) == PHOTOC_IMAGE_OK);
+                                                  &bounded) == PHOTOC_IMAGE_OK);
     photoc_image_cleanup(&bounded);
     CHECK(image.width == 3 && image.height == 2);
     CHECK(image.stride == 9 && image.pixel_bytes == 18);

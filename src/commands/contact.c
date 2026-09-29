@@ -24,7 +24,7 @@
 #define CONTACT_PADDING 8u
 
 typedef struct {
-    char *path; /* Owned; released by cleanup_collection. */
+    char *path;      /* Owned; released by cleanup_collection. */
     char *timestamp; /* Owned, or NULL when absent. */
     uint16_t orientation;
     uint32_t iso;
@@ -126,8 +126,8 @@ static void scan_warning(const char *path, photoc_metadata_result reason,
 {
     contact_collection *collection = user_data;
     ++collection->failed;
-    photoc_output_metadata_warning(collection->output, "contact", path,
-                                   reason, system_errno);
+    photoc_output_metadata_warning(collection->output, "contact", path, reason,
+                                   system_errno);
 }
 
 static int compare_name(const void *left, const void *right)
@@ -204,10 +204,10 @@ static int prepare_paths(const char *output, size_t pages, char ***out)
         if (photoc_fs_exists(paths[i], &exists) != 0 || exists) {
             if (exists)
                 errno = EEXIST;
-            photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,
-                                exists ? PHOTOC_ERR_COLLISION : PHOTOC_ERR_IO,
-                                paths[i], "output already exists or is inaccessible",
-                                exists ? 0 : errno);
+            photoc_error_report(
+                "contact", PHOTOC_ERR_NOTE_NONE,
+                exists ? PHOTOC_ERR_COLLISION : PHOTOC_ERR_IO, paths[i],
+                "output already exists or is inaccessible", exists ? 0 : errno);
             cleanup_paths(paths, pages);
             return -1;
         }
@@ -216,9 +216,8 @@ static int prepare_paths(const char *output, size_t pages, char ***out)
     return 0;
 }
 
-static bool canvas_dimensions(uint32_t columns, uint32_t thumb,
-                              size_t count, bool metadata,
-                              uint32_t *width, uint32_t *height,
+static bool canvas_dimensions(uint32_t columns, uint32_t thumb, size_t count,
+                              bool metadata, uint32_t *width, uint32_t *height,
                               size_t *bytes)
 {
     if (columns == 0 || thumb < 96 || thumb > 512 || count == 0 || count > 24)
@@ -226,10 +225,10 @@ static bool canvas_dimensions(uint32_t columns, uint32_t thumb,
     uint64_t rows = (count + columns - 1) / columns;
     uint64_t cell_width = (uint64_t)thumb + 2 * CONTACT_PADDING;
     uint64_t cell_height = (uint64_t)thumb + (metadata ? 66u : 30u);
-    uint64_t canvas_width = 2 * CONTACT_MARGIN +
-                            columns * cell_width + (columns - 1) * CONTACT_GAP;
-    uint64_t canvas_height = 2 * CONTACT_MARGIN + rows * cell_height +
-                             (rows - 1) * CONTACT_GAP;
+    uint64_t canvas_width =
+        2 * CONTACT_MARGIN + columns * cell_width + (columns - 1) * CONTACT_GAP;
+    uint64_t canvas_height =
+        2 * CONTACT_MARGIN + rows * cell_height + (rows - 1) * CONTACT_GAP;
     if (canvas_width > 8192 || canvas_height > 8192 ||
         canvas_width > INT_MAX / 3 || canvas_height > INT_MAX ||
         canvas_width > SIZE_MAX / 3 ||
@@ -255,26 +254,49 @@ static void rectangle(photoc_image *image, uint32_t x, uint32_t y,
 }
 
 static void orient_point(uint32_t x, uint32_t y, const photoc_image *source,
-                         uint16_t orientation, uint32_t *raw_x,
-                         uint32_t *raw_y)
+                         uint16_t orientation, uint32_t *raw_x, uint32_t *raw_y)
 {
     uint32_t width = source->width;
     uint32_t height = source->height;
     switch (orientation) {
-    case 2: *raw_x = width - 1 - x; *raw_y = y; break;
-    case 3: *raw_x = width - 1 - x; *raw_y = height - 1 - y; break;
-    case 4: *raw_x = x; *raw_y = height - 1 - y; break;
-    case 5: *raw_x = y; *raw_y = x; break;
-    case 6: *raw_x = y; *raw_y = height - 1 - x; break;
-    case 7: *raw_x = width - 1 - y; *raw_y = height - 1 - x; break;
-    case 8: *raw_x = width - 1 - y; *raw_y = x; break;
-    default: *raw_x = x; *raw_y = y; break;
+    case 2:
+        *raw_x = width - 1 - x;
+        *raw_y = y;
+        break;
+    case 3:
+        *raw_x = width - 1 - x;
+        *raw_y = height - 1 - y;
+        break;
+    case 4:
+        *raw_x = x;
+        *raw_y = height - 1 - y;
+        break;
+    case 5:
+        *raw_x = y;
+        *raw_y = x;
+        break;
+    case 6:
+        *raw_x = y;
+        *raw_y = height - 1 - x;
+        break;
+    case 7:
+        *raw_x = width - 1 - y;
+        *raw_y = height - 1 - x;
+        break;
+    case 8:
+        *raw_x = width - 1 - y;
+        *raw_y = x;
+        break;
+    default:
+        *raw_x = x;
+        *raw_y = y;
+        break;
     }
 }
 
 static const unsigned char *oriented_pixel(const photoc_image *source,
-                                           uint16_t orientation,
-                                           uint32_t x, uint32_t y)
+                                           uint16_t orientation, uint32_t x,
+                                           uint32_t y)
 {
     uint32_t raw_x = 0;
     uint32_t raw_y = 0;
@@ -286,8 +308,8 @@ static uint32_t sample_coordinate(uint32_t target, uint32_t target_size,
                                   uint32_t source_size)
 {
     uint64_t numerator = ((uint64_t)target * 2 + 1) * source_size * 65536u;
-    int64_t coordinate = (int64_t)(numerator / ((uint64_t)target_size * 2)) -
-                         INT64_C(32768);
+    int64_t coordinate =
+        (int64_t)(numerator / ((uint64_t)target_size * 2)) - INT64_C(32768);
     if (coordinate < 0)
         return 0;
     uint64_t maximum = ((uint64_t)source_size - 1) * 65536u;
@@ -296,8 +318,8 @@ static uint32_t sample_coordinate(uint32_t target, uint32_t target_size,
 }
 
 static void draw_thumbnail(photoc_image *canvas, const photoc_image *source,
-                           uint16_t orientation, uint32_t box_x,
-                           uint32_t box_y, uint32_t box_size)
+                           uint16_t orientation, uint32_t box_x, uint32_t box_y,
+                           uint32_t box_size)
 {
     uint32_t oriented_width = source->width;
     uint32_t oriented_height = source->height;
@@ -309,32 +331,40 @@ static void draw_thumbnail(photoc_image *canvas, const photoc_image *source,
     uint32_t fitted_height = box_size;
     if (oriented_width >= oriented_height)
         fitted_height = (uint32_t)(((uint64_t)box_size * oriented_height +
-                                    oriented_width / 2) / oriented_width);
+                                    oriented_width / 2) /
+                                   oriented_width);
     else
         fitted_width = (uint32_t)(((uint64_t)box_size * oriented_width +
-                                   oriented_height / 2) / oriented_height);
-    if (fitted_width == 0) fitted_width = 1;
-    if (fitted_height == 0) fitted_height = 1;
+                                   oriented_height / 2) /
+                                  oriented_height);
+    if (fitted_width == 0)
+        fitted_width = 1;
+    if (fitted_height == 0)
+        fitted_height = 1;
     uint32_t left = box_x + (box_size - fitted_width) / 2;
     uint32_t top = box_y + (box_size - fitted_height) / 2;
     for (uint32_t dy = 0; dy < fitted_height; ++dy) {
-        uint32_t source_y = sample_coordinate(dy, fitted_height,
-                                               oriented_height);
+        uint32_t source_y =
+            sample_coordinate(dy, fitted_height, oriented_height);
         uint32_t y0 = source_y >> 16;
         uint32_t y1 = y0 + (y0 + 1 < oriented_height);
         uint32_t fy = source_y & 65535u;
         for (uint32_t dx = 0; dx < fitted_width; ++dx) {
-            uint32_t source_x = sample_coordinate(dx, fitted_width,
-                                                   oriented_width);
+            uint32_t source_x =
+                sample_coordinate(dx, fitted_width, oriented_width);
             uint32_t x0 = source_x >> 16;
             uint32_t x1 = x0 + (x0 + 1 < oriented_width);
             uint32_t fx = source_x & 65535u;
-            const unsigned char *a = oriented_pixel(source, orientation, x0, y0);
-            const unsigned char *b = oriented_pixel(source, orientation, x1, y0);
-            const unsigned char *c = oriented_pixel(source, orientation, x0, y1);
-            const unsigned char *d = oriented_pixel(source, orientation, x1, y1);
-            size_t at = (size_t)(top + dy) * canvas->stride +
-                        (size_t)(left + dx) * 3;
+            const unsigned char *a =
+                oriented_pixel(source, orientation, x0, y0);
+            const unsigned char *b =
+                oriented_pixel(source, orientation, x1, y0);
+            const unsigned char *c =
+                oriented_pixel(source, orientation, x0, y1);
+            const unsigned char *d =
+                oriented_pixel(source, orientation, x1, y1);
+            size_t at =
+                (size_t)(top + dy) * canvas->stride + (size_t)(left + dx) * 3;
             for (size_t channel = 0; channel < 3; ++channel) {
                 uint64_t upper = (uint64_t)a[channel] * (65536u - fx) +
                                  (uint64_t)b[channel] * fx;
@@ -376,8 +406,7 @@ static void metadata_lines(const contact_photo *photo, char *first,
         append_field(first, first_size, field);
     }
     if (photo->has_exposure_time && photo->exposure_time > 0) {
-        if (photo->exposure_time < 1 &&
-            1.0 / photo->exposure_time <= 1000000.0)
+        if (photo->exposure_time < 1 && 1.0 / photo->exposure_time <= 1000000.0)
             snprintf(field, sizeof(field), "1/%.0f",
                      1.0 / photo->exposure_time);
         else
@@ -398,16 +427,16 @@ static int render_page(const contact_collection *collection, size_t first,
                        size_t count, const photoc_contact_options *options,
                        const char *destination)
 {
-    uint32_t columns = options->columns < count ? options->columns
-                                                 : (uint32_t)count;
+    uint32_t columns =
+        options->columns < count ? options->columns : (uint32_t)count;
     uint32_t width = 0;
     uint32_t height = 0;
     size_t bytes = 0;
     if (!canvas_dimensions(columns, options->thumb_size, count,
                            options->metadata, &width, &height, &bytes))
-        return photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,
-                                   PHOTOC_ERR_UNSUPPORTED, destination,
-                                   "sheet dimensions exceed the 64 MiB canvas limit", 0);
+        return photoc_error_report(
+            "contact", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED,
+            destination, "sheet dimensions exceed the 64 MiB canvas limit", 0);
     photoc_image canvas = {.width = width,
                            .height = height,
                            .stride = (size_t)width * 3,
@@ -419,8 +448,8 @@ static int render_page(const contact_collection *collection, size_t first,
                                    "cannot allocate sheet canvas", 0);
     memset(canvas.pixels, 255, bytes);
     uint32_t cell_width = options->thumb_size + 2 * CONTACT_PADDING;
-    uint32_t cell_height = options->thumb_size +
-                           (options->metadata ? 66u : 30u);
+    uint32_t cell_height =
+        options->thumb_size + (options->metadata ? 66u : 30u);
     int outcome = PHOTOC_EXIT_SUCCESS;
     for (size_t i = 0; i < count; ++i) {
         const contact_photo *photo = &collection->items[first + i];
@@ -438,8 +467,7 @@ static int render_page(const contact_collection *collection, size_t first,
         uint32_t x = CONTACT_MARGIN + column * (cell_width + CONTACT_GAP);
         uint32_t y = CONTACT_MARGIN + row * (cell_height + CONTACT_GAP);
         rectangle(&canvas, x, y, cell_width, cell_height, 246);
-        rectangle(&canvas, x + CONTACT_PADDING - 1,
-                  y + CONTACT_PADDING - 1,
+        rectangle(&canvas, x + CONTACT_PADDING - 1, y + CONTACT_PADDING - 1,
                   options->thumb_size + 2, options->thumb_size + 2, 220);
         rectangle(&canvas, x + CONTACT_PADDING, y + CONTACT_PADDING,
                   options->thumb_size, options->thumb_size, 238);
@@ -473,8 +501,9 @@ static int render_page(const contact_collection *collection, size_t first,
             photoc_jpeg_edit_result write_result =
                 photoc_jpeg_write_encoded(destination, &jpeg, NULL);
             if (write_result != PHOTOC_JPEG_EDIT_OK)
-                outcome = photoc_error_jpeg_edit("contact", PHOTOC_ERR_NOTE_NONE,
-                                                 destination, write_result, errno);
+                outcome =
+                    photoc_error_jpeg_edit("contact", PHOTOC_ERR_NOTE_NONE,
+                                           destination, write_result, errno);
         }
         photoc_jpeg_buffer_cleanup(&jpeg);
     }
@@ -488,9 +517,10 @@ int photoc_command_contact_with_output(const char *directory,
 {
     if (directory == NULL || options == NULL || options->output_path == NULL ||
         !photoc_fs_is_jpeg(options->output_path))
-        return photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,
-                                   PHOTOC_ERR_USAGE, options == NULL ? NULL : options->output_path,
-                                   "output must be a .jpg or .jpeg path", 0);
+        return photoc_error_report(
+            "contact", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_USAGE,
+            options == NULL ? NULL : options->output_path,
+            "output must be a .jpg or .jpeg path", 0);
     if (options->columns < 1 || options->columns > 8 ||
         options->thumb_size < 96 || options->thumb_size > 512 ||
         options->quality < 1 || options->quality > 100)
@@ -512,21 +542,20 @@ int photoc_command_contact_with_output(const char *directory,
         directory, options->recursive, PHOTOC_FORMATS_JPEG, collect_photo,
         scan_warning, &collection, &stats);
     if (scan_result != 0 || collection.failed != 0 || collection.count == 0) {
-        int system_errno = scan_result == 1 ? collection.error
-                           : scan_result < 0 ? errno : 0;
-        const char *reason = collection.count == 0 && scan_result == 0 &&
-                                     collection.failed == 0
-                                 ? "no JPEG photos found"
-                                 : collection.failed != 0
-                                       ? "one or more JPEG metadata loads failed"
-                                       : collection.error == E2BIG
-                                             ? "more than 1000 JPEGs; split the input directory"
-                                             : collection.error == EFBIG
-                                                   ? "source JPEG exceeds 64 MiB"
-                                                   : "cannot complete directory scan";
+        int system_errno = scan_result == 1  ? collection.error
+                           : scan_result < 0 ? errno
+                                             : 0;
+        const char *reason =
+            collection.count == 0 && scan_result == 0 && collection.failed == 0
+                ? "no JPEG photos found"
+            : collection.failed != 0 ? "one or more JPEG metadata loads failed"
+            : collection.error == E2BIG
+                ? "more than 1000 JPEGs; split the input directory"
+            : collection.error == EFBIG ? "source JPEG exceeds 64 MiB"
+                                        : "cannot complete directory scan";
         int status = photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,
-                                         PHOTOC_ERR_METADATA, directory,
-                                         reason, system_errno == 0 ? 0 : system_errno);
+                                         PHOTOC_ERR_METADATA, directory, reason,
+                                         system_errno == 0 ? 0 : system_errno);
         cleanup_collection(&collection);
         return status;
     }
@@ -556,8 +585,8 @@ int photoc_command_contact_with_output(const char *directory,
         photoc_output_info(output, "Contact sheet: %s (%zu photos)\n",
                            paths[page], count);
     }
-    photoc_output_info(output, "Sheets written: %zu; photos: %zu\n",
-                       written, collection.count);
+    photoc_output_info(output, "Sheets written: %zu; photos: %zu\n", written,
+                       collection.count);
     cleanup_paths(paths, pages);
     cleanup_collection(&collection);
     return written == pages ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;

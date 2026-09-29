@@ -143,8 +143,8 @@ static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
     *out = (photoc_image){0};
     unsigned char *bytes = NULL;
     unsigned long length = 0;
-    photoc_image_result result = read_file(path, &bytes, &length,
-                                           max_file_bytes);
+    photoc_image_result result =
+        read_file(path, &bytes, &length, max_file_bytes);
     if (result != PHOTOC_IMAGE_OK) {
         return result;
     }

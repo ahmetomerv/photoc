@@ -150,8 +150,8 @@ void photoc_bitmap_text(photoc_image *image, uint32_t x, uint32_t y,
         unsigned char value = (unsigned char)text[i];
         if ((value & 0xc0u) == 0x80u)
             continue;
-        draw_glyph(image, x + drawn * scale * 6, y,
-                   value < 128 ? value : '?', scale);
+        draw_glyph(image, x + drawn * scale * 6, y, value < 128 ? value : '?',
+                   scale);
         ++drawn;
     }
     if (shortened)

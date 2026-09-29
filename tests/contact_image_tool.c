@@ -9,7 +9,8 @@ static int make_image(const char *path, uint32_t width, uint32_t height)
 {
     if (width == 0 || height == 0 || width > 256 || height > 256)
         return 1;
-    photoc_image image = {.width = width, .height = height,
+    photoc_image image = {.width = width,
+                          .height = height,
                           .stride = (size_t)width * 3,
                           .pixel_bytes = (size_t)width * height * 3};
     image.pixels = malloc(image.pixel_bytes);
@@ -17,8 +18,8 @@ static int make_image(const char *path, uint32_t width, uint32_t height)
         return 1;
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
-            unsigned char *pixel = image.pixels + (size_t)y * image.stride +
-                                   (size_t)x * 3;
+            unsigned char *pixel =
+                image.pixels + (size_t)y * image.stride + (size_t)x * 3;
             pixel[0] = x < width / 2 ? 245 : 8;
             pixel[1] = 8;
             pixel[2] = x < width / 2 ? 8 : 245;
@@ -39,29 +40,28 @@ static int make_image(const char *path, uint32_t width, uint32_t height)
     return result;
 }
 
-static int inspect_image(const char *path, const char *mode,
-                         uint32_t x, uint32_t y,
-                         uint32_t region_width, uint32_t region_height)
+static int inspect_image(const char *path, const char *mode, uint32_t x,
+                         uint32_t y, uint32_t region_width,
+                         uint32_t region_height)
 {
     photoc_image image = {0};
     if (photoc_image_decode_jpeg(path, &image) != PHOTOC_IMAGE_OK)
         return 1;
     int result = 1;
     if (x < image.width && y < image.height &&
-        region_width <= image.width - x &&
-        region_height <= image.height - y) {
+        region_width <= image.width - x && region_height <= image.height - y) {
         if (strcmp(mode, "probe") == 0) {
             const unsigned char *pixel =
                 image.pixels + (size_t)y * image.stride + (size_t)x * 3;
-            printf("%u %u %u %u %u\n", image.width, image.height,
-                   pixel[0], pixel[1], pixel[2]);
+            printf("%u %u %u %u %u\n", image.width, image.height, pixel[0],
+                   pixel[1], pixel[2]);
         } else {
             uint32_t dark = 0;
             for (uint32_t row = y; row < y + region_height; ++row) {
                 for (uint32_t col = x; col < x + region_width; ++col) {
-                    const unsigned char *pixel =
-                        image.pixels + (size_t)row * image.stride +
-                        (size_t)col * 3;
+                    const unsigned char *pixel = image.pixels +
+                                                 (size_t)row * image.stride +
+                                                 (size_t)col * 3;
                     if ((unsigned int)pixel[0] + pixel[1] + pixel[2] < 300u)
                         ++dark;
                 }
