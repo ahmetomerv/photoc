@@ -40,7 +40,7 @@ static void check_content(const char *path, char expected)
     }
 }
 
-static void test_rollback(int scenario)
+static void test_rollback(int scenario, bool arw)
 {
     char directory[] = "/tmp/photoc-rollback-XXXXXX";
     if (mkdtemp(directory) == NULL) {
@@ -50,9 +50,11 @@ static void test_rollback(int scenario)
     char *source = NULL;
     char *destination = NULL;
     char *held = NULL;
-    CHECK(photoc_fs_join(directory, "source.jpg", &source) == 0);
-    CHECK(photoc_fs_join(directory, "destination.jpg", &destination) == 0);
-    CHECK(photoc_fs_join(directory, "held.jpg", &held) == 0);
+    CHECK(photoc_fs_join(directory, arw ? "source.ARW" : "source.jpg",
+                         &source) == 0);
+    CHECK(photoc_fs_join(directory, arw ? "destination.ARW" : "destination.jpg",
+                         &destination) == 0);
+    CHECK(photoc_fs_join(directory, arw ? "held.ARW" : "held.jpg", &held) == 0);
     if (source == NULL || destination == NULL || held == NULL) {
         goto done;
     }
@@ -116,7 +118,9 @@ done:
 
 int main(void)
 {
-    for (int scenario = 0; scenario < 4; ++scenario)
-        test_rollback(scenario);
+    for (int scenario = 0; scenario < 4; ++scenario) {
+        test_rollback(scenario, false);
+        test_rollback(scenario, true);
+    }
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

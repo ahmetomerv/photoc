@@ -35,11 +35,14 @@ photoc_error_kind photoc_error_kind_for_metadata(photoc_metadata_result result)
         return PHOTOC_ERR_UNSUPPORTED;
     case PHOTOC_METADATA_INVALID_JPEG:
         return PHOTOC_ERR_DECODE;
+    case PHOTOC_METADATA_INVALID_ARW:
+        return PHOTOC_ERR_METADATA;
     case PHOTOC_METADATA_IO_ERROR:
         return PHOTOC_ERR_IO;
     case PHOTOC_METADATA_OK:
     case PHOTOC_METADATA_INVALID_ARGUMENT:
     case PHOTOC_METADATA_NO_MEMORY:
+    case PHOTOC_METADATA_RESOURCE_LIMIT:
         return PHOTOC_ERR_INTERNAL;
     }
     return PHOTOC_ERR_INTERNAL;

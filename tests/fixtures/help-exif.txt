@@ -1,13 +1,14 @@
 Usage: photoc [global options] exif <file>
        photoc exif --help
 
-Inspect JPEG metadata
+Inspect JPEG and Sony ARW metadata
 
-Status: available for JPEG files
+Status: available for JPEG and Sony ARW metadata
 
 Example:
   photoc exif photo.jpg
   photoc exif photo.jpg --json
+  photoc exif DSC00001.ARW
 
 Options:
   --json               Print structured JSON

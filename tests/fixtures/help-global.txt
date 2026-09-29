@@ -7,11 +7,11 @@ Commands:
   query        Search JPEG metadata and print matching paths
   check        Audit JPEG structural readability
   compress     Re-encode JPEGs by quality or target size
-  exif         Inspect JPEG metadata
+  exif         Inspect JPEG and Sony ARW metadata
   duplicates   Find exact duplicate files
-  stats        Summarize JPEG collections
-  rename       Preview or apply JPEG renames
-  sort         Preview or apply JPEG sorting
+  stats        Summarize JPEG and Sony ARW collections
+  rename       Preview or apply photo renames
+  sort         Preview or apply photo sorting
   focus        Compare JPEG sharpness scores
   scrub        Remove EXIF GPS metadata from JPEGs
 
@@ -22,7 +22,7 @@ Global options:
   -q, --quiet      Suppress status text and non-critical warnings
       --json       Request JSON output where supported
 
-Exif and stats inspect JPEG files; duplicates compares file bytes.
+Exif and stats inspect JPEG/ARW metadata; duplicates compares file bytes.
 Rename and sort preview by default; compress and scrub write copies.
 Focus scores JPEG sharpness as a review aid, not a blur verdict.
 Run 'photoc <command> --help' for usage and examples.

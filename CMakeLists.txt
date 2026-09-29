@@ -77,9 +77,11 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_library(photoc_core STATIC
+    src/core/arw.c
     src/core/duplicates.c
     src/core/error.c
     src/core/fs.c
+    src/core/format.c
     src/core/hash.c
     src/core/image.c
     src/core/image_analysis.c
@@ -100,6 +102,7 @@ add_library(photoc_core STATIC
     src/core/sharpness.c
     src/core/stats.c
     src/core/timestamp.c
+    src/core/tiff.c
     src/core/thread_pool.c
 )
 photoc_configure_c_target(photoc_core)
@@ -176,6 +179,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_QUERY_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_query_cli.py")
             set_tests_properties(query_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME arw_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_ARW_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_arw_cli.py")
+            set_tests_properties(arw_cli PROPERTIES TIMEOUT 60)
             add_test(NAME focus_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")
@@ -283,6 +290,13 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_photo)
     target_link_libraries(test_photo PRIVATE photoc_core)
     add_test(NAME photo_model COMMAND test_photo)
+
+    add_executable(test_arw tests/test_arw.c)
+    photoc_configure_c_target(test_arw)
+    target_link_libraries(test_arw PRIVATE photoc_core)
+    target_compile_definitions(test_arw PRIVATE
+        PHOTOC_ARW_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/arw")
+    add_test(NAME arw_metadata COMMAND test_arw)
 
     add_executable(test_query tests/test_query.c)
     photoc_configure_c_target(test_query)

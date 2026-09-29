@@ -27,8 +27,18 @@ static void print_human(const Photo *photo, const char *name)
     puts("");
 
     puts("Image");
-    printf("  Dimensions: %" PRIu32 " x %" PRIu32 " pixels\n", photo->width,
-           photo->height);
+    if (photo->has_width && photo->has_height)
+        printf("  Dimensions: %" PRIu32 " x %" PRIu32 " pixels\n", photo->width,
+               photo->height);
+    else
+        puts("  Dimensions: Unavailable");
+    if (photo->format == PHOTOC_FORMAT_SONY_ARW || photo->has_orientation) {
+        if (photo->has_orientation)
+            printf("  Orientation: %u (EXIF/TIFF; pixels unchanged)\n",
+                   (unsigned int)photo->orientation);
+        else
+            puts("  Orientation: Unavailable");
+    }
     puts("");
 
     puts("Camera");
@@ -86,11 +96,27 @@ static void print_json(const Photo *photo, const char *name)
     photoc_json_write_string(stdout, name);
     fputs(",\n    \"path\": ", stdout);
     photoc_json_write_string(stdout, photo->path);
-    printf(",\n    \"size_bytes\": %" PRIu64 "\n  },\n", photo->file_size);
+    printf(",\n    \"size_bytes\": %" PRIu64 ",\n    \"format\": ",
+           photo->file_size);
+    photoc_json_write_string(stdout, photoc_format_name(photo->format));
+    fputs("\n  },\n", stdout);
 
-    printf("  \"image\": {\n    \"width\": %" PRIu32
-           ",\n    \"height\": %" PRIu32 "\n  },\n",
-           photo->width, photo->height);
+    fputs("  \"image\": {\n    \"width\": ", stdout);
+    if (photo->has_width)
+        printf("%" PRIu32, photo->width);
+    else
+        fputs("null", stdout);
+    fputs(",\n    \"height\": ", stdout);
+    if (photo->has_height)
+        printf("%" PRIu32, photo->height);
+    else
+        fputs("null", stdout);
+    fputs(",\n    \"orientation\": ", stdout);
+    if (photo->has_orientation)
+        printf("%u", (unsigned int)photo->orientation);
+    else
+        fputs("null", stdout);
+    fputs("\n  },\n", stdout);
 
     fputs("  \"camera\": {\n    \"make\": ", stdout);
     photoc_json_write_string(stdout, photo->camera_make);

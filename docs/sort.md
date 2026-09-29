@@ -4,9 +4,14 @@
 
 ## Purpose
 
-Organize JPEGs into folders under a directory, by EXIF capture date or by
+Organize JPEG/ARW photos into folders under a directory, by EXIF capture date or by
 capture-time session. Original filenames are preserved. **Dry run is the
 default**; `--apply` creates destination directories and moves files.
+
+Sony `.arw` files are supported for common TIFF/EXIF metadata, with the same
+command safety/exit behavior. Other RAW formats are unsupported. This is
+metadata-only support: see [ARW fields and limits](raw.md). It is available in
+current source builds, not releases through v0.2.0.
 
 ## Syntax
 
@@ -91,15 +96,15 @@ IMG_001.JPG -> session-001/IMG_001.JPG
 
 Rows are printed in source-path order, with paths relative to the input root.
 Safe rows and the summary go to stdout; blocked paths and reasons go to stderr.
-The summary reports JPEG candidates, planned moves, unchanged paths, blocked
+The summary reports JPEG/ARW candidates, planned moves, unchanged paths, blocked
 entries, applied moves, and rolled-back moves. In dry run, applied and
 rolled-back counts are zero.
 
 ## Edge cases
 
-- Only regular `.jpg`/`.jpeg` files are selected, case-insensitively. Symlinks,
-  non-JPEGs, and symlinked directories are not followed.
-- A missing/invalid capture date or broken/unreadable JPEG blocks that entry.
+- Only regular `.jpg`/`.jpeg`/`.arw` files are selected, case-insensitively. Symlinks,
+  unsupported files, and symlinked directories are not followed.
+- A missing/invalid capture date or broken/unreadable photo blocks that entry.
   Dry run prints the remaining safe moves and returns **1**; apply with any
   blocked entry moves no files.
 - Existing destination files and duplicate proposed destinations are blocked.

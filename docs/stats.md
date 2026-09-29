@@ -4,9 +4,14 @@
 
 ## Purpose
 
-Summarize JPEG photos in a directory: photo count, storage, capture-date range,
+Summarize JPEG/ARW photos in a directory: photo count, storage, capture-date range,
 and camera model, ISO, aperture, and focal-length distributions. The command
 uses the shared metadata scanner and does not modify files.
+
+Sony `.arw` files are supported for common TIFF/EXIF metadata, with the same
+command safety/exit behavior. Other RAW formats are unsupported. This is
+metadata-only support: see [ARW fields and limits](raw.md). It is available in
+current source builds, not releases through v0.2.0.
 
 ## Syntax
 
@@ -15,7 +20,7 @@ photoc stats <directory> [--recursive] [--json]
 photoc stats --help
 ```
 
-Exactly one directory is required. JPEG recognition uses `.jpg` and `.jpeg`,
+Exactly one directory is required. Metadata recognition uses `.jpg`, `.jpeg`, and `.arw`,
 case-insensitive; other file formats do not contribute to photo statistics.
 
 ## Options
@@ -72,7 +77,7 @@ is applied.
   Its missing metadata contributes no distribution entries or capture date.
 - An empty directory succeeds: zero photos/storage, unavailable average and
   dates, and empty distributions (`None` in terminal output).
-- Broken or unreadable JPEGs are warned about, skipped, and counted as errors.
+- Broken or unreadable photo/ARW photos are warned about, skipped, and counted as errors.
   **Per-file warnings alone do not cause a non-zero exit status.** Inspect the
   normal scan summary or JSON `scan.errors` when completeness matters. Quiet
   mode suppresses these warnings and the human scan summary, but JSON counters
@@ -82,22 +87,24 @@ is applied.
   non-regular entries are excluded from scan counters.
 - Invalid calendar timestamps are ignored for the date range. Photos from
   cameras with different clock settings are compared as recorded local times.
-- Counts are per path, not unique content; duplicate or hard-linked JPEGs each
+- Counts are per path, not unique content; duplicate or hard-linked JPEG/ARW photos each
   contribute. Use [duplicates](duplicates.md) to find exact copies.
 
 ### Scan counters
 
 | Field | Meaning |
 | --- | --- |
-| `files_visited` | Regular files examined, including non-JPEG files; excludes directories. |
+| `files_visited` | Regular files examined, including unsupported files; excludes directories. |
+| `arw_files_found` | Regular `.arw` files, including files that fail to load. |
+| `metadata_files_found` | JPEG + ARW candidates. |
 | `jpeg_files_found` | Regular `.jpg`/`.jpeg` files, including files that fail to load. |
-| `photos_parsed` | JPEGs successfully loaded; the total photo count. |
-| `skipped_files` | Non-JPEG regular files plus JPEGs that failed to load. |
-| `errors` | JPEG load failures, a subset of skipped files. |
+| `photos_parsed` | JPEG/ARW photos successfully loaded; the total photo count. |
+| `skipped_files` | Unsupported regular files plus JPEG/ARW photos that failed to load. |
+| `errors` | JPEG/ARW metadata load failures, a subset of skipped files. |
 
 ## Safety notes
 
-The command is read only. Storage reports describe logical JPEG file sizes,
+The command is read only. Storage reports describe logical JPEG/ARW file sizes,
 not filesystem allocation, total directory disk usage, or deduplicated space.
 Files should remain unchanged while scanning for a consistent report.
 
@@ -124,13 +131,15 @@ Schema for the current successful report:
   "properties": {
     "scan": {
       "type": "object",
-      "required": ["directory", "recursive", "files_visited", "jpeg_files_found", "photos_parsed", "skipped_files", "errors"],
+      "required": ["directory", "recursive", "files_visited", "jpeg_files_found", "arw_files_found", "metadata_files_found", "photos_parsed", "skipped_files", "errors"],
       "additionalProperties": false,
       "properties": {
         "directory": {"type": "string"},
         "recursive": {"type": "boolean"},
         "files_visited": {"$ref": "#/$defs/count"},
         "jpeg_files_found": {"$ref": "#/$defs/count"},
+        "arw_files_found": {"$ref": "#/$defs/count"},
+        "metadata_files_found": {"$ref": "#/$defs/count"},
         "photos_parsed": {"$ref": "#/$defs/count"},
         "skipped_files": {"$ref": "#/$defs/count"},
         "errors": {"$ref": "#/$defs/count"}

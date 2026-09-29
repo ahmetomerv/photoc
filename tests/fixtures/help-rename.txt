@@ -1,7 +1,7 @@
 Usage: photoc [global options] rename <directory> --format <template> [--recursive] [--apply]
        photoc rename --help
 
-Preview or apply JPEG renames
+Preview or apply photo renames
 
 Status: dry-run by default; --apply changes files after preflight
 

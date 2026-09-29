@@ -94,11 +94,14 @@ static void print_json(const char *directory, bool recursive,
     printf(",\n    \"recursive\": %s,\n"
            "    \"files_visited\": %" PRIu64 ",\n"
            "    \"jpeg_files_found\": %" PRIu64 ",\n"
+           "    \"arw_files_found\": %" PRIu64 ",\n"
+           "    \"metadata_files_found\": %" PRIu64 ",\n"
            "    \"photos_parsed\": %" PRIu64 ",\n"
            "    \"skipped_files\": %" PRIu64 ",\n"
            "    \"errors\": %" PRIu64 "\n  },\n",
            recursive ? "true" : "false", scan->files_visited,
-           scan->jpeg_files_found, scan->photos_parsed, scan->skipped_files,
+           scan->jpeg_files_found, scan->arw_files_found,
+           scan->metadata_files_found, scan->photos_parsed, scan->skipped_files,
            scan->errors);
 
     printf("  \"storage\": {\n"
@@ -160,12 +163,22 @@ static void print_human(const char *directory, bool recursive,
     print_top("Most-used ISO", &aggregate->iso_values, "", "");
     print_top("Most-used aperture", &aggregate->apertures, "f/", "");
     print_top("Most-used focal length", &aggregate->focal_lengths, "", " mm");
-    photoc_output_info(output,
-                       "  Files: %" PRIu64 " visited, %" PRIu64
-                       " JPEG, %" PRIu64 " skipped, %" PRIu64 " %s\n",
-                       scan->files_visited, scan->jpeg_files_found,
-                       scan->skipped_files, scan->errors,
-                       scan->errors == 1 ? "error" : "errors");
+    if (scan->arw_files_found == 0) {
+        photoc_output_info(output,
+                           "  Files: %" PRIu64 " visited, %" PRIu64
+                           " JPEG, %" PRIu64 " skipped, %" PRIu64 " %s\n",
+                           scan->files_visited, scan->jpeg_files_found,
+                           scan->skipped_files, scan->errors,
+                           scan->errors == 1 ? "error" : "errors");
+    } else {
+        photoc_output_info(
+            output,
+            "  Files: %" PRIu64 " visited, %" PRIu64 " JPEG, %" PRIu64
+            " ARW, %" PRIu64 " skipped, %" PRIu64 " %s\n",
+            scan->files_visited, scan->jpeg_files_found, scan->arw_files_found,
+            scan->skipped_files, scan->errors,
+            scan->errors == 1 ? "error" : "errors");
+    }
 
     puts("\nDistributions (share of parsed photos)");
     print_counts("Camera models", &aggregate->camera_models, "", "",
@@ -194,6 +207,9 @@ int photoc_command_stats_with_output(const char *directory, bool recursive,
     photoc_scan_stats scan = {0};
     int result = photoc_scan_directory(directory, recursive, collect_photo,
                                        report_warning, &context, &scan);
+    photoc_output_verbose(output, "stats",
+                          "ARW files discovered: %" PRIu64 "\n",
+                          scan.arw_files_found);
     photoc_output_verbose(output, "stats",
                           "files scanned: %" PRIu64
                           "; JPEG files discovered: %" PRIu64

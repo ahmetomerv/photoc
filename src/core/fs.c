@@ -256,6 +256,16 @@ bool photoc_fs_is_jpeg(const char *path)
     return false;
 }
 
+bool photoc_fs_is_arw(const char *path)
+{
+    size_t start;
+    size_t length;
+    return extension_bounds(path, &start, &length) == 1 && length == 3 &&
+           ascii_lower(path[start]) == 'a' &&
+           ascii_lower(path[start + 1]) == 'r' &&
+           ascii_lower(path[start + 2]) == 'w';
+}
+
 int photoc_fs_compare_casefold(const char *left, const char *right)
 {
     while (*left != '\0' && *right != '\0') {

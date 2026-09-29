@@ -3,10 +3,12 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "photoc/format.h"
 
 typedef struct Photo {
     /* Required after photo_init. All strings are owned separately by Photo. */
     char *path;
+    photoc_photo_format format;
 
     /* A zero value is not a missing marker; check each presence flag. */
     uint64_t file_size; /* bytes */
@@ -15,6 +17,9 @@ typedef struct Photo {
     bool has_width;
     uint32_t height; /* pixels */
     bool has_height;
+    uint16_t
+        orientation; /* EXIF/TIFF orientation 1-8; pixels are not rotated. */
+    bool has_orientation;
 
     /* NULL means unavailable. The timestamp is text with no assumed zone. */
     char *camera_make;
@@ -55,11 +60,14 @@ typedef enum {
     PHOTOC_METADATA_UNSUPPORTED_FORMAT = 2,
     PHOTOC_METADATA_INVALID_JPEG = 3,
     PHOTOC_METADATA_IO_ERROR = 4,
-    PHOTOC_METADATA_NO_MEMORY = 5
+    PHOTOC_METADATA_NO_MEMORY = 5,
+    PHOTOC_METADATA_INVALID_ARW = 6,
+    PHOTOC_METADATA_RESOURCE_LIMIT = 7
 } photoc_metadata_result;
 
-/* Loads a .jpg/.jpeg file (extension match is case-insensitive). JPEG frame
-   dimensions are authoritative; missing or invalid EXIF tags stay unavailable.
+/* Dispatches .jpg/.jpeg and Sony .arw to metadata-only backends (extensions
+   are case-insensitive). JPEG frame dimensions are authoritative; ARW uses
+   standard TIFF/EXIF tags. Missing or invalid field values stay unavailable.
    photo must be zero-initialized or cleaned before calling. On success it owns
    path and optional strings; call photo_cleanup. On failure it is unchanged.
    No diagnostic is printed by this layer. */

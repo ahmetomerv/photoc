@@ -88,6 +88,23 @@ Report suspected vulnerabilities or data-safety defects through
    benchmarks are documented in [`benchmarks/README.md`](benchmarks/README.md).
 8. Describe what changed and how it was tested in your pull request.
 
+## Metadata formats
+
+`include/photoc/format.h` separates extension discovery from backend validation.
+The generic `Photo` model includes format, orientation, and presence flags.
+`src/core/metadata.c` dispatches JPEG and Sony ARW loading, while
+`metadata_internal.h` shares libexif field conversions. `arw.c` selects common
+entries through the bounded read-only `tiff.c` directory visitor; no image,
+MakerNote, or private codec parser is invoked. See [ARW support](docs/raw.md)
+for the dependency evaluation, limits, and test provenance.
+
+The default metadata scanner discovers JPEG/ARW. Consumers needing JPEG alone
+must request `PHOTOC_FORMATS_JPEG` via `photoc_scan_directory_filtered` (query)
+or keep their JPEG filesystem/image gates (check/compress/focus/scrub).
+Rename/sort share format discovery but retain their existing plans, preflight,
+no-overwrite apply, and rollback code. Future metadata backends must not expand
+image-operation support merely by changing discovery.
+
 ## Metadata query architecture
 
 `src/core/query.c` parses numeric comparisons, validates inclusive date bounds

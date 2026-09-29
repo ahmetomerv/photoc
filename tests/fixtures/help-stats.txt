@@ -1,9 +1,9 @@
 Usage: photoc [global options] stats <directory> [--recursive] [--json]
        photoc stats --help
 
-Summarize JPEG collections
+Summarize JPEG and Sony ARW collections
 
-Status: available for JPEG files
+Status: available for JPEG and Sony ARW metadata
 
 Example:
   photoc stats ~/Pictures

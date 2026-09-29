@@ -10,7 +10,7 @@
 **Command-line tools for photographers.**
 
 `photoc` helps you manage photos on your computer from the terminal. Read photo
-metadata, summarize a shoot, find exact duplicates, rename and organize JPEGs,
+metadata, summarize a shoot, find exact duplicates, rename and organize photos,
 make compressed copies, or remove EXIF GPS tags. You can also use it in shell
 scripts to repeat these tasks.
 
@@ -301,17 +301,43 @@ Put options before `--` when a path begins with `-`, for example
 | [`exif`](docs/exif.md) | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
 | [`duplicates`](docs/duplicates.md) | Find files with identical bytes using SHA-256 and show potential space savings | Read only; JSON supported |
 | [`stats`](docs/stats.md) | Summarize storage, capture dates, cameras, and exposure settings | Read only; JSON supported |
-| [`rename`](docs/rename.md) | Rename JPEGs using metadata templates | Preview; `--apply` to rename |
-| [`sort`](docs/sort.md) | Organize JPEGs by capture date or session | Preview; `--apply` to move |
+| [`rename`](docs/rename.md) | Rename JPEG/ARW photos using metadata templates | Preview; `--apply` to rename |
+| [`sort`](docs/sort.md) | Organize JPEG/ARW photos by capture date or session | Preview; `--apply` to move |
 | [`focus`](docs/focus.md) | Compare JPEG sharpness scores | Read only; lowest scores first; JSON supported |
 | [`scrub`](docs/scrub.md) | Remove EXIF GPS tags from JPEGs | Write new copies |
 
 Each command link includes usage, options, examples, special cases, safety
 notes, and a JSON schema when the command supports JSON.
-`check` and `query` are currently available in source builds; they are not
-included in v0.2.0.
+`check`, `query`, and Sony ARW metadata support are currently available in
+source builds; they are not included in v0.2.0.
+
+### File-type support
+
+| Command | JPEG | Sony ARW | Other RAW files |
+| --- | --- | --- | --- |
+| `exif`, `stats`, `rename`, `sort` | Metadata | Common TIFF/EXIF metadata | Unsupported/skipped |
+| `query`, `check`, `compress`, `focus`, `scrub` | Supported | Unsupported/skipped | Unsupported/skipped |
+| `duplicates` | Exact bytes | Exact bytes | Exact bytes |
+
+ARW support is **metadata only**: no RAW development, pixel decoding, compression,
+or GPS rewriting. Missing fields remain unavailable. See
+[Sony ARW metadata support](docs/raw.md) for fields, safety limits, and fixtures.
 
 ## Examples
+
+### Inspect Sony RAW metadata
+
+```sh
+photoc exif DSC00001.ARW --json
+photoc stats ./photos --recursive
+photoc rename ./photos --format '{date}_{camera}_{sequence}.{ext}'
+photoc sort ./photos --by date
+```
+
+`exif`, `stats`, `rename`, and `sort` discover `.jpg`, `.jpeg`, and `.arw`
+case-insensitively.
+Rename and sort still preview by default; review the plan before adding
+`--apply`. `{ext}` keeps the source extension and its case.
 
 ### Search photo metadata
 

@@ -1,10 +1,17 @@
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 
 #include "photoc/photo.h"
 #include "photoc/fs.h"
 #include "jpeg.h"
+#include "metadata_internal.h"
 
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <libexif/exif-data.h>
 #include <libexif/exif-utils.h>
 #include <stdio.h>
@@ -106,13 +113,8 @@ static bool read_coordinate(ExifEntry *source, ExifEntry *reference,
     return true;
 }
 
-static bool load_exif(const char *path, Photo *photo)
+bool photoc_metadata_read_exif(ExifData *data, Photo *photo)
 {
-    ExifData *data = exif_data_new_from_file(path);
-    if (data == NULL) {
-        return true; /* A JPEG need not carry EXIF. */
-    }
-
     bool ok =
         copy_ascii(entry(data, EXIF_IFD_0, EXIF_TAG_MAKE),
                    &photo->camera_make) &&
@@ -122,6 +124,16 @@ static bool load_exif(const char *path, Photo *photo)
                    &photo->capture_timestamp);
     if (ok) {
         ExifByteOrder order = exif_data_get_byte_order(data);
+        ExifEntry *orientation = entry(data, EXIF_IFD_0, EXIF_TAG_ORIENTATION);
+        if (orientation != NULL && orientation->format == EXIF_FORMAT_SHORT &&
+            orientation->components == 1 && orientation->size >= 2 &&
+            orientation->data != NULL) {
+            uint16_t value = exif_get_short(orientation->data, order);
+            if (value >= 1 && value <= 8) {
+                photo->orientation = value;
+                photo->has_orientation = true;
+            }
+        }
         photo->has_iso =
             read_iso(entry(data, EXIF_IFD_EXIF, EXIF_TAG_ISO_SPEED_RATINGS),
                      order, &photo->iso);
@@ -149,6 +161,15 @@ static bool load_exif(const char *path, Photo *photo)
             photo->has_gps = true;
         }
     }
+    return ok;
+}
+
+static bool load_jpeg_exif(const char *path, Photo *photo)
+{
+    ExifData *data = exif_data_new_from_file(path);
+    if (data == NULL)
+        return true; /* A JPEG need not carry EXIF. */
+    bool ok = photoc_metadata_read_exif(data, photo);
     exif_data_unref(data);
     return ok;
 }
@@ -158,7 +179,8 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
     if (path == NULL || path[0] == '\0' || photo == NULL) {
         return PHOTOC_METADATA_INVALID_ARGUMENT;
     }
-    if (!photoc_fs_is_jpeg(path)) {
+    photoc_photo_format format = photoc_format_from_path(path);
+    if (format == PHOTOC_FORMAT_UNKNOWN) {
         return PHOTOC_METADATA_UNSUPPORTED_FORMAT;
     }
 
@@ -166,8 +188,27 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
     if (photoc_fs_file_size(path, &size) != 0) {
         return PHOTOC_METADATA_IO_ERROR;
     }
-    FILE *file = fopen(path, "rb");
+    int descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
+    if (descriptor < 0)
+        return PHOTOC_METADATA_IO_ERROR;
+    struct stat file_info;
+    if (fstat(descriptor, &file_info) != 0) {
+        int saved_errno = errno;
+        close(descriptor);
+        errno = saved_errno;
+        return PHOTOC_METADATA_IO_ERROR;
+    }
+    if (!S_ISREG(file_info.st_mode) || file_info.st_size < 0) {
+        close(descriptor);
+        errno = EINVAL;
+        return PHOTOC_METADATA_IO_ERROR;
+    }
+    size = (uint64_t)file_info.st_size;
+    FILE *file = fdopen(descriptor, "rb");
     if (file == NULL) {
+        int saved_errno = errno;
+        close(descriptor);
+        errno = saved_errno;
         return PHOTOC_METADATA_IO_ERROR;
     }
 
@@ -176,10 +217,13 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
     if (photo_init(&loaded, path) != 0) {
         result = PHOTOC_METADATA_NO_MEMORY;
     } else {
+        loaded.format = format;
         loaded.file_size = size;
         loaded.has_file_size = true;
         photoc_jpeg_info info;
-        if (photoc_jpeg_inspect(file, &info) != 0) {
+        if (format == PHOTOC_FORMAT_SONY_ARW) {
+            result = photoc_arw_load_metadata(file, size, &loaded);
+        } else if (photoc_jpeg_inspect(file, &info) != 0) {
             result = errno == EINVAL ? PHOTOC_METADATA_INVALID_JPEG
                                      : PHOTOC_METADATA_IO_ERROR;
         } else {
@@ -194,7 +238,8 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
         result = PHOTOC_METADATA_IO_ERROR;
         saved_errno = errno;
     }
-    if (result == PHOTOC_METADATA_OK && !load_exif(path, &loaded)) {
+    if (result == PHOTOC_METADATA_OK && format == PHOTOC_FORMAT_JPEG &&
+        !load_jpeg_exif(path, &loaded)) {
         result = PHOTOC_METADATA_NO_MEMORY;
     }
     if (result == PHOTOC_METADATA_OK) {
@@ -214,11 +259,15 @@ const char *photo_metadata_result_message(photoc_metadata_result result)
     case PHOTOC_METADATA_INVALID_ARGUMENT:
         return "invalid metadata loader argument";
     case PHOTOC_METADATA_UNSUPPORTED_FORMAT:
-        return "unsupported file type (expected .jpg or .jpeg)";
+        return "unsupported file type (expected .jpg, .jpeg, or Sony .arw)";
     case PHOTOC_METADATA_INVALID_JPEG:
         return "invalid or truncated JPEG file";
     case PHOTOC_METADATA_IO_ERROR:
-        return "unable to read JPEG file";
+        return "unable to read photo file";
+    case PHOTOC_METADATA_INVALID_ARW:
+        return "invalid or truncated ARW metadata";
+    case PHOTOC_METADATA_RESOURCE_LIMIT:
+        return "ARW metadata exceeds supported resource limits";
     case PHOTOC_METADATA_NO_MEMORY:
         return "out of memory while loading metadata";
     default:

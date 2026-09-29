@@ -4,9 +4,14 @@
 
 ## Purpose
 
-Inspect selected metadata from one JPEG without modifying it. The report
+Inspect selected metadata from one JPEG or Sony ARW without modifying it. The report
 contains File, Image, Camera, Exposure, Date, and Location sections. This is
 a focused summary, not a dump of every EXIF tag.
+
+Sony `.arw` files are supported for common TIFF/EXIF metadata, with the same
+command safety/exit behavior. Other RAW formats are unsupported. This is
+metadata-only support: see [ARW fields and limits](raw.md). It is available in
+current source builds, not releases through v0.2.0.
 
 ## Syntax
 
@@ -15,7 +20,7 @@ photoc exif <file> [--json]
 photoc exif --help
 ```
 
-Exactly one regular JPEG file is required. `.jpg` and `.jpeg` extensions are
+Exactly one regular JPEG or Sony ARW file is required. `.jpg`, `.jpeg`, and `.arw` extensions are
 recognized case-insensitively. Directory and recursive operation are not
 supported; use [stats](stats.md) to summarize a collection.
 
@@ -45,12 +50,13 @@ photoc exif photo.jpg --json | jq '.location'
 ```
 
 The path in output is the supplied path, not an automatically resolved
-absolute path. Dimensions are the encoded width and height, without applying
-EXIF orientation.
+absolute path. Dimensions are stored width and height, without applying
+EXIF orientation. ARW dimensions may include sensor margins; preview dimensions
+are never substituted.
 
 ## Edge cases
 
-- Missing EXIF is valid. Dimensions and file size remain available; absent
+- Missing EXIF is valid. JPEG dimensions and file size remain available; absent
   fields display as `Unavailable`, or `null` in JSON.
 - Capture time comes from `DateTimeOriginal`, normally
   `YYYY:MM:DD HH:MM:SS`. It is returned as stored; this command does not validate
@@ -62,7 +68,7 @@ EXIF orientation.
   valid references and ranges. Coordinates use signed decimal degrees: south
   and west are negative. A false value does **not** prove that every location
   tag has been removed.
-- Invalid/truncated JPEG structure, unreadable files, and unsupported
+- Invalid/truncated JPEG structure or malformed ARW metadata, unreadable files, and unsupported
   extensions produce errors. Renaming a PNG to `.jpg` does not make it valid.
   JPEG inspection is not a full pixel decode or a complete EXIF integrity check.
 - A symlink supplied as the file is not accepted as a regular file.
@@ -76,6 +82,10 @@ capture time, and local paths; review it before publishing. Use
 Normal reports and JSON go to stdout; diagnostics go to stderr. On a loading
 failure there is no metadata object on stdout. Check exit status before using
 redirected JSON; an output failure can leave a partial document.
+
+Width/height may be unavailable in ARW and are then null in JSON. Orientation
+is the standard EXIF/TIFF value 1–8, or null; photoc does not rotate pixels.
+`file.format` identifies `jpeg` or `sony_arw`.
 
 ## JSON schema
 
@@ -94,21 +104,23 @@ Schema for the current successful output:
   "properties": {
     "file": {
       "type": "object",
-      "required": ["name", "path", "size_bytes"],
+      "required": ["name", "path", "size_bytes", "format"],
       "additionalProperties": false,
       "properties": {
         "name": {"type": "string"},
         "path": {"type": "string"},
-        "size_bytes": {"type": "integer", "minimum": 0}
+        "size_bytes": {"type": "integer", "minimum": 0},
+        "format": {"enum": ["jpeg", "sony_arw"]}
       }
     },
     "image": {
       "type": "object",
-      "required": ["width", "height"],
+      "required": ["width", "height", "orientation"],
       "additionalProperties": false,
       "properties": {
-        "width": {"type": "integer", "minimum": 1},
-        "height": {"type": "integer", "minimum": 1}
+        "width": {"type": ["integer", "null"], "minimum": 1},
+        "height": {"type": ["integer", "null"], "minimum": 1},
+        "orientation": {"type": ["integer", "null"], "minimum": 1, "maximum": 8}
       }
     },
     "camera": {
@@ -159,6 +171,6 @@ JSON retains more precision.
 
 | Status | Meaning |
 | --- | --- |
-| `0` | Metadata report written, including JPEGs with missing EXIF. |
-| `1` | Unsupported file format, invalid JPEG, I/O, allocation, or output failure. |
+| `0` | Metadata report written, including JPEG/ARW photos with missing EXIF. |
+| `1` | Unsupported file format, invalid JPEG/ARW metadata, I/O, allocation, or output failure. |
 | `2` | Invalid argument count or unsupported/conflicting CLI options. |

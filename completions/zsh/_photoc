@@ -7,11 +7,11 @@ command_descriptions=(
     'query:Search JPEG metadata'
     'check:Audit JPEG structural readability'
     'compress:Re-encode JPEGs by quality or target size'
-    'exif:Inspect JPEG metadata'
+    'exif:Inspect JPEG and Sony ARW metadata'
     'duplicates:Find exact duplicate files'
-    'stats:Summarize JPEG collections'
-    'rename:Preview or apply JPEG renames'
-    'sort:Preview or apply JPEG sorting'
+    'stats:Summarize JPEG and Sony ARW collections'
+    'rename:Preview or apply photo renames'
+    'sort:Preview or apply photo sorting'
     'focus:Compare JPEG sharpness scores'
     'scrub:Remove EXIF GPS tags'
 )
@@ -76,7 +76,7 @@ case $command in
             '2:JPEG file or directory:_files'
         ) ;;
     exif)
-        specs+=('--json[Print structured JSON]' '2:JPEG file:_files') ;;
+        specs+=('--json[Print structured JSON]' '2:JPEG or Sony ARW file:_files') ;;
     duplicates|stats)
         specs+=('--recursive[Include nested directories]' '--json[Print structured JSON]' '2:directory:_files -/') ;;
     rename)

@@ -62,8 +62,9 @@ static const char *const compress_notes[] = {
     "Invalid ICC chunk sets fail without publishing a copy.",
     NULL};
 
-static const char *const exif_examples[] = {
-    "photoc exif photo.jpg", "photoc exif photo.jpg --json", NULL};
+static const char *const exif_examples[] = {"photoc exif photo.jpg",
+                                            "photoc exif photo.jpg --json",
+                                            "photoc exif DSC00001.ARW", NULL};
 
 static const photoc_help_option exif_options[] = {
     {"--json", "Print structured JSON"}, {NULL, NULL}};
@@ -472,21 +473,22 @@ static const photoc_command commands[] = {
      "Status: available for JPEG files; writes .compressed copies",
      compress_examples, compress_options, compress_notes, true, false,
      run_compress},
-    {"exif", "Inspect JPEG metadata", "<file>",
-     "Status: available for JPEG files", exif_examples, exif_options, NULL,
-     true, true, run_exif},
+    {"exif", "Inspect JPEG and Sony ARW metadata", "<file>",
+     "Status: available for JPEG and Sony ARW metadata", exif_examples,
+     exif_options, NULL, true, true, run_exif},
     {"duplicates", "Find exact duplicate files",
      "<directory> [--recursive] [--json]",
      "Status: available for regular files (read-only)", duplicates_examples,
      scan_options, NULL, true, true, run_duplicates},
-    {"stats", "Summarize JPEG collections",
-     "<directory> [--recursive] [--json]", "Status: available for JPEG files",
-     stats_examples, scan_options, NULL, true, true, run_stats},
-    {"rename", "Preview or apply JPEG renames",
+    {"stats", "Summarize JPEG and Sony ARW collections",
+     "<directory> [--recursive] [--json]",
+     "Status: available for JPEG and Sony ARW metadata", stats_examples,
+     scan_options, NULL, true, true, run_stats},
+    {"rename", "Preview or apply photo renames",
      "<directory> --format <template> [--recursive] [--apply]",
      "Status: dry-run by default; --apply changes files after preflight",
      rename_examples, rename_options, NULL, true, false, run_rename},
-    {"sort", "Preview or apply JPEG sorting",
+    {"sort", "Preview or apply photo sorting",
      "<directory> --by date|session [--gap <duration>] [--recursive] [--apply]",
      "Status: dry-run by default; --apply moves files after preflight",
      sort_examples, sort_options, NULL, true, false, run_sort},
@@ -533,7 +535,8 @@ static void print_global_help(void)
     puts("  -q, --quiet      Suppress status text and non-critical warnings");
     puts("      --json       Request JSON output where supported");
     puts("");
-    puts("Exif and stats inspect JPEG files; duplicates compares file bytes.");
+    puts("Exif and stats inspect JPEG/ARW metadata; duplicates compares file "
+         "bytes.");
     puts(
         "Rename and sort preview by default; compress and scrub write copies.");
     puts("Focus scores JPEG sharpness as a review aid, not a blur verdict.");

@@ -21,7 +21,7 @@ photoc query ~/Photos --recursive --no-gps
 ```
 
 Supply exactly one regular `.jpg`/`.jpeg` file or directory. Extensions are
-case-insensitive. Scans are flat unless `--recursive` is supplied, skip other
+case-insensitive. Sony ARW is intentionally not enabled for query in this version. Scans are flat unless `--recursive` is supplied, skip other
 files, and do not follow symlinks. A directly supplied symlink or unsupported
 extension is refused. `--recursive` requires a directory.
 

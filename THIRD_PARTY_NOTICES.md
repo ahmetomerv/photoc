@@ -14,6 +14,11 @@ the upstream `COPYING` supplies version 2.1, reproduced in
 Its source and individual notices are available from the upstream repository
 and from the package manager providing the installed library.
 
+The ARW metadata backend reuses libexif's byte-order utilities, entry ownership,
+and common field interpretation. Its bounded TIFF directory reader is original
+photoc code; no RAW decoder, new library, or third-party implementation is
+bundled. The dependency and licensing terms are unchanged.
+
 Compatible replacement shared libraries can be installed without rebuilding
 photoc. photoc source and build instructions are also available so users can
 rebuild against a modified library. If distributing a statically linked build

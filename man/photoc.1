@@ -23,11 +23,12 @@ renames and organizes photos, compresses copies, and removes EXIF GPS tags.
 Normal output goes to standard output; diagnostics go to standard error.
 .PP
 macOS and Linux are the initial supported platforms.
-Image and metadata operations currently recognize JPEG files with
-.B .jpg
-or
-.B .jpeg
-extensions, ignoring case.
+Metadata inspection, statistics, renaming, and sorting recognize JPEG
+(.jpg/.jpeg) and Sony ARW (.arw), ignoring extension case.
+ARW support reads common TIFF/EXIF metadata only, without developing or
+validating RAW pixels. Other RAW formats are unsupported.
+Query, check, compress, focus, and scrub remain JPEG-only; directory scans
+skip ARW for those commands and single-file ARW input fails.
 The
 .B duplicates
 command compares regular files of any type.
@@ -266,10 +267,14 @@ Compression is not a privacy scrub; XMP location data is also retained.
 .I file
 .RI [ \-\-json ]
 .PP
-Inspect one JPEG without modifying it.
-Report filename/path, file size, dimensions, camera make/model, ISO, aperture,
+Inspect one JPEG or Sony ARW without modifying it.
+Report filename/path, format, file size, dimensions, orientation, camera make/model, ISO, aperture,
 exposure time, focal length, capture timestamp, and available GPS coordinates.
 Missing fields are unavailable in terminal output and null in JSON.
+JSON adds file.format (jpeg or sony_arw) and image.orientation (1-8 or null).
+ARW dimensions come from EXIF pixel dimensions, or the largest non-reduced
+CFA/linear-RAW directory; preview dimensions are not substituted.
+Stored dimensions are not rotated and may include sensor margins.
 Exposure time uses seconds; focal length uses millimeters.
 Capture time is the recorded EXIF DateTimeOriginal string, without timezone
 conversion or a filesystem-date fallback.
@@ -326,7 +331,7 @@ and
 .RI [ \-\-recursive ]
 .RI [ \-\-json ]
 .PP
-Summarize parsed JPEGs, total/average file size, earliest/latest valid capture
+Summarize parsed JPEG/ARW photos, total/average file size, earliest/latest valid capture
 dates, and camera-model, ISO, aperture, and focal-length distributions.
 Missing fields are omitted from distributions.
 Sort counts by descending frequency, then camera-model lexical order or
@@ -335,8 +340,8 @@ Most-used values are the first entries in those sorted distributions.
 Percentages use all parsed photos as the denominator, so a distribution can
 sum to less than 100 percent.
 .PP
-JPEGs without EXIF still contribute photo counts and file sizes.
-Individual broken or unreadable JPEGs are warned about and counted as errors.
+Photos with missing optional fields still contribute photo counts and file sizes.
+Individual broken or unreadable JPEG/ARW metadata is warned about and counted as errors.
 These per-file warnings alone do not change a successful exit status.
 Inspect the scan summary for completeness.
 .PP
@@ -351,6 +356,12 @@ The photo count is
 .BR scan.photos_parsed ;
 the file-error count is
 .BR scan.errors .
+.B scan.jpeg_files_found
+counts JPEG candidates,
+.B scan.arw_files_found
+counts ARW candidates, and
+.B scan.metadata_files_found
+counts both, including load failures.
 Empty distributions are arrays; unavailable dates and average size are null.
 .SS rename
 .B photoc rename
@@ -359,7 +370,7 @@ Empty distributions are arrays; unavailable dates and average size are null.
 .RI [ \-\-recursive ]
 .RI [ \-\-apply ]
 .PP
-Preview JPEG renames using a filename template.
+Preview JPEG/ARW renames using a filename template.
 Files remain in their original directories.
 Only
 .B \-\-apply
@@ -388,7 +399,7 @@ Sequence starts at 0001 in lexical source-path order across the scan.
 Unsafe filename characters become underscores.
 Use doubled braces for literal braces.
 .PP
-Missing required metadata, invalid JPEGs, existing destinations, and duplicate
+Missing required metadata, invalid JPEG/ARW metadata, existing destinations, and duplicate
 proposed destinations block entries.
 Any blocked entry prevents all changes with
 .BR \-\-apply .
@@ -403,7 +414,7 @@ rolled-back counts.
 .RI [ \-\-recursive ]
 .RI [ \-\-apply ]
 .PP
-Preview moves into directories under the input root while preserving filenames.
+Preview JPEG/ARW moves into directories under the input root while preserving filenames.
 Date mode uses
 .BR YYYY/MM/DD/ .
 Session mode uses
@@ -559,10 +570,11 @@ Directory operations can retain earlier successful outputs after later failures.
 is explicit replacement with no backup or directory-wide rollback.
 Keep backups and avoid concurrent changes when modifying important collections.
 .SH EXAMPLES
-Inspect a JPEG and save machine-readable metadata:
+Inspect JPEG/ARW metadata and save a machine-readable report:
 .PP
 .nf
 photoc exif photo.jpg
+photoc exif DSC00001.ARW
 photoc exif photo.jpg \-\-json > metadata.json
 .fi
 .PP
@@ -649,7 +661,7 @@ and allowed skips.
 can return success with per-file warnings recorded in its scan summary.
 .TP
 .B 1
-Operational failure, including unsupported input formats, invalid JPEGs,
+Operational failure, including unsupported input formats, invalid JPEG/ARW metadata,
 I/O or output errors, blocked rename/sort plans, failed modifications, or
 compression targets not met.
 Partial reports or successful copies/modifications may already exist.
@@ -663,7 +675,23 @@ invalid option values, or incompatible options.
 .B 3
 Reserved for commands that are not implemented.
 .SH BUGS
-Image and metadata operations are JPEG-only.
+ARW support is limited to standard classic-TIFF/EXIF/GPS tags: dimensions,
+make/model, DateTimeOriginal, ISO Speed Ratings, FNumber, ExposureTime,
+FocalLength, latitude/longitude, and orientation.
+Both TIFF byte orders are supported. Missing values remain unavailable.
+BigTIFF, DNG, other RAW extensions, and explicit non-Sony makes are unsupported.
+With Make absent, .arw selects the backend without verifying the manufacturer.
+Sony MakerNotes, encrypted metadata, XMP sidecars, ICC, and sensor data are not
+interpreted; readable metadata does not prove RAW image integrity.
+.PP
+The bounded reader rejects malformed offsets/lengths, repeated directory
+pointers, duplicate/unsorted tags, and cycles. Limits are UINT32_MAX bytes per
+file, 64 directories, 16,384 entries, 2 MiB metadata reads, 64 KiB per selected
+value, and 256 KiB retained values. Resource failures do not prove corruption.
+Automated fixtures are generated metadata containers, not camera originals;
+compatibility with every Sony camera generation is not established.
+See docs/raw.md for the support matrix, bounds, and optional real-camera test.
+.PP
 Metadata summaries are not complete EXIF dumps, and metadata rewriting does
 not guarantee preservation of every proprietary tag.
 EXIF GPS removal is not removal of every possible location trace.

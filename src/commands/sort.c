@@ -49,6 +49,7 @@ typedef struct {
     size_t capacity;
     int error_errno;
     size_t skipped;
+    size_t arw_count;
     const photoc_output *output; /* Borrowed for the synchronous walk. */
 } sort_plan;
 
@@ -78,15 +79,17 @@ static void free_plan(sort_plan *plan)
     *plan = (sort_plan){0};
 }
 
-static bool collect_jpeg(const char *path, photoc_fs_type type, void *user_data)
+static bool collect_photo(const char *path, photoc_fs_type type,
+                          void *user_data)
 {
     sort_plan *plan = user_data;
-    if (type != PHOTOC_FS_FILE || !photoc_fs_is_jpeg(path)) {
+    if (type != PHOTOC_FS_FILE ||
+        !photoc_format_is_selected(path, PHOTOC_FORMATS_METADATA)) {
         if (type != PHOTOC_FS_DIRECTORY) {
             ++plan->skipped;
-            photoc_output_verbose(plan->output, "sort",
-                                  "skipped '%s': not a regular JPEG file\n",
-                                  path);
+            photoc_output_verbose(
+                plan->output, "sort",
+                "skipped '%s': not a supported metadata photo\n", path);
         }
         return true;
     }
@@ -117,6 +120,8 @@ static bool collect_jpeg(const char *path, photoc_fs_type type, void *user_data)
         return false;
     }
     memcpy(copy, path, length + 1);
+    if (photoc_format_from_path(path) == PHOTOC_FORMAT_SONY_ARW)
+        ++plan->arw_count;
     plan->entries[plan->count++] = (sort_entry){.source = copy};
     return true;
 }
@@ -437,10 +442,11 @@ static void print_summary(const sort_plan *plan, const sort_summary *summary,
 {
     photoc_output_info(
         output,
-        "Summary: %zu JPEG, %zu planned, %zu unchanged, %zu blocked, "
+        "Summary: %zu %s, %zu planned, %zu unchanged, %zu blocked, "
         "%zu applied, %zu rolled back\n",
-        plan->count, summary->planned, summary->unchanged, summary->blocked,
-        summary->applied, summary->rolled_back);
+        plan->count, plan->arw_count == 0 ? "JPEG" : "photos", summary->planned,
+        summary->unchanged, summary->blocked, summary->applied,
+        summary->rolled_back);
 }
 
 static void print_plan(const sort_plan *plan, const char *root, bool show_safe)
@@ -807,8 +813,8 @@ int photoc_command_sort_with_output(const char *directory, bool recursive,
     }
     sort_plan plan = {.output = output};
     int walk_result =
-        recursive ? photoc_fs_walk_recursive(directory, collect_jpeg, &plan)
-                  : photoc_fs_walk(directory, collect_jpeg, &plan);
+        recursive ? photoc_fs_walk_recursive(directory, collect_photo, &plan)
+                  : photoc_fs_walk(directory, collect_photo, &plan);
     if (walk_result != 0) {
         int saved_errno = walk_result == 1 ? plan.error_errno : errno;
         photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
@@ -867,11 +873,13 @@ int photoc_command_sort_with_output(const char *directory, bool recursive,
         }
     }
     sort_summary summary = summarize_plan(&plan);
+    photoc_output_verbose(output, "sort", "ARW files discovered: %zu\n",
+                          plan.arw_count);
     photoc_output_verbose(output, "sort",
                           "JPEG files discovered: %zu; skipped: %zu; metadata "
                           "parse failures: %zu; blocked: %zu\n",
-                          plan.count, plan.skipped, metadata_failures,
-                          summary.blocked);
+                          plan.count - plan.arw_count, plan.skipped,
+                          metadata_failures, summary.blocked);
     int exit_code =
         summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
     if (!apply) {

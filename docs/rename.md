@@ -4,9 +4,14 @@
 
 ## Purpose
 
-Build filenames from JPEG metadata and preview or apply renames. Each photo
+Build filenames from JPEG/ARW metadata and preview or apply renames. Each photo
 stays in its current directory; use [sort](sort.md) to organize folders.
 **Dry run is the default.** Files change only with `--apply`.
+
+Sony `.arw` files are supported for common TIFF/EXIF metadata, with the same
+command safety/exit behavior. Other RAW formats are unsupported. This is
+metadata-only support: see [ARW fields and limits](raw.md). It is available in
+current source builds, not releases through v0.2.0.
 
 ## Syntax
 
@@ -24,7 +29,7 @@ paths containing spaces. Option values must be separate arguments, not
 | Option | Meaning |
 | --- | --- |
 | `--format <template>` | Required filename template; placeholders are case-sensitive. |
-| `--recursive` | Include JPEGs in nested directories; the default scans only the supplied directory. |
+| `--recursive` | Include JPEG/ARW photos in nested directories; the default scans only the supplied directory. |
 | `--apply` | Rename files only after the entire plan passes preflight. |
 | `-h`, `--help` | Print command help and exit successfully. |
 | `-v`, `--verbose` | Report preview/apply mode, recursion, discovery/skip/metadata-failure counts, and applied/rolled-back counts on stderr. |
@@ -64,9 +69,9 @@ preserved. A slash in a template creates an underscore, not a subdirectory.
 Different inputs can sanitize to the same name, so collision checks still
 apply.
 
-JPEG paths are sorted lexically before numbering, across the entire scan.
+JPEG/ARW paths are sorted lexically before numbering, across the entire scan.
 Numbers start at `0001`, are not truncated after `9999`, and include entries
-that later prove blocked. Skipped non-JPEGs do not consume a number. Sequence
+that later prove blocked. Skipped unsupported files do not consume a number. Sequence
 assignments are deterministic for the same set of source paths, not stable
 across additions, removals, or previous renames.
 
@@ -76,7 +81,7 @@ across additions, removals, or previous renames.
 # Preview an EXIF-based naming scheme.
 photoc rename ./photos --format "{date}_{camera}_{sequence}.{ext}"
 
-# Works for valid JPEGs without EXIF: uses only filename and sequence.
+# Works for valid JPEG/ARW photos without EXIF: uses only filename and sequence.
 photoc rename ./photos --format "{original}_{sequence}.{ext}" --recursive
 
 # Apply after reviewing the preview. This rebuilds and rechecks the plan.
@@ -93,17 +98,17 @@ IMG_001.JPG -> 2026-09-27_Model Z_0001.JPG
 ```
 
 Safe plan rows and the summary go to stdout. Blocked entries and reasons go
-to stderr. The summary counts JPEG candidates, planned changes, unchanged
+to stderr. The summary counts JPEG/ARW candidates, planned changes, unchanged
 paths, blocked entries, applied renames, and rolled-back renames. In dry run,
 applied and rolled-back counts are zero; unchanged rows are marked.
 
 ## Edge cases
 
-- Only regular `.jpg`/`.jpeg` files are selected, case-insensitively. Symlinks
-  and non-JPEG files are ignored; symlinked directories are not followed.
+- Only regular `.jpg`/`.jpeg`/`.arw` files are selected, case-insensitively. Symlinks
+  and unsupported files are ignored; symlinked directories are not followed.
 - Missing metadata blocks a photo only when a requested placeholder needs it.
   Invalid capture dates block `{date}`/`{datetime}`. There is no filesystem-date
-  fallback or timezone conversion. A broken/unreadable JPEG blocks its rename
+  fallback or timezone conversion. A broken/unreadable photo blocks its rename
   even if the template uses only its filename.
 - Duplicate proposed destination paths are blocked using ASCII
   case-insensitive comparison, conservatively covering common macOS

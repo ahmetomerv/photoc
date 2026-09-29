@@ -24,6 +24,7 @@ int photoc_fs_file_size(const char *path, uint64_t *size);
 int photoc_fs_filename(const char *path, char **filename);
 int photoc_fs_extension(const char *path, char **extension);
 bool photoc_fs_is_jpeg(const char *path);
+bool photoc_fs_is_arw(const char *path);
 
 /* Returns the part of path after root. Trailing slashes on root are ignored,
    except that "/" is kept. The result is borrowed from path and has no

@@ -88,7 +88,9 @@ def profile_bytes(data):
 
 
 def orientation(data):
-    payload = next(p for k, p in metadata(data) if p.startswith(EXIF))
+    payload = next((p for k, p in metadata(data) if p.startswith(EXIF)), None)
+    if payload is None:
+        return None
     tiff = payload[6:]
     order = "<" if tiff[:2] == b"II" else ">"
     offset = struct.unpack_from(order + "I", tiff, 4)[0]
@@ -130,7 +132,8 @@ class CompressMetadataTests(unittest.TestCase):
         # EXIF's standard values are still readable; dimensions do not rotate.
         old = json.loads(self.invoke("exif", source, "--json").stdout)
         new = json.loads(self.invoke("exif", output, "--json").stdout)
-        self.assertEqual(new["image"], {"width": 3, "height": 2})
+        self.assertEqual(new["image"], {"width": 3, "height": 2,
+                                      "orientation": orientation(output.read_bytes())})
         for field in ("image", "camera", "exposure", "date", "location"):
             self.assertEqual(old[field], new[field])
         # Focus performs pixel decoding, rather than merely reading the JPEG header.

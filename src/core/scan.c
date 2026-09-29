@@ -13,7 +13,7 @@
 enum { SCAN_BATCH_SIZE = 32, SCAN_POOL_START_MIN = 16, SCAN_PARALLEL_MIN = 8 };
 
 typedef struct {
-    char *path; /* Owned; NULL represents a non-JPEG regular file. */
+    char *path; /* Owned; NULL represents a unsupported regular file. */
     Photo photo;
     photoc_metadata_result result;
     int system_errno;
@@ -27,6 +27,7 @@ typedef struct {
     scan_item items[SCAN_BATCH_SIZE];
     size_t count;
     size_t workers;
+    unsigned int formats;
     photoc_thread_pool *pool;
     bool pool_attempted;
     int error;
@@ -54,18 +55,18 @@ static void clear_batch(scan_context *context)
 
 static int flush_batch(scan_context *context)
 {
-    size_t jpeg_count = 0;
+    size_t photo_count = 0;
     for (size_t i = 0; i < context->count; ++i) {
         if (context->items[i].path != NULL)
-            ++jpeg_count;
+            ++photo_count;
     }
-    if (jpeg_count >= SCAN_POOL_START_MIN && context->workers != 1 &&
+    if (photo_count >= SCAN_POOL_START_MIN && context->workers != 1 &&
         !context->pool_attempted) {
         context->pool_attempted = true;
         context->pool = photoc_thread_pool_create(context->workers);
         /* Resource-constrained hosts can still complete the scan serially. */
     }
-    if (jpeg_count >= SCAN_PARALLEL_MIN && context->pool != NULL) {
+    if (photo_count >= SCAN_PARALLEL_MIN && context->pool != NULL) {
         if (photoc_thread_pool_run(context->pool, context->count, load_item,
                                    context) != 0) {
             context->error = errno;
@@ -87,7 +88,11 @@ static int flush_batch(scan_context *context)
             ++context->stats->skipped_files;
             continue;
         }
-        ++context->stats->jpeg_files_found;
+        ++context->stats->metadata_files_found;
+        if (photoc_format_from_path(item->path) == PHOTOC_FORMAT_JPEG)
+            ++context->stats->jpeg_files_found;
+        else
+            ++context->stats->arw_files_found;
         if (item->result != PHOTOC_METADATA_OK) {
             ++context->stats->errors;
             ++context->stats->skipped_files;
@@ -120,7 +125,7 @@ static bool scan_entry(const char *path, photoc_fs_type type, void *user_data)
         return type != PHOTOC_FS_DIRECTORY || flush_batch(context) == 0;
     }
     scan_item *item = &context->items[context->count];
-    if (photoc_fs_is_jpeg(path)) {
+    if (photoc_format_is_selected(path, context->formats)) {
         item->path = strdup(path);
         if (item->path == NULL) {
             context->error = ENOMEM;
@@ -131,15 +136,14 @@ static bool scan_entry(const char *path, photoc_fs_type type, void *user_data)
     return context->count < SCAN_BATCH_SIZE || flush_batch(context) == 0;
 }
 
-int photoc_scan_directory_with_workers(const char *directory, bool recursive,
-                                       size_t workers,
-                                       photoc_scan_photo_fn on_photo,
-                                       photoc_scan_warning_fn on_warning,
-                                       void *user_data,
-                                       photoc_scan_stats *stats)
+static int scan_directory(const char *directory, bool recursive, size_t workers,
+                          unsigned int formats, photoc_scan_photo_fn on_photo,
+                          photoc_scan_warning_fn on_warning, void *user_data,
+                          photoc_scan_stats *stats)
 {
     if (directory == NULL || directory[0] == '\0' || on_photo == NULL ||
-        stats == NULL || workers > PHOTOC_MAX_WORKERS) {
+        stats == NULL || workers > PHOTOC_MAX_WORKERS || formats == 0 ||
+        (formats & ~PHOTOC_FORMATS_METADATA) != 0) {
         errno = EINVAL;
         return -1;
     }
@@ -148,7 +152,8 @@ int photoc_scan_directory_with_workers(const char *directory, bool recursive,
                             .on_warning = on_warning,
                             .user_data = user_data,
                             .stats = stats,
-                            .workers = workers};
+                            .workers = workers,
+                            .formats = formats};
     int result = recursive
                      ? photoc_fs_walk_recursive(directory, scan_entry, &context)
                      : photoc_fs_walk(directory, scan_entry, &context);
@@ -176,4 +181,26 @@ int photoc_scan_directory(const char *directory, bool recursive,
 {
     return photoc_scan_directory_with_workers(directory, recursive, 0, on_photo,
                                               on_warning, user_data, stats);
+}
+
+int photoc_scan_directory_with_workers(const char *directory, bool recursive,
+                                       size_t workers,
+                                       photoc_scan_photo_fn on_photo,
+                                       photoc_scan_warning_fn on_warning,
+                                       void *user_data,
+                                       photoc_scan_stats *stats)
+{
+    return scan_directory(directory, recursive, workers,
+                          PHOTOC_FORMATS_METADATA, on_photo, on_warning,
+                          user_data, stats);
+}
+
+int photoc_scan_directory_filtered(const char *directory, bool recursive,
+                                   unsigned int formats,
+                                   photoc_scan_photo_fn on_photo,
+                                   photoc_scan_warning_fn on_warning,
+                                   void *user_data, photoc_scan_stats *stats)
+{
+    return scan_directory(directory, recursive, 0, formats, on_photo,
+                          on_warning, user_data, stats);
 }

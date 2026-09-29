@@ -8,6 +8,7 @@ real photographs.
 
 | Need | Approach |
 | --- | --- |
+| Sony ARW metadata | Original generated classic-TIFF metadata containers in [`arw/`](arw/README.md); no sensor data. Regenerate with `python3 scripts/make_arw_fixtures.py`. |
 | EXIF-rich JPEG | Generated: inject APP1 into a tiny 3×2 base (`with_exif.jpg`) |
 | ICC/XMP marker preservation | Generated: isolated RGB/grayscale marker fixtures in [`jpeg_metadata/`](jpeg_metadata/README.md); regenerate with `python3 scripts/make-jpeg-segment-fixtures.py` |
 | JPEG integrity | Generated in temporary directories by `tests/test_check_cli.py` and `tests/test_jpeg_check.c`: malformed EXIF/markers, truncations, resource limits, baseline/progressive RGB and CMYK. Existing grayscale and metadata fixtures are reused. |
@@ -29,7 +30,9 @@ Rules:
    samples stay under a few kilobytes except the dimension-only large file.
 2. Prefer generated fixtures. If a checked-in binary can be rebuilt from
    `scripts/`, rebuild it instead of importing a camera original.
-3. Never commit photos of people, private GPS tracks, or third-party stock
+3. Sony TIFF metadata fixtures use explicit Sony make/model strings for backend
+   selection tests; these are original synthetic data, not actual captures.
+   Never commit photos of people, private GPS tracks, or third-party stock
    images. Invented EXIF strings use the make `Fixture Camera Co.` and models
    `Model A` / `Model Z` / `Model S`.
 4. Duplicate scenarios stay ephemeral so the suite does not grow with every
@@ -41,6 +44,7 @@ Rules:
 tests/fixtures/
   README.md                 # this strategy
   jpeg/                     # binary image fixtures (see jpeg/README.md)
+  arw/                      # original TIFF metadata-only fixtures
   fs/sample.txt             # tiny non-image filesystem fixture
   help-*.txt                # exact CLI help stdout
   exif-*.txt                # exact `photoc exif` stdout snapshots

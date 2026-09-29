@@ -224,8 +224,9 @@ int photoc_command_query_with_output(const char *path,
         result = collect_match(&photo, &scan) ? 0 : 1;
         photo_cleanup(&photo);
     } else {
-        result = photoc_scan_directory(path, recursive, collect_match,
-                                       scan_failure, &scan, &stats);
+        result = photoc_scan_directory_filtered(
+            path, recursive, PHOTOC_FORMATS_JPEG, collect_match, scan_failure,
+            &scan, &stats);
     }
     if (result != 0) {
         int saved_errno = scan.error == 0 ? errno : scan.error;

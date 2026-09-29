@@ -1,7 +1,7 @@
 Usage: photoc [global options] sort <directory> --by date|session [--gap <duration>] [--recursive] [--apply]
        photoc sort --help
 
-Preview or apply JPEG sorting
+Preview or apply photo sorting
 
 Status: dry-run by default; --apply moves files after preflight
 
