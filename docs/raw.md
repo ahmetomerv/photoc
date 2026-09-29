@@ -3,8 +3,7 @@
 [Command overview](../README.md#commands)
 
 photoc reads common metadata from Sony `.arw` files without developing,
-decoding, recompressing, or rewriting RAW image data. Support is available in
-current source builds; releases through **v0.2.0** do not include it.
+decoding, recompressing, or rewriting RAW image data.
 
 ## Supported commands
 
@@ -18,6 +17,7 @@ current source builds; releases through **v0.2.0** do not include it.
 | `query` | Metadata search | Unsupported/skipped | Unsupported/skipped |
 | `check` | JPEG structure and full pixel decode | Unsupported/skipped | Unsupported/skipped |
 | `compress` | JPEG recompression | Unsupported/skipped | Unsupported/skipped |
+| `contact` | JPEG contact sheets | Unsupported/skipped | Unsupported/skipped |
 | `focus` | JPEG sharpness | Unsupported/skipped | Unsupported/skipped |
 | `scrub` | GPS, privacy, or descriptive metadata removal | Unsupported/skipped | Unsupported/skipped |
 | `duplicates` | Exact file bytes | Exact file bytes | Exact file bytes |

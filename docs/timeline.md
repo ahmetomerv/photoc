@@ -10,8 +10,7 @@ photo count, total file size, most-used physical focal length and aperture,
 ISO range, and camera models when available.
 
 The command reads JPEG and Sony ARW metadata without modifying files or
-retaining decoded pixels. It is available in current source builds, not
-releases through v0.2.0. See [ARW support](raw.md) for metadata limitations.
+retaining decoded pixels. See [ARW support](raw.md) for metadata limitations.
 
 ## Syntax
 
