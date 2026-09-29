@@ -1,7 +1,33 @@
-# photoc 0.1.0
+# photoc 0.2.0
 
-First public release of photoc, a command-line application for local photo
-collections on macOS and Linux.
+This release adds working global output verbosity and preserves photographic
+metadata when recompressing JPEGs. Runtime dependencies and installation
+commands are unchanged from 0.1.0.
+
+## Changes since 0.1.0
+
+- `--verbose` / `-v` adds command diagnostics on stderr, including operating
+  mode, paths, scan/skip/failure counts, and relevant processing settings.
+- `--quiet` / `-q` suppresses informational status and non-critical metadata
+  warnings while keeping requested results and errors visible. JSON schemas
+  are unchanged, and JSON stdout remains uncontaminated in both modes.
+- Quiet and verbose flags work before or after the command. Combining them
+  now returns usage status **2**; in 0.1.0 both flags were accepted without
+  affecting output.
+- `compress` now preserves EXIF APP1, ICC_PROFILE APP2 chunks, and standard
+  and Extended Adobe XMP APP1 payloads byte for byte, in their original
+  relative order. This applies to quality, target-size, and directory modes.
+- Compression validates complete, consistent ICC chunk sets and rejects
+  malformed sets without publishing that file's output. Target-size searches
+  include all preserved marker overhead. Outputs are decoded and checked for
+  dimensions and metadata before publication; grayscale inputs with ICC stay
+  grayscale, and EXIF Orientation is retained without rotating pixels.
+- Documentation now includes source-install uninstall instructions and clearer
+  shell PATH setup.
+
+See the [verbosity guide](https://github.com/ahmetomerv/photoc/blob/v0.2.0/README.md#output-verbosity)
+and [metadata support](https://github.com/ahmetomerv/photoc/blob/v0.2.0/docs/compress.md#metadata-preservation)
+for exact behavior.
 
 ## Included commands
 
@@ -20,20 +46,33 @@ Shell completions are included for zsh, bash, and fish.
 ## File safety and current limits
 
 Rename and sort preview by default and never overwrite existing destinations.
-Compression in v0.1.0 is lossy and drops ICC/XMP metadata. Current source
-preserves [EXIF, ICC, and XMP](compress.md#metadata-preservation); use a source
-build until a release includes that behavior. Scrub removes EXIF GPS only;
+Compression is lossy and can increase file size. Preserved EXIF and XMP include
+GPS and other location information; compression is not a privacy scrub.
+ICC packaging is validated without interpreting or converting the profile.
+Standard and Extended XMP are copied as opaque packets; XML, GUID links, and
+extended completeness are not validated or repaired. Other original APP
+markers, comments, Photoshop/IPTC resources, and MPF/MPO offset data are not
+copied. Recognized metadata after the first scan is rejected, and metadata
+snapshots are capped at 64 MiB including segment bookkeeping. The existing
+decoder does not support CMYK/YCCK JPEGs.
+
+Scrub behavior is unchanged: it removes EXIF GPS only;
 location data in other metadata may remain. `scrub --in-place` replaces
 originals without creating a backup. See the
-[file-safety notes](https://github.com/ahmetomerv/photoc/blob/v0.1.0/README.md#file-safety)
+[file-safety notes](https://github.com/ahmetomerv/photoc/blob/v0.2.0/README.md#file-safety)
 and command guides before changing or sharing important photos.
 
 Image commands currently support JPEG files. Sharpness scores are review hints,
-not proof of blur. In v0.1.0, `--verbose` and `--quiet` are accepted but do not
-change output. The current source implements [output verbosity](../README.md#output-verbosity);
-use a build from source until a release includes it. The command-line interface
-may change during the `0.x` series;
+not proof of blur. The command-line interface may change during the `0.x` series;
 review each release's notes before upgrading.
+
+## Upgrading
+
+Existing installations do not update automatically. Follow the
+[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.2.0/docs/installation.md#upgrading)
+to replace an owned release installation. For source installations, rebuild
+from the new tag and reinstall as documented there. Confirm the update with
+`photoc --version`, which should print `photoc 0.2.0`.
 
 ## Downloads and requirements
 
@@ -56,5 +95,5 @@ all archives and raw executables;
 downloaded files with `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
 `sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that directory.
 
-See the [installation guide](https://github.com/ahmetomerv/photoc/blob/main/docs/installation.md)
+See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.2.0/docs/installation.md)
 for the checksum-verified release installer and safe uninstall flow.

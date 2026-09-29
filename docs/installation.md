@@ -24,7 +24,7 @@ the release installer yet.
 Select a release tag or another user-writable location:
 
 ```sh
-sh scripts/install.sh --version v0.1.0
+sh scripts/install.sh --version v0.2.0
 sh scripts/install.sh --install-dir "$HOME/bin"
 sh scripts/install.sh --help
 ```
@@ -101,7 +101,7 @@ an installation without a receipt, follow the
 before proceeding. If a tracked release's executable was modified, review that
 change before removing anything; the receipt no longer verifies it.
 
-You can select a version by adding `--version v0.1.0` to the install command.
+You can select a version by adding `--version v0.2.0` to the install command.
 To return to an earlier release, uninstall the current tracked copy and install
 that earlier tag. Keep any backup you need before uninstalling: the upgrade
 steps remove the old executable before downloading the new one. A failed
