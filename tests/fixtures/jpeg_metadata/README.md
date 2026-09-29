@@ -24,3 +24,8 @@ imported.
 Additional malformed, maximum-length, post-scan, and memory-limit cases are
 generated in disposable test directories. These fixtures live separately from
 `../jpeg/` to preserve the existing collection-statistics snapshots.
+
+`tests/test_scrub_privacy.py` also builds a combined EXIF GPS/serial/owner,
+standard XMP GPS/creator/serial, IPTC location/caption, ICC and Orientation
+fixture in a disposable directory. It checks selective removal, display
+orientation, ICC transport, JPEG decoding and atomic publication behavior.

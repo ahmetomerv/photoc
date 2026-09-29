@@ -3,6 +3,7 @@
 
 #include "photoc/output.h"
 #include "photoc/query.h"
+#include "photoc/jpeg_write.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -42,6 +43,9 @@ int photoc_command_sort(const char *directory, bool recursive,
 int photoc_command_focus(const char *path, bool recursive, double threshold,
                          bool only_blurry, bool json);
 int photoc_command_scrub(const char *path, bool recursive, bool in_place);
+int photoc_command_scrub_mode_with_output(const char *path, bool recursive,
+                                          bool in_place, photoc_scrub_mode mode,
+                                          const photoc_output *output);
 
 /* Read-only JPEG readability audit. Paths/output are borrowed synchronously.
    Warnings do not fail the audit; only_errors excludes warning and OK rows. */

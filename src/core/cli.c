@@ -147,8 +147,12 @@ static const char *const focus_notes[] = {
     "Noise, texture, subject matter, and JPEG artifacts affect scores.", NULL};
 
 static const char *const scrub_examples[] = {
-    "photoc scrub photo.jpg --gps", "photoc scrub ~/Pictures --gps --recursive",
-    "photoc scrub photo.jpg --gps --in-place", NULL};
+    "photoc scrub photo.jpg --gps",
+    "photoc scrub ~/Pictures --gps --recursive",
+    "photoc scrub photo.jpg --privacy",
+    "photoc scrub photo.jpg --all-metadata",
+    "photoc scrub photo.jpg --gps --in-place",
+    NULL};
 
 static const char *const check_examples[] = {
     "photoc check photo.jpg", "photoc check ~/Pictures --recursive",
@@ -168,7 +172,9 @@ static const char *const check_notes[] = {
     NULL};
 
 static const photoc_help_option scrub_options[] = {
-    {"--gps", "Required; remove EXIF GPS tags"},
+    {"--gps", "Remove EXIF GPS tags (original behavior)"},
+    {"--privacy", "Remove supported location and identifier fields"},
+    {"--all-metadata", "Remove descriptive metadata; keep ICC and orientation"},
     {"--recursive", "Include nested directories"},
     {"--in-place", "Replace each original after temporary-file verification"},
     {NULL, NULL}};
@@ -205,6 +211,8 @@ static const char *const query_notes[] = {
     NULL};
 
 static const char *const scrub_notes[] = {
+    "Choose exactly one of --gps, --privacy, or --all-metadata.",
+    "MakerNotes and unknown marker formats can retain private information.",
     "Warning: --in-place replaces original files and creates no backup.",
     "It preserves mode bits; ACLs and extended attributes may change.",
     "Linked, symlinked, changed, or differently owned files are refused.",
@@ -213,8 +221,7 @@ static const char *const scrub_notes[] = {
 #if defined(__GNUC__)
 __attribute__((format(printf, 2, 3)))
 #endif
-static void
-command_error(const char *command, const char *format, ...)
+static void command_error(const char *command, const char *format, ...)
 {
     fprintf(stderr, "photoc %s: ", command);
     va_list args;
@@ -439,10 +446,21 @@ static int run_scrub(const photoc_cli_options *options,
                      const photoc_output *output)
 {
     static const char usage[] =
-        "scrub <file|directory> --gps [--recursive] [--in-place]";
-    if (options->argument_count != 1 || !options->gps) {
-        usage_error("scrub", "expected one file or directory and --gps", usage);
+        "scrub <file|directory> (--gps|--privacy|--all-metadata) [--recursive] "
+        "[--in-place]";
+    unsigned int modes = (unsigned int)options->gps +
+                         (unsigned int)options->privacy +
+                         (unsigned int)options->all_metadata;
+    if (options->argument_count != 1 || modes != 1) {
+        usage_error("scrub", "expected one path and exactly one scrub mode",
+                    usage);
         return PHOTOC_EXIT_USAGE;
+    }
+    if (options->privacy || options->all_metadata) {
+        return photoc_command_scrub_mode_with_output(
+            options->first_argument, options->recursive, options->in_place,
+            options->privacy ? PHOTOC_SCRUB_PRIVACY : PHOTOC_SCRUB_ALL_METADATA,
+            output);
     }
     return photoc_command_scrub_with_output(
         options->first_argument, options->recursive, options->in_place, output);
@@ -542,8 +560,9 @@ static const photoc_command commands[] = {
      "[--json]",
      "Status: available for JPEG files (read-only)", focus_examples,
      focus_options, focus_notes, true, true, run_focus},
-    {"scrub", "Remove EXIF GPS metadata from JPEGs",
-     "<file|directory> --gps [--recursive] [--in-place]",
+    {"scrub", "Remove GPS or descriptive metadata from JPEGs",
+     "<file|directory> (--gps|--privacy|--all-metadata) [--recursive] "
+     "[--in-place]",
      "Status: writes .scrubbed copies by default; --in-place replaces "
      "originals",
      scrub_examples, scrub_options, scrub_notes, true, false, run_scrub}};

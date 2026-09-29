@@ -22,8 +22,34 @@ typedef enum {
     PHOTOC_JPEG_EDIT_UNSAFE_SOURCE,
     PHOTOC_JPEG_EDIT_INVALID_ICC,
     PHOTOC_JPEG_EDIT_METADATA_TOO_LARGE,
-    PHOTOC_JPEG_EDIT_UNSAFE_METADATA_LAYOUT
+    PHOTOC_JPEG_EDIT_UNSAFE_METADATA_LAYOUT,
+    PHOTOC_JPEG_EDIT_UNSUPPORTED_XMP,
+    PHOTOC_JPEG_EDIT_UNSUPPORTED_IPTC
 } photoc_jpeg_edit_result;
+
+typedef enum {
+    PHOTOC_SCRUB_PRIVACY,
+    PHOTOC_SCRUB_ALL_METADATA
+} photoc_scrub_mode;
+
+typedef struct {
+    bool changed;
+    bool exif_gps;
+    bool exif_identifiers;
+    bool xmp_fields;
+    bool iptc_fields;
+    bool maker_note;
+    bool unhandled_metadata;
+} photoc_scrub_report;
+
+/* Paths are borrowed. The report receives category flags, never values.
+   A new copy uses no-overwrite publication; in-place uses the same source
+   identity and temporary-file safeguards as EXIF GPS editing. */
+photoc_jpeg_edit_result photoc_jpeg_scrub_metadata(const char *source_path,
+                                                   const char *destination_path,
+                                                   photoc_scrub_mode mode,
+                                                   bool in_place,
+                                                   photoc_scrub_report *report);
 
 /* Load an owned, editable copy of the EXIF from a JPEG. A JPEG without an
    EXIF APP1 segment returns NO_EXIF. The output pointer must not already own

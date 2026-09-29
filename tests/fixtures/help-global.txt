@@ -14,7 +14,7 @@ Commands:
   rename       Preview or apply photo renames
   sort         Preview or apply photo sorting
   focus        Compare JPEG sharpness scores
-  scrub        Remove EXIF GPS metadata from JPEGs
+  scrub        Remove GPS or descriptive metadata from JPEGs
 
 Global options:
   -h, --help       Show global or command help

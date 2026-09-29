@@ -23,7 +23,7 @@ typedef struct {
    The stream is left near EOI. */
 int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info);
 
-/* Optional APP1/APP2 visitor. Payload is borrowed only during the callback.
+/* Optional APP0-APP15/COM visitor. Payload is borrowed only during the callback.
    Return nonzero to stop inspection; the visitor's errno is preserved. */
 typedef int (*photoc_jpeg_app_visitor)(unsigned char marker,
                                        const unsigned char *payload,

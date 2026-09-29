@@ -14,6 +14,8 @@ typedef struct {
     bool recursive;
     bool apply;
     bool gps;
+    bool privacy;
+    bool all_metadata;
     bool in_place;
     bool only_blurry;
     bool only_errors;

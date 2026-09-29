@@ -67,7 +67,8 @@ typedef enum {
     PHOTOC_METADATA_IO_ERROR = 4,
     PHOTOC_METADATA_NO_MEMORY = 5,
     PHOTOC_METADATA_INVALID_ARW = 6,
-    PHOTOC_METADATA_RESOURCE_LIMIT = 7
+    PHOTOC_METADATA_RESOURCE_LIMIT = 7,
+    PHOTOC_METADATA_PRIVACY_REMAINS = 8
 } photoc_metadata_result;
 
 /* Dispatches .jpg/.jpeg and Sony .arw to metadata-only backends (extensions

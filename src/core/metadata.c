@@ -278,6 +278,9 @@ const char *photo_metadata_result_message(photoc_metadata_result result)
         return "invalid or truncated ARW metadata";
     case PHOTOC_METADATA_RESOURCE_LIMIT:
         return "ARW metadata exceeds supported resource limits";
+    case PHOTOC_METADATA_PRIVACY_REMAINS:
+        return "opaque MakerNote or unsupported metadata may retain private "
+               "information";
     case PHOTOC_METADATA_NO_MEMORY:
         return "out of memory while loading metadata";
     default:

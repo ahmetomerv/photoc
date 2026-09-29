@@ -76,11 +76,63 @@ static void report_edit_error(const char *path, photoc_jpeg_edit_result result,
                            saved_errno);
 }
 
-static void scrub_file(const char *path, bool in_place, scrub_counts *counts,
-                       const photoc_output *output)
+static void scrub_file(const char *path, bool in_place, int mode,
+                       scrub_counts *counts, const photoc_output *output)
 {
     if (!photoc_fs_is_jpeg(path)) {
         ++counts->skipped;
+        return;
+    }
+
+    if (mode != 0) {
+        char *destination = NULL;
+        if (!in_place && scrubbed_path(path, &destination) != 0) {
+            ++counts->failed;
+            photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
+                                errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                                : PHOTOC_ERR_IO,
+                                path, "cannot build output path", errno);
+            return;
+        }
+        photoc_scrub_report report = {0};
+        photoc_jpeg_edit_result result = photoc_jpeg_scrub_metadata(
+            path, in_place ? path : destination,
+            mode == 1 ? PHOTOC_SCRUB_PRIVACY : PHOTOC_SCRUB_ALL_METADATA,
+            in_place, &report);
+        int saved_errno = errno;
+        if (result == PHOTOC_JPEG_EDIT_OK && report.changed) {
+            ++counts->processed;
+            photoc_output_info(output, "Metadata removed%s: %s%s%s\n",
+                               in_place ? " in place" : "", path,
+                               in_place ? "" : " -> ",
+                               in_place ? "" : destination);
+            photoc_output_verbose(output, "scrub",
+                                  "removed categories: EXIF GPS=%s, EXIF "
+                                  "identifiers=%s, XMP=%s, IPTC=%s\n",
+                                  report.exif_gps ? "yes" : "no",
+                                  report.exif_identifiers ? "yes" : "no",
+                                  report.xmp_fields ? "yes" : "no",
+                                  report.iptc_fields ? "yes" : "no");
+            if ((mode == 1 && report.maker_note) || report.unhandled_metadata) {
+                photoc_output_metadata_warning(
+                    output, "scrub", in_place ? path : destination,
+                    PHOTOC_METADATA_PRIVACY_REMAINS, 0);
+            }
+        } else if (result == PHOTOC_JPEG_EDIT_OK) {
+            ++counts->skipped;
+            photoc_output_info(
+                output, "Skipped: %s (no supported metadata to remove)\n",
+                path);
+            if ((mode == 1 && report.maker_note) || report.unhandled_metadata) {
+                photoc_output_metadata_warning(
+                    output, "scrub", path, PHOTOC_METADATA_PRIVACY_REMAINS, 0);
+            }
+        } else {
+            ++counts->failed;
+            report_edit_error(in_place ? path : destination, result,
+                              saved_errno);
+        }
+        free(destination);
         return;
     }
 
@@ -190,8 +242,8 @@ static int compare_paths(const void *left, const void *right)
     return strcmp(*(const char *const *)left, *(const char *const *)right);
 }
 
-int photoc_command_scrub_with_output(const char *path, bool recursive,
-                                     bool in_place, const photoc_output *output)
+static int command_scrub(const char *path, bool recursive, bool in_place,
+                         int mode, const photoc_output *output)
 {
     photoc_output_verbose(
         output, "scrub", "input: '%s'; mode: %s; recursion: %s\n", path,
@@ -219,7 +271,7 @@ int photoc_command_scrub_with_output(const char *path, bool recursive,
     scrub_counts counts = {0};
     size_t discovered = 1;
     if (type == PHOTOC_FS_FILE) {
-        scrub_file(path, in_place, &counts, output);
+        scrub_file(path, in_place, mode, &counts, output);
     } else {
         scrub_walk walk = {.output = output};
         int result = recursive
@@ -240,7 +292,7 @@ int photoc_command_scrub_with_output(const char *path, bool recursive,
                       compare_paths);
             }
             for (size_t i = 0; i < walk.count; ++i) {
-                scrub_file(walk.paths[i], in_place, &counts, output);
+                scrub_file(walk.paths[i], in_place, mode, &counts, output);
             }
         }
         for (size_t i = 0; i < walk.count; ++i) {
@@ -248,21 +300,48 @@ int photoc_command_scrub_with_output(const char *path, bool recursive,
         }
         free(walk.paths);
     }
-    photoc_output_verbose(output, "scrub",
-                          "JPEG files discovered: %zu; processed: %zu; "
-                          "skipped: %zu; failed: %zu; GPS removed: %zu\n",
-                          discovered, counts.processed, counts.skipped,
-                          counts.failed, counts.gps_removed);
-    photoc_output_info(
-        output,
-        "Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n"
-        "Files with GPS found and removed: %zu\n",
-        counts.processed, counts.skipped, counts.failed, counts.gps_removed);
+    if (mode == 0) {
+        photoc_output_verbose(output, "scrub",
+                              "JPEG files discovered: %zu; processed: %zu; "
+                              "skipped: %zu; failed: %zu; GPS removed: %zu\n",
+                              discovered, counts.processed, counts.skipped,
+                              counts.failed, counts.gps_removed);
+        photoc_output_info(
+            output,
+            "Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n"
+            "Files with GPS found and removed: %zu\n",
+            counts.processed, counts.skipped, counts.failed,
+            counts.gps_removed);
+    } else {
+        photoc_output_verbose(output, "scrub",
+                              "JPEG files discovered: %zu; processed: %zu; "
+                              "skipped: %zu; failed: %zu\n",
+                              discovered, counts.processed, counts.skipped,
+                              counts.failed);
+        photoc_output_info(
+            output,
+            "Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n",
+            counts.processed, counts.skipped, counts.failed);
+    }
     if (ferror(stdout)) {
         return photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                    NULL, "unable to write output", EIO);
     }
     return counts.failed == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
+}
+
+int photoc_command_scrub_with_output(const char *path, bool recursive,
+                                     bool in_place, const photoc_output *output)
+{
+    return command_scrub(path, recursive, in_place, 0, output);
+}
+
+int photoc_command_scrub_mode_with_output(const char *path, bool recursive,
+                                          bool in_place, photoc_scrub_mode mode,
+                                          const photoc_output *output)
+{
+    return command_scrub(path, recursive, in_place,
+                         mode == PHOTOC_SCRUB_PRIVACY ? 1 : 2, output);
 }
 
 int photoc_command_scrub(const char *path, bool recursive, bool in_place)

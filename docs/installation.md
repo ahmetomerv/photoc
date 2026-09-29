@@ -46,8 +46,8 @@ and cannot contain `:` because that separates entries in `PATH`.
   fails with an error. Release-specific runtime requirements belong in the
   release notes; the installer does not install libraries.
   Current release builds target macOS 15+ or glibc-based Linux with glibc 2.35+.
-  Runtime packages are `brew install libexif jpeg-turbo` on macOS, or
-  `sudo apt install libexif12 libturbojpeg libjpeg8` on Ubuntu.
+  Runtime packages are `brew install libexif jpeg-turbo libxml2` on macOS, or
+  `sudo apt install libexif12 libturbojpeg libjpeg8 libxml2` on Ubuntu.
 - Creates the final filename atomically without replacing existing files,
   directories, or symlinks, including entries created during installation.
 - Records the installed binary's SHA-256 digest and device/inode identity in

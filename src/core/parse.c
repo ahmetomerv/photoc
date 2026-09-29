@@ -131,6 +131,8 @@ static const photoc_flag flags[] = {{"-h", 0, false},
                                     {"--recursive", CMD_RECURSIVE, false},
                                     {"--apply", CMD_APPLY, false},
                                     {"--gps", CMD_SCRUB, false},
+                                    {"--privacy", CMD_SCRUB, false},
+                                    {"--all-metadata", CMD_SCRUB, false},
                                     {"--in-place", CMD_SCRUB, false},
                                     {"--quality", CMD_COMPRESS, true},
                                     {"--target", CMD_COMPRESS, true},
@@ -275,6 +277,10 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
             options->apply = true;
         } else if (strcmp(name, "--gps") == 0) {
             options->gps = true;
+        } else if (strcmp(name, "--privacy") == 0) {
+            options->privacy = true;
+        } else if (strcmp(name, "--all-metadata") == 0) {
+            options->all_metadata = true;
         } else if (strcmp(name, "--in-place") == 0) {
             options->in_place = true;
         } else if (strcmp(name, "--only-blurry") == 0) {

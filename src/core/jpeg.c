@@ -160,7 +160,7 @@ int photoc_jpeg_inspect_app_limited(FILE *file, photoc_jpeg_info *info,
                 return invalid_or_io(file);
             }
             has_frame = true;
-        } else if (current == 0xe1 || current == 0xe2) {
+        } else if ((current >= 0xe0 && current <= 0xef) || current == 0xfe) {
             unsigned char payload[65533];
             unsigned int payload_length = length - 2;
             if (fread(payload, 1, payload_length, file) != payload_length) {

@@ -5,6 +5,14 @@ The following libraries are installed separately and dynamically linked;
 release archives do not bundle their binaries or source. Build tools and
 optional test tools are not runtime dependencies.
 
+## libxml2
+
+[libxml2](https://gitlab.gnome.org/GNOME/libxml2) parses standard XMP packets
+for selective privacy removal. It is installed separately and dynamically
+linked. libxml2 uses the MIT License; retain the notice supplied by the
+installed package when redistributing its library. No libxml2 binary or source
+is bundled with photoc.
+
 ## libexif
 
 [libexif](https://github.com/libexif/libexif) is used under the GNU Lesser

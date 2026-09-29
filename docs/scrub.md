@@ -2,143 +2,108 @@
 
 [Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
 
-## Purpose
-
-Remove the EXIF GPS directory and its pointer from JPEGs. By default, write a
-new `.scrubbed` copy beside each source and keep the original unchanged.
-**`--in-place` explicitly replaces originals and creates no backup.**
-
-The command rewrites EXIF without recompressing JPEG image data. This is EXIF
-GPS removal, not removal of all metadata or a guarantee of anonymity.
-
-## Syntax
+## Purpose and syntax
 
 ```text
-photoc scrub <file|directory> --gps [--recursive] [--in-place]
-photoc scrub --help
+photoc scrub <file|directory> (--gps|--privacy|--all-metadata) [--recursive] [--in-place]
 ```
 
-Exactly one regular JPEG file or directory is required. JPEG recognition uses
-`.jpg` and `.jpeg`, case-insensitive.
+Choose **exactly one** mode. The modes are mutually exclusive; they do not
+compose. `--gps` retains the original behavior: it removes only the EXIF GPS
+IFD and pointer, skips JPEGs without EXIF GPS, and leaves every other JPEG
+segment byte for byte. `--privacy` removes recognized location and personal
+identifier fields. `--all-metadata` removes supported descriptive metadata
+while keeping color and orientation information needed for display.
 
-## Options
+By default, a changed JPEG becomes a `.scrubbed` copy beside the original.
+`photo.JPG` becomes `photo.scrubbed.JPG`. An unchanged JPEG is skipped and no
+copy is made. `--in-place` explicitly replaces the original, with no backup.
+JPEG pixel/scan data is never recompressed or rotated.
 
-| Option | Meaning |
-| --- | --- |
-| `--gps` | Required; remove all EXIF GPS IFD entries and the root GPS pointer. |
-| `--recursive` | Include nested directories. Invalid with a single-file input. |
-| `--in-place` | Replace each original only after writing and verifying a temporary file. No backup is created. |
-| `-h`, `--help` | Print command help and exit successfully. |
-| `-v`, `--verbose` | Report copy/in-place mode, recursion, input/output paths, skips, and processing/failure counts on stderr. |
-| `-q`, `--quiet` | Hide GPS-removal status, skip messages, and summaries; file operations are unchanged. Errors remain visible. |
+## Modes
 
-Global verbosity flags work before or after the command. Combining quiet and
-verbose returns usage status **2**. JSON, where supported, has the same schema
-in every mode; all diagnostics and errors use stderr.
+| Mode | Removed | Retained |
+| --- | --- | --- |
+| `--gps` | EXIF GPS IFD entries and root pointer only | Every other JPEG byte, including XMP, IPTC, ICC, and MakerNotes |
+| `--privacy` | EXIF GPS; standard EXIF Artist, CameraOwnerName, BodySerialNumber, LensSerialNumber, ImageUniqueID; recognized standard Adobe XMP GPS, location, creator/owner, serial and document-ID properties; IPTC IIM location, byline, credit, source, contact and caption-writer datasets in a standard Photoshop APP13 resource | Other EXIF fields, XMP properties and IPTC datasets; ICC; orientation; JPEG structure and scan data |
+| `--all-metadata` | EXIF except a valid Orientation tag; standard and Extended Adobe XMP APP1 packets; Photoshop/IPTC APP13 segments; JPEG COM comments | ICC APP2 chunks byte for byte; JFIF/Adobe and structural JPEG markers; compressed scan data; valid Orientation value 1–8 in a minimal EXIF APP1 segment |
 
-There is no dry-run or `--apply` option: copy mode writes immediately, and
-`--in-place` authorizes replacement. `--json` is unsupported and returns exit
-status 2. There is no JSON schema or destination-directory option.
+`--privacy` uses libexif for EXIF and libxml2 for standard XMP. Those libraries
+are required by source builds. XMP is matched by namespace and property name,
+not a text search. IPTC removal edits individual datasets and keeps unrelated
+Photoshop resources. `--all-metadata` does not reencode pixels: it retains the
+Orientation tag, so a viewer that honored the original tag will display the
+same rotation. If EXIF has no Orientation tag, a valid standard XMP
+`tiff:Orientation` value is moved into a minimal EXIF tag. Otherwise the EXIF
+segment is removed.
+ICC bytes and chunk order are unchanged; no color conversion occurs.
+
+Unknown APP markers, unsupported APP1/APP2 payloads, and other opaque formats
+are kept. `--all-metadata` is therefore a removal of **supported descriptive
+metadata**, not a claim that no metadata bytes remain. A file with an MPF APP2
+index is refused if a rewrite is needed, because its embedded offsets would
+otherwise become stale. Other proprietary marker offsets are not rewritten;
+inspect such files separately before use.
 
 ## Examples
 
 ```sh
-# Write photo.scrubbed.jpg if EXIF GPS tags exist.
 photoc scrub photo.jpg --gps
-photoc scrub "Summer trip/IMG_001.JPG" --gps
-photoc scrub ./photos --gps --recursive
-
-# Inspect the result; exif is a separate read-only command.
-photoc exif photo.scrubbed.jpg
-
-# Explicit replacement: make your own backup first.
-photoc scrub photo.jpg --gps --in-place
-photoc scrub ./photos --gps --recursive --in-place
-
+photoc scrub photo.jpg --privacy
+photoc scrub photo.jpg --all-metadata
+photoc scrub ./photos --privacy --recursive
+photoc scrub photo.jpg --privacy --in-place
 photoc scrub --gps -- -photo.jpg
 ```
 
-Copy names preserve the original extension casing: `IMG_001.JPG` becomes
-`IMG_001.scrubbed.JPG`. Directory mode writes copies in each source directory,
-not into one common destination.
+JPEG recognition uses `.jpg` and `.jpeg`, case-insensitive. Directory mode
+processes candidate paths in sorted order, skips non-JPEGs and existing
+`.scrubbed` stems, and does not follow symlinks. A directly supplied JPEG with
+that suffix is still inspected. `--recursive` requires a directory. `--json`
+and `--apply` are unsupported.
 
-## Output
+Normal status and summaries go to stdout, errors and warnings to stderr.
+`-v`/`--verbose` lists **categories** found and removed, never coordinates,
+serial numbers or names. `-q`/`--quiet` suppresses informational output and
+noncritical metadata warnings, but not failures. `--gps` retains its original
+status lines and GPS count; the broader modes report processed, skipped and
+failed files.
 
-Processed files print `GPS removed: source -> destination`, or
-`GPS removed in place: source`. JPEGs without EXIF GPS print a skip reason.
-Directory candidates are processed in source-path order.
+## Safety and privacy limits
 
-The summary reports:
+Copy publication uses a temporary file in the destination directory, syncs it,
+checks the edited bytes and JPEG structure, then renames without overwrite. An
+existing `.scrubbed` file is never replaced. In-place mode uses a temporary file
+beside the source and repeats source identity checks before atomic replacement.
+It refuses symlinks, hard links, different owners and changed sources, and
+preserves POSIX mode bits and group ownership. ACLs, extended attributes and
+filesystem identity may change. There is no backup. A directory operation is
+not transactional across files, and concurrent path changes still have a
+check-to-rename window.
 
-- files processed: successful GPS removals;
-- files skipped: files without GPS and excluded entries such as non-JPEGs;
-- files failed: per-file failures, plus a traversal failure if one occurred;
-- files with GPS found and removed: successful removals, not every file in
-  which GPS was found before a later writing failure.
+Selective EXIF rewriting can change opaque MakerNote bytes or offsets. Privacy
+mode **does not parse or guarantee sanitization of MakerNotes**; camera serials,
+location or other personal data may remain inside them. When a MakerNote or
+unsupported marker is detected, the command warns without showing its values.
+An unrecognized Photoshop APP13 layout is retained with a warning. A malformed
+recognized IPTC layout fails rather than risking a partial edit. Privacy mode
+also refuses Extended XMP and malformed standard XMP without creating/replacing
+a file, because it cannot guarantee selective removal there. All-metadata mode
+refuses malformed standard XMP and an Extended XMP document without a separate
+known Orientation value, since that document could contain the only rotation
+instruction. Unknown XMP namespaces and proprietary APP markers may retain
+sensitive fields. Free-text fields kept in EXIF, XMP or IPTC can also contain
+private details.
 
-Normal output and summaries go to stdout; failures go to stderr.
-
-## Edge cases
-
-- A JPEG without EXIF, or with EXIF but no GPS tags, is skipped successfully.
-  No copy is created and no replacement occurs. An empty directory also
-  succeeds with zero totals.
-- GPS detection checks for GPS directory entries or a GPS pointer, even if
-  the coordinate data is incomplete. This is broader than
-  [exif](exif.md)'s `has_gps`, which requires a valid coordinate pair.
-- An existing `.scrubbed` destination causes a failure without overwriting it.
-  Directory processing continues with other candidates and exits **1**.
-- Directory mode excludes files whose stem already ends in `.scrubbed`, as
-  well as non-JPEG and non-regular entries. A directly supplied JPEG with that
-  suffix is still inspected. Symlinks and symlinked directories are not
-  followed.
-- Broken JPEGs, invalid EXIF, ambiguous/unsafe JPEG layouts, oversized rewritten
-  EXIF, and unreadable/unwritable paths can fail. A directory traversal failure
-  prevents processing the collected candidates; individual edit failures do
-  not stop the other candidates.
-- `--in-place` refuses symlinks, hard-linked files, files owned by another user,
-  and sources whose identity or contents changed since metadata was loaded.
-  If mode bits or group ownership cannot be preserved, replacement fails.
-
-## Safety notes
-
-### Copy mode
-
-The original is never changed. A temporary JPEG beside the destination is
-written, synced, and verified before an atomic no-overwrite rename. All JPEG
-bytes outside the rewritten EXIF segment, including compressed image data,
-are copied unchanged. Enough space and directory write permission are needed
-even when the source itself is read only.
-
-Non-GPS EXIF is retained where libexif can represent it, including ordinary
-camera and exposure fields. Unusual MakerNotes may change during serialization.
-New copies do not promise to retain source filesystem permissions, ownership,
-ACLs, or extended attributes.
-
-### In-place mode
-
-A temporary JPEG is written beside the source, verified, and atomically
-renamed over that source only after safety checks. Failures before replacement
-leave the original path unchanged. POSIX permission bits and group ownership
-are preserved; ACLs and extended attributes are **not copied**. Replacing the
-file also changes its filesystem identity and can change timestamps.
-
-There is no backup or undo file. A directory operation is not a transaction:
-if a later file fails, earlier successful replacements remain. Keep your own
-backups and avoid concurrent modifications.
-
-### Privacy scope
-
-GPS in XMP, MakerNotes, other metadata formats, filenames, or visible image
-content is outside this command's removal scope. Non-EXIF JPEG segments are
-preserved, so any location data there may remain. Retained capture times and
-camera identifiers can also be sensitive. Review the output before sharing;
-`exif` reporting `GPS: No` alone is not proof that every location trace is gone.
+File names, sidecar files, visible scene content, thumbnails inside unrecognized
+markers, and metadata formats outside the listed support are not sanitized.
+Review the output before sharing. `photoc exif` reporting `GPS: No` is not
+proof that every location trace is gone.
 
 ## Exit statuses
 
 | Status | Meaning |
 | --- | --- |
-| `0` | Completed with no failures; skips and no-GPS files are allowed. |
-| `1` | Unsupported input, unsafe source, invalid JPEG/EXIF, collision, traversal, writing, or output failure. Other files may already be processed. |
-| `2` | Missing path/`--gps`, recursive mode with a file, or unsupported/conflicting CLI options. |
+| `0` | No failures; unchanged or excluded files may have been skipped. |
+| `1` | Input, metadata, safety, collision, traversal, or I/O failure. Other files in a directory may already have been processed. |
+| `2` | Missing path/mode, multiple modes, or invalid/conflicting options. |

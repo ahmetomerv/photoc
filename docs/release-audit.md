@@ -9,6 +9,8 @@ The current source also implements [output verbosity](../README.md#output-verbos
 the no-op verbosity limitation below describes the audited snapshot.
 Compression now preserves [EXIF, ICC, and XMP](compress.md#metadata-preservation);
 the ICC/XMP loss noted below describes the audited snapshot.
+Scrub now has [GPS, privacy, and all-metadata modes](scrub.md); the EXIF-only
+privacy limitation below also describes the audited snapshot.
 
 ## Release status
 

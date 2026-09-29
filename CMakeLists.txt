@@ -36,6 +36,7 @@ find_package(Threads REQUIRED)
 pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
 pkg_check_modules(TURBOJPEG REQUIRED IMPORTED_TARGET libturbojpeg)
 pkg_check_modules(LIBJPEG REQUIRED IMPORTED_TARGET libjpeg)
+pkg_check_modules(LIBXML2 REQUIRED IMPORTED_TARGET libxml-2.0)
 
 function(photoc_configure_c_target target)
     set_target_properties("${target}" PROPERTIES
@@ -108,7 +109,7 @@ add_library(photoc_core STATIC
 )
 photoc_configure_c_target(photoc_core)
 target_include_directories(photoc_core PUBLIC include)
-target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF PkgConfig::TURBOJPEG PkgConfig::LIBJPEG Threads::Threads)
+target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF PkgConfig::TURBOJPEG PkgConfig::LIBJPEG PkgConfig::LIBXML2 Threads::Threads)
 
 add_executable(photoc
     src/main.c
@@ -173,6 +174,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_COMPRESS_METADATA_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_compress_metadata.py")
             set_tests_properties(compress_metadata_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME scrub_privacy_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_SCRUB_PRIVACY_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_scrub_privacy.py")
+            set_tests_properties(scrub_privacy_cli PROPERTIES TIMEOUT 60)
             add_test(NAME check_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_CHECK_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_check_cli.py")

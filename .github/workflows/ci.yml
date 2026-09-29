@@ -56,7 +56,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev \
+            build-essential cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev libxml2-dev \
             zsh fish mandoc shellcheck python3
 
       - name: Install macOS dependencies
@@ -64,8 +64,8 @@ jobs:
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew install cmake pkgconf libexif jpeg-turbo fish
-          echo "PKG_CONFIG_PATH=$(brew --prefix libexif)/lib/pkgconfig:$(brew --prefix jpeg-turbo)/lib/pkgconfig" >> "$GITHUB_ENV"
+          brew install cmake pkgconf libexif jpeg-turbo libxml2 fish
+          echo "PKG_CONFIG_PATH=$(brew --prefix libexif)/lib/pkgconfig:$(brew --prefix jpeg-turbo)/lib/pkgconfig:$(brew --prefix libxml2)/lib/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Check installation shell scripts
         if: runner.os == 'Linux'
@@ -101,7 +101,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev zsh fish mandoc
+            clang cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev libxml2-dev zsh fish mandoc
 
       - name: Configure
         run: >-

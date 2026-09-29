@@ -19,7 +19,7 @@ current source builds; releases through **v0.2.0** do not include it.
 | `check` | JPEG structure and full pixel decode | Unsupported/skipped | Unsupported/skipped |
 | `compress` | JPEG recompression | Unsupported/skipped | Unsupported/skipped |
 | `focus` | JPEG sharpness | Unsupported/skipped | Unsupported/skipped |
-| `scrub` | EXIF GPS removal | Unsupported/skipped | Unsupported/skipped |
+| `scrub` | GPS, privacy, or descriptive metadata removal | Unsupported/skipped | Unsupported/skipped |
 | `duplicates` | Exact file bytes | Exact file bytes | Exact file bytes |
 
 Extensions `.jpg`, `.jpeg`, and `.arw` are matched case-insensitively for

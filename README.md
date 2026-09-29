@@ -27,10 +27,10 @@ glibc 2.35 or later. Check the release notes for any additional requirements.
 
    ```sh
    # macOS (Homebrew)
-   brew install libexif jpeg-turbo
+   brew install libexif jpeg-turbo libxml2
 
    # Ubuntu / Debian
-   sudo apt install libexif12 libturbojpeg libjpeg8
+   sudo apt install libexif12 libturbojpeg libjpeg8 libxml2
    ```
 
 2. Download and run the installer:
@@ -83,13 +83,13 @@ Run these steps in your terminal:
    Apple's command-line tools, then run:
 
    ```sh
-   brew install cmake pkgconf libexif jpeg-turbo
+   brew install cmake pkgconf libexif jpeg-turbo libxml2
    ```
 
    **Ubuntu / Debian:**
 
    ```sh
-   sudo apt install build-essential git cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev
+   sudo apt install build-essential git cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev libxml2-dev
    ```
 
    On other Linux distributions, install the equivalent packages.
@@ -306,7 +306,7 @@ Put options before `--` when a path begins with `-`, for example
 | [`rename`](docs/rename.md) | Rename JPEG/ARW photos using metadata templates | Preview; `--apply` to rename |
 | [`sort`](docs/sort.md) | Organize JPEG/ARW photos by capture date or session | Preview; `--apply` to move |
 | [`focus`](docs/focus.md) | Compare JPEG sharpness scores | Read only; lowest scores first; JSON supported |
-| [`scrub`](docs/scrub.md) | Remove EXIF GPS tags from JPEGs | Write new copies |
+| [`scrub`](docs/scrub.md) | Remove GPS, private fields, or descriptive metadata from JPEGs | Write new copies |
 
 Each command link includes usage, options, examples, special cases, safety
 notes, and a JSON schema when the command supports JSON.
@@ -483,17 +483,20 @@ photos scoring below 100. Scores help you choose photos to review; they are
 not a final judgment of blur. Subject detail and noise can affect the result.
 See [focus details](docs/focus.md) for the scoring limits.
 
-### Remove EXIF GPS tags
+### Remove JPEG metadata
 
 ```sh
 photoc scrub photo.jpg --gps
+photoc scrub photo.jpg --privacy
+photoc scrub photo.jpg --all-metadata
 photoc scrub ./photos --gps --recursive
 ```
 
-If EXIF GPS tags are present, photoc creates a copy such as
-`photo.scrubbed.jpg` and keeps the original. Photos without these tags are
-skipped without creating a copy. This removes EXIF GPS tags only; location
-data in other metadata may remain.
+Each command creates a copy such as `photo.scrubbed.jpg` when matching metadata
+is found. `--gps` retains its original EXIF-only behavior. `--privacy` selectively
+removes supported EXIF, standard XMP, and IPTC fields; `--all-metadata` removes
+descriptive EXIF/XMP/IPTC and comments while retaining ICC and orientation.
+Choose exactly one mode. [See the exact scope and limits](docs/scrub.md).
 
 ## File safety
 
@@ -518,10 +521,12 @@ data in other metadata may remain.
   still writes a copy at the minimum quality and returns exit status **1**.
   `2MB` means 2,000,000 bytes; `2MiB` means 2,097,152 bytes.
 - **Scrub:** originals stay unchanged by default, and existing copy destinations
-  are rejected. JPEG image data is copied without recompression. Other EXIF
-  fields are kept where the libexif library can represent them. Unusual
-  camera-specific metadata (MakerNotes) may change. GPS data in XMP or
-  MakerNotes is not removed by this command.
+  are rejected. JPEG image data is copied without recompression. `--gps` removes
+  EXIF GPS only. `--privacy` removes supported location and identifier fields but
+  may leave information in opaque MakerNotes or unknown marker formats; it
+  refuses Extended or malformed XMP rather than publishing a partial scrub.
+  `--all-metadata` keeps ICC color profiles and an EXIF orientation tag when
+  needed. Unusual MakerNotes may change under selective libexif rewriting.
 - **Explicit in-place scrub:** `photoc scrub photo.jpg --gps --in-place`
   replaces the original after checking a temporary copy. It replaces the file
   in one step (an atomic replacement). **It creates no backup.** Unsafe sources,

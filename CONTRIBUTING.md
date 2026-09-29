@@ -206,7 +206,7 @@ Debug build enables AddressSanitizer and UndefinedBehaviorSanitizer, including
 leak detection on Linux. A separate formatting job uses clang-format 18 and
 fails when project C sources or headers need formatting.
 
-CI installs libexif, TurboJPEG, and native test tools so completion and man-page
+CI installs libexif, TurboJPEG, libxml2, and native test tools so completion and man-page
 checks run alongside the C and CLI tests. It does not cache dependencies or
 publish releases. The sanitizer build can be reproduced locally with
 `sh scripts/build-and-test-sanitizers.sh`; leak detection depends on platform

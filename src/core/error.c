@@ -36,6 +36,7 @@ photoc_error_kind photoc_error_kind_for_metadata(photoc_metadata_result result)
     case PHOTOC_METADATA_INVALID_JPEG:
         return PHOTOC_ERR_DECODE;
     case PHOTOC_METADATA_INVALID_ARW:
+    case PHOTOC_METADATA_PRIVACY_REMAINS:
         return PHOTOC_ERR_METADATA;
     case PHOTOC_METADATA_IO_ERROR:
         return PHOTOC_ERR_IO;
@@ -78,6 +79,8 @@ photoc_error_kind_for_jpeg_edit(photoc_jpeg_edit_result result, int err)
     case PHOTOC_JPEG_EDIT_INVALID_ICC:
     case PHOTOC_JPEG_EDIT_METADATA_TOO_LARGE:
     case PHOTOC_JPEG_EDIT_UNSAFE_METADATA_LAYOUT:
+    case PHOTOC_JPEG_EDIT_UNSUPPORTED_XMP:
+    case PHOTOC_JPEG_EDIT_UNSUPPORTED_IPTC:
         return PHOTOC_ERR_METADATA;
     case PHOTOC_JPEG_EDIT_UNSAFE_SOURCE:
         return PHOTOC_ERR_UNSUPPORTED;
