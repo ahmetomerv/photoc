@@ -52,6 +52,7 @@ _photoc_complete()
             check) candidates="$candidates --recursive --only-errors --json" ;;
             compress) candidates="$candidates --quality --target --min-quality --recursive --output-dir" ;;
             exif) candidates="$candidates --json" ;;
+            timeline) candidates="$candidates --recursive --gap --json" ;;
             duplicates|stats) candidates="$candidates --recursive --json" ;;
             rename) candidates="$candidates --format --recursive --apply" ;;
             sort) candidates="$candidates --by --gap --recursive --apply" ;;
@@ -64,14 +65,14 @@ _photoc_complete()
     fi
     if [[ -z $command && -z $pending ]]; then
         while IFS= read -r word; do COMPREPLY+=("$word"); done \
-            < <(compgen -W 'query check compress exif duplicates stats rename sort focus scrub' -- "$current")
+            < <(compgen -W 'query check compress exif duplicates stats timeline rename sort focus scrub' -- "$current")
         return 0
     fi
 
     if [[ -z $pending ]]; then
         ((paths == 0)) || return 0
         case $command in
-            duplicates|stats|rename|sort) kind='directory' ;;
+            duplicates|stats|timeline|rename|sort) kind='directory' ;;
             query|check|compress|exif|focus|scrub) ;;
             *) return 0 ;;
         esac

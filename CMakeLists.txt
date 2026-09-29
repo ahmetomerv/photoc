@@ -101,6 +101,7 @@ add_library(photoc_core STATIC
     src/core/session.c
     src/core/sharpness.c
     src/core/stats.c
+    src/core/timeline.c
     src/core/timestamp.c
     src/core/tiff.c
     src/core/thread_pool.c
@@ -122,6 +123,7 @@ add_executable(photoc
     src/commands/scrub.c
     src/commands/sort.c
     src/commands/stats.c
+    src/commands/timeline.c
     src/commands/stub.c
 )
 photoc_configure_c_target(photoc)
@@ -187,6 +189,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_STATS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_stats_extended.py")
             set_tests_properties(stats_extended_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME timeline_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_TIMELINE_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_timeline_cli.py")
+            set_tests_properties(timeline_cli PROPERTIES TIMEOUT 60)
             add_test(NAME focus_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")
@@ -340,6 +346,11 @@ if(BUILD_TESTING)
     )
     add_test(NAME photo_scanner COMMAND test_scan)
 
+    add_executable(test_timeline tests/test_timeline.c)
+    photoc_configure_c_target(test_timeline)
+    target_link_libraries(test_timeline PRIVATE photoc_core)
+    add_test(NAME timeline_grouping COMMAND test_timeline)
+
     add_executable(test_stats tests/test_stats.c)
     photoc_configure_c_target(test_stats)
     target_link_libraries(test_stats PRIVATE photoc_core)
@@ -458,6 +469,7 @@ if(BUILD_TESTING)
     add_cli_test(command_exif_help command_help exif)
     add_cli_test(command_duplicates_help command_help duplicates)
     add_cli_test(command_stats_help command_help stats)
+    add_cli_test(command_timeline_help command_help timeline)
     add_cli_test(command_rename_help command_help rename)
     add_cli_test(command_sort_help command_help sort)
     add_cli_test(command_scrub_help command_help scrub)

@@ -106,8 +106,10 @@ enum {
     CMD_SCRUB = 1u << 7,
     CMD_CHECK = 1u << 8,
     CMD_QUERY = 1u << 9,
+    CMD_TIMELINE = 1u << 10,
     CMD_RECURSIVE = CMD_COMPRESS | CMD_DUPLICATES | CMD_STATS | CMD_RENAME |
-                    CMD_SORT | CMD_FOCUS | CMD_SCRUB | CMD_CHECK | CMD_QUERY,
+                    CMD_SORT | CMD_FOCUS | CMD_SCRUB | CMD_CHECK | CMD_QUERY |
+                    CMD_TIMELINE,
     CMD_APPLY = CMD_RENAME | CMD_SORT
 };
 
@@ -135,7 +137,7 @@ static const photoc_flag flags[] = {{"-h", 0, false},
                                     {"--min-quality", CMD_COMPRESS, true},
                                     {"--output-dir", CMD_COMPRESS, true},
                                     {"--by", CMD_SORT, true},
-                                    {"--gap", CMD_SORT, true},
+                                    {"--gap", CMD_SORT | CMD_TIMELINE, true},
                                     {"--format", CMD_RENAME, true},
                                     {"--threshold", CMD_FOCUS, true},
                                     {"--only-blurry", CMD_FOCUS, false},
@@ -177,6 +179,9 @@ static unsigned command_mask(const char *name)
     }
     if (strcmp(name, "stats") == 0) {
         return CMD_STATS;
+    }
+    if (strcmp(name, "timeline") == 0) {
+        return CMD_TIMELINE;
     }
     if (strcmp(name, "rename") == 0) {
         return CMD_RENAME;

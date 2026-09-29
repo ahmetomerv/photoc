@@ -14,13 +14,14 @@ BASE = (ROOT / "tests/fixtures/jpeg/no_exif.jpg").read_bytes()
 
 
 def tiff(order="<", date=None, lens=None, equivalent=None, focal=(9, 1),
-         shutter=(1, 125), orientation=1, make="Fixture"):
+         shutter=(1, 125), orientation=1, make="Fixture", model="Model",
+         iso=200, aperture=(28, 10)):
     short = lambda n: struct.pack(order + "H", n)
     rational = lambda n, d: struct.pack(order + "II", n, d)
-    root = [(0x010f, 2, make.encode() + b"\0"), (0x0110, 2, b"Model\0"),
+    root = [(0x010f, 2, make.encode() + b"\0"), (0x0110, 2, model.encode() + b"\0"),
             (0x0112, 3, short(orientation)), (0x8769, 4, "exif")]
-    exif = [(0x829a, 5, rational(*shutter)), (0x829d, 5, rational(28, 10)),
-            (0x8827, 3, short(200)), (0x920a, 5, rational(*focal))]
+    exif = [(0x829a, 5, rational(*shutter)), (0x829d, 5, rational(*aperture)),
+            (0x8827, 3, short(iso)), (0x920a, 5, rational(*focal))]
     if date is not None:
         exif.append((0x9003, 2, date.encode() + b"\0"))
     if lens is not None:

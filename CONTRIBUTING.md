@@ -115,6 +115,18 @@ FocalLengthIn35mmFilm are read by both metadata backends without MakerNotes or
 crop-factor inference. Command formatting appends sections/JSON fields while
 preserving existing distributions, percentages, and field types.
 
+## Timeline aggregation
+
+`src/core/timeline.c` retains owned compact metadata copies from borrowed
+scanner Photos, validates capture timestamps through the shared timestamp
+API, and sorts them before grouping by date. Within a date it reuses
+`photoc_session_starts_new`; midnight starts another session. Per-session
+exposure/camera/file-size aggregation reuses core stats with only the needed
+Photo fields. Cleanup owns all strings, arrays, buckets, and samples; no
+pixels or source Photo pointers are retained. `src/commands/timeline.c` handles
+scan warnings and human/JSON output through existing helpers. See
+[timeline definitions](docs/timeline.md) for clock and skip semantics.
+
 ## Metadata query architecture
 
 `src/core/query.c` parses numeric comparisons, validates inclusive date bounds

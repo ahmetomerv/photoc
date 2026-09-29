@@ -36,14 +36,14 @@ lacks()
 }
 
 query photoc ''
-for name in query check compress exif duplicates stats rename sort focus scrub; do has "$name"; done
+for name in query check compress exif duplicates stats timeline rename sort focus scrub; do has "$name"; done
 query photoc --ver
 has --version
 query photoc -v st
 has stats
 query photoc --json du
 has duplicates
-for name in query check exif duplicates stats focus; do
+for name in query check exif duplicates stats timeline focus; do
     query photoc "$name" --
     has --json
     lacks --version
@@ -52,7 +52,7 @@ for name in compress rename sort scrub; do
     query photoc "$name" --
     lacks --json
 done
-for name in query check compress duplicates stats rename sort focus scrub; do
+for name in query check compress duplicates stats timeline rename sort focus scrub; do
     query photoc "$name" --rec
     has --recursive
 done
@@ -121,4 +121,10 @@ query photoc --iso 200 query Photo
 has 'Photo album'; has 'Photo image.JPG'
 query photoc exif --
 lacks --camera; lacks --print0
+query photoc timeline --
+has --gap; has --recursive; has --json; lacks --apply; lacks --by
+query photoc timeline ./ --gap 3
+has 30m
+query photoc --gap 30m timeline Photo
+has 'Photo album'; lacks 'Photo image.JPG'
 printf 'Bash completion checks passed.\n'

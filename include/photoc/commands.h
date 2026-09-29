@@ -23,6 +23,12 @@ int photoc_command_compress(const char *path,
 int photoc_command_exif(const char *path, bool json);
 int photoc_command_duplicates(const char *directory, bool recursive, bool json);
 int photoc_command_stats(const char *directory, bool recursive, bool json);
+/* Read-only, date-first local EXIF timeline. Arguments are borrowed. */
+int photoc_command_timeline(const char *directory, bool recursive,
+                            uint32_t gap_minutes, bool json);
+int photoc_command_timeline_with_output(const char *directory, bool recursive,
+                                        uint32_t gap_minutes, bool json,
+                                        const photoc_output *output);
 int photoc_command_rename(const char *directory, const char *format,
                           bool recursive, bool apply);
 int photoc_command_sort(const char *directory, bool recursive,

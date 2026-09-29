@@ -132,6 +132,9 @@ are zero sessions and null average/minimum/maximum. Sessions may cross midnight,
 month, or year boundaries. Camera clocks are taken as recorded; a session is a
 time-based grouping across the collection, not proof of one photographer/event.
 
+For a per-date chronological session overview with a configurable gap, use
+[timeline](timeline.md). Its date-first grouping always splits at midnight.
+
 Stats retains only owned bucket strings and scalar file sizes/capture seconds
 for median/session sorting (O(photos) scalar storage), never decoded pixel data.
 File-size samples sort in O(n log n). ARW dimensions are stored metadata values,

@@ -82,6 +82,24 @@ static const char *const stats_examples[] = {
     "photoc stats ~/Pictures", "photoc stats ~/Pictures --recursive",
     "photoc stats ~/Pictures --json", NULL};
 
+static const char *const timeline_examples[] = {
+    "photoc timeline ~/Pictures/Prague",
+    "photoc timeline ~/Pictures/Prague --recursive --gap 30m",
+    "photoc timeline ~/Pictures/Prague --gap 2h --json", NULL};
+
+static const photoc_help_option timeline_options[] = {
+    {"--recursive", "Include nested directories"},
+    {"--gap <duration>", "Session gap (for example 30m or 2h; default 60m)"},
+    {"--json", "Print date/session hierarchy and scan summary"},
+    {NULL, NULL}};
+
+static const char *const timeline_notes[] = {
+    "Group by recorded calendar date, then capture-time session.",
+    "An exact gap stays in one session; midnight always starts another.",
+    "Missing/invalid capture times are counted and excluded; no timezone is "
+    "inferred.",
+    NULL};
+
 static const char *const rename_examples[] = {
     "photoc rename ~/Pictures --format \"{date}_{camera}_{sequence}.{ext}\"",
     "photoc rename ~/Pictures --format \"{original}_{sequence}.{ext}\" "
@@ -314,6 +332,29 @@ static int run_stats(const photoc_cli_options *options,
         options->first_argument, options->recursive, options->json, output);
 }
 
+static int run_timeline(const photoc_cli_options *options,
+                        const photoc_output *output)
+{
+    static const char usage[] =
+        "timeline <directory> [--recursive] [--gap <duration>] [--json]";
+    if (options->argument_count != 1) {
+        usage_error("timeline", "expected exactly one directory", usage);
+        return PHOTOC_EXIT_USAGE;
+    }
+    uint32_t gap_minutes = PHOTOC_SESSION_DEFAULT_GAP_MINUTES;
+    if (options->gap != NULL &&
+        !photoc_parse_gap_minutes(options->gap, &gap_minutes)) {
+        command_error(
+            "timeline",
+            "invalid gap '%s'; use minutes or hours such as 30m or 2h\n",
+            options->gap);
+        return PHOTOC_EXIT_USAGE;
+    }
+    return photoc_command_timeline_with_output(options->first_argument,
+                                               options->recursive, gap_minutes,
+                                               options->json, output);
+}
+
 static int run_rename(const photoc_cli_options *options,
                       const photoc_output *output)
 {
@@ -484,6 +525,10 @@ static const photoc_command commands[] = {
      "<directory> [--recursive] [--json]",
      "Status: available for JPEG and Sony ARW metadata", stats_examples,
      scan_options, NULL, true, true, run_stats},
+    {"timeline", "Summarize shooting dates and sessions",
+     "<directory> [--recursive] [--gap <duration>] [--json]",
+     "Status: read-only JPEG and Sony ARW metadata", timeline_examples,
+     timeline_options, timeline_notes, true, true, run_timeline},
     {"rename", "Preview or apply photo renames",
      "<directory> --format <template> [--recursive] [--apply]",
      "Status: dry-run by default; --apply changes files after preflight",

@@ -1,4 +1,4 @@
-.TH PHOTOC 1 "September 28, 2026" "photoc" "User Commands"
+.TH PHOTOC 1 "September 29, 2026" "photoc" "User Commands"
 .SH NAME
 photoc \- Command-line tools for photographers
 .SH SYNOPSIS
@@ -23,7 +23,8 @@ renames and organizes photos, compresses copies, and removes EXIF GPS tags.
 Normal output goes to standard output; diagnostics go to standard error.
 .PP
 macOS and Linux are the initial supported platforms.
-Metadata inspection, statistics, renaming, and sorting recognize JPEG
+Metadata inspection, statistics, timeline summaries, renaming, and sorting
+recognize JPEG
 (.jpg/.jpeg) and Sony ARW (.arw), ignoring extension case.
 ARW support reads common TIFF/EXIF metadata only, without developing or
 validating RAW pixels. Other RAW formats are unsupported.
@@ -387,6 +388,70 @@ count is zero and the average/minimum/maximum are null. Times are recorded local
 EXIF times without timezone conversion. Only scalar metadata samples are retained.
 No stats --by option is introduced; JSON views can be selected with jq.
 See docs/stats.md for definitions and the additive JSON schema.
+.SS timeline
+.B photoc timeline
+.I directory
+.RI [ \-\-recursive ]
+.RI [ \-\-gap " duration" ]
+.RI [ \-\-json ]
+.PP
+Read-only chronological shooting overview from JPEG/ARW metadata.
+Use valid DateTimeOriginal values in YYYY:MM:DD HH:MM:SS form, sort by capture
+time, and group first by recorded calendar date, then by session.
+Missing and invalid timestamps are excluded and counted separately;
+there is no filesystem-date fallback or guessed assignment.
+.PP
+The default gap is 60 minutes, shared with sort --by session.
+Within each date, a gap greater than the threshold starts a session;
+an exact-threshold gap joins. Compare consecutive photos, so total session
+duration can exceed the gap. Duplicate timestamps join even with a zero gap.
+Midnight always starts another date and session, unlike sort/stats sessions,
+which can cross calendar boundaries. Missing timestamps do not split the
+remaining dated-photo chain.
+.PP
+Gap values are nonnegative integer minutes (30m) or hours (2h), with lowercase
+suffixes, up to 4,294,967,295 minutes. Fractions, seconds, negative values,
+uppercase suffixes, and bare numbers are invalid.
+.PP
+Each session reports start/end clock times, duration in seconds, photo count,
+total known logical file size in bytes, most-used physical focal length in mm,
+most-used aperture, ISO minimum/maximum, and camera models when available.
+Numeric frequency ties select the smaller value. Camera models use exact
+strings, descending counts, then case-sensitive lexical ties.
+Missing fields are excluded; no 35mm equivalent or camera crop factor is
+guessed.
+A single-photo session has zero duration.
+Counts are per path, not unique content.
+.PP
+Times are recorded EXIF clock values with no timezone conversion,
+daylight-saving correction, or clock synchronization.
+No timezone is inferred from the computer
+or GPS. Duration is the recorded clock difference, not verified elapsed time.
+Photos from cameras with different clocks can group or order unexpectedly.
+.PP
+JSON contains directory, recursive, gap_minutes, time_basis
+(recorded_local_exif), summary, and dates. Each date object contains date
+(YYYY-MM-DD) and a chronological sessions array. Sessions contain start/end
+(HH:MM:SS without offset), duration_seconds, photo_count,
+total_file_size_bytes, photos_with_file_size, most_used_focal_length_mm,
+most_used_aperture, iso_min, iso_max, and camera_models.
+Optional numeric values are null; camera_models contains model/photo_count
+objects and is empty when unavailable. Numeric fields remain numbers.
+.PP
+Summary counters are files_visited, photos_parsed, photos_included,
+photos_skipped_timestamp, missing_timestamp, invalid_timestamp,
+metadata_errors, unsupported_files, dates, and sessions.
+Missing plus invalid equals photos_skipped_timestamp; included plus skipped
+equals photos_parsed. Symlinks and non-regular entries are excluded.
+Quiet mode retains sessions and all result counts while hiding the introductory
+status text and non-critical warnings. Verbose diagnostics go to standard error;
+JSON fields do not change with verbosity.
+.PP
+Per-file metadata failures are warned about, skipped, and counted; they alone
+return success, as with stats. Empty directories and unavailable timestamps
+also succeed. Fatal scan, allocation, aggregation, or output errors return 1;
+invalid usage returns 2. This is a metadata overview, not a pixel integrity
+audit. See docs/timeline.md for the JSON contract and definitions.
 .SS rename
 .B photoc rename
 .I directory
@@ -542,14 +607,14 @@ Cannot be combined with a command or
 .BR \-v ", " \-\-verbose
 Keep normal output and add diagnostics on standard error: operating mode,
 recursion, file discovery/skip/failure counts, and relevant input/output paths.
-Statistics and duplicate scans report the worker limit; small workloads and
-worker startup failures can run serially.
+Statistics, timeline, and duplicate scans report the worker limit;
+Small workloads and worker startup failures can run serially.
 Cannot be combined with quiet (status 2), regardless of option order.
 .TP
 .BR \-q ", " \-\-quiet
 Keep requested result data: EXIF fields, statistics/distributions, duplicate
-groups/counts/savings, focus scores, query paths, check rows/counts, and
-rename/sort mappings.
+groups/counts/savings, focus scores, query paths, check rows/counts,
+timeline sessions and skipped/error counts, and rename/sort mappings.
 Suppress scan status, operation summaries, and non-critical warnings.
 Successful compress and scrub operations produce no standard output.
 Errors explaining non-zero exits remain on standard error, including warnings
@@ -561,6 +626,7 @@ Cannot be combined with verbose (status 2), regardless of option order.
 Print structured JSON for
 .BR exif ,
 .BR stats ,
+.BR timeline ,
 .BR duplicates ,
 .BR focus ,
 .BR check ,
@@ -606,6 +672,7 @@ Summarize a collection and report exact duplicates:
 .PP
 .nf
 photoc stats ./photos \-\-recursive
+photoc timeline ./photos \-\-recursive \-\-gap 30m
 photoc duplicates ./photos \-\-recursive \-\-json
 .fi
 .PP
@@ -682,7 +749,9 @@ CMake's install prefix and install-directory settings can change this path.
 Success, including empty collections, unchanged plans, missing optional EXIF,
 and allowed skips.
 .B stats
-can return success with per-file warnings recorded in its scan summary.
+and
+.B timeline
+can return success with per-file warnings recorded in their summaries.
 .TP
 .B 1
 Operational failure, including unsupported input formats, invalid JPEG/ARW metadata,

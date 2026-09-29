@@ -12,6 +12,7 @@ current source builds; releases through **v0.2.0** do not include it.
 | --- | --- | --- | --- |
 | `exif` | Metadata | Common TIFF/EXIF metadata | Unsupported |
 | `stats` | Metadata statistics | Metadata statistics | Skipped |
+| `timeline` | Capture-date/session overview | Capture-date/session overview | Skipped |
 | `rename` | Preview/apply | Preview/apply, same safety checks | Skipped |
 | `sort` | Date/session preview/apply | Date/session preview/apply, same safety checks | Skipped |
 | `query` | Metadata search | Unsupported/skipped | Unsupported/skipped |

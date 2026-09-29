@@ -1,0 +1,20 @@
+Usage: photoc [global options] timeline <directory> [--recursive] [--gap <duration>] [--json]
+       photoc timeline --help
+
+Summarize shooting dates and sessions
+
+Status: read-only JPEG and Sony ARW metadata
+
+Example:
+  photoc timeline ~/Pictures/Prague
+  photoc timeline ~/Pictures/Prague --recursive --gap 30m
+  photoc timeline ~/Pictures/Prague --gap 2h --json
+
+Options:
+  --recursive          Include nested directories
+  --gap <duration>     Session gap (for example 30m or 2h; default 60m)
+  --json               Print date/session hierarchy and scan summary
+
+Group by recorded calendar date, then capture-time session.
+An exact gap stays in one session; midnight always starts another.
+Missing/invalid capture times are counted and excluded; no timezone is inferred.

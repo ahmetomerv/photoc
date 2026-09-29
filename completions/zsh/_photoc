@@ -10,6 +10,7 @@ command_descriptions=(
     'exif:Inspect JPEG and Sony ARW metadata'
     'duplicates:Find exact duplicate files'
     'stats:Summarize JPEG and Sony ARW collections'
+    'timeline:Summarize shooting dates and sessions'
     'rename:Preview or apply photo renames'
     'sort:Preview or apply photo sorting'
     'focus:Compare JPEG sharpness scores'
@@ -79,6 +80,13 @@ case $command in
         specs+=('--json[Print structured JSON]' '2:JPEG or Sony ARW file:_files') ;;
     duplicates|stats)
         specs+=('--recursive[Include nested directories]' '--json[Print structured JSON]' '2:directory:_files -/') ;;
+    timeline)
+        specs+=(
+            '--recursive[Include nested directories]'
+            '--gap[Session gap (default 60m)]:duration:(30m 60m 2h)'
+            '--json[Print date/session hierarchy]'
+            '2:directory:_files -/'
+        ) ;;
     rename)
         specs+=(
             '--format[Filename template]:template:'

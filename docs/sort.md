@@ -69,6 +69,10 @@ sessions and change IDs. All valid dated photos in a recursive scan participate
 in the same grouping. Missing/invalid dates are blocked and excluded from
 grouping.
 
+Use [timeline](timeline.md) for a read-only chronological overview without
+proposing moves. Timeline reuses the gap rule but splits sessions at midnight
+to group by calendar date; sort sessions may cross calendar boundaries.
+
 ## Examples
 
 ```sh

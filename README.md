@@ -281,6 +281,7 @@ your own file and directory paths.
 1. See the available commands: `photoc --help`
 2. Read one photo's metadata: `photoc exif photo.jpg`
 3. Summarize a folder and its subfolders: `photoc stats ./photos --recursive`
+4. Review an outing chronologically: `photoc timeline ./photos`
 
 For help with a specific command, run `photoc <command> --help`, such as
 `photoc compress --help`.
@@ -301,6 +302,7 @@ Put options before `--` when a path begins with `-`, for example
 | [`exif`](docs/exif.md) | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
 | [`duplicates`](docs/duplicates.md) | Find files with identical bytes using SHA-256 and show potential space savings | Read only; JSON supported |
 | [`stats`](docs/stats.md) | Summarize storage, capture dates, cameras, and exposure settings | Read only; JSON supported |
+| [`timeline`](docs/timeline.md) | Summarize shooting dates and sessions chronologically | Read only; JSON supported |
 | [`rename`](docs/rename.md) | Rename JPEG/ARW photos using metadata templates | Preview; `--apply` to rename |
 | [`sort`](docs/sort.md) | Organize JPEG/ARW photos by capture date or session | Preview; `--apply` to move |
 | [`focus`](docs/focus.md) | Compare JPEG sharpness scores | Read only; lowest scores first; JSON supported |
@@ -308,14 +310,14 @@ Put options before `--` when a path begins with `-`, for example
 
 Each command link includes usage, options, examples, special cases, safety
 notes, and a JSON schema when the command supports JSON.
-`check`, `query`, and Sony ARW metadata support are currently available in
-source builds; they are not included in v0.2.0.
+`check`, `query`, `timeline`, and Sony ARW metadata support are currently
+available in source builds; they are not included in v0.2.0.
 
 ### File-type support
 
 | Command | JPEG | Sony ARW | Other RAW files |
 | --- | --- | --- | --- |
-| `exif`, `stats`, `rename`, `sort` | Metadata | Common TIFF/EXIF metadata | Unsupported/skipped |
+| `exif`, `stats`, `timeline`, `rename`, `sort` | Metadata | Common TIFF/EXIF metadata | Unsupported/skipped |
 | `query`, `check`, `compress`, `focus`, `scrub` | Supported | Unsupported/skipped | Unsupported/skipped |
 | `duplicates` | Exact bytes | Exact bytes | Exact bytes |
 
@@ -334,8 +336,8 @@ photoc rename ./photos --format '{date}_{camera}_{sequence}.{ext}'
 photoc sort ./photos --by date
 ```
 
-`exif`, `stats`, `rename`, and `sort` discover `.jpg`, `.jpeg`, and `.arw`
-case-insensitively.
+`exif`, `stats`, `timeline`, `rename`, and `sort` discover `.jpg`, `.jpeg`, and
+`.arw` case-insensitively.
 Rename and sort still preview by default; review the plan before adding
 `--apply`. `{ext}` keeps the source extension and its case.
 
@@ -406,6 +408,22 @@ excluded from each statistic and counted as unavailable. Session grouping uses
 the existing 60-minute gap rule. See [statistics definitions](docs/stats.md).
 Counts sort from most common to least common, with a fixed order for ties. Scans may continue after an individual file fails, so check
 warnings and the scan summary if you need a complete result.
+
+### Review a shooting timeline
+
+```sh
+photoc timeline ~/Pictures/Prague
+photoc timeline ./photos --recursive --gap 30m
+photoc timeline ./photos --json | jq '.summary'
+```
+
+The read-only report groups photos by recorded capture date, then by session.
+A gap greater than **60 minutes** starts a new session by default; exact gaps
+stay together. Midnight always starts a new date and session. Each session
+reports start/end, duration, photo count, bytes, focal length, aperture, ISO
+range, and camera models where available. Missing/invalid capture times are
+skipped and counted. EXIF clock values are used as recorded; no timezone is
+inferred. See [timeline details](docs/timeline.md).
 
 ### Rename photos
 
@@ -513,8 +531,8 @@ data in other metadata may remain.
 
 ## JSON output
 
-Add `--json` to `query`, `check`, `exif`, `stats`, `duplicates`, or `focus`
-to get output for scripts and other tools. You can also save it to a file:
+Add `--json` to `query`, `check`, `exif`, `stats`, `timeline`, `duplicates`, or
+`focus` to get output for scripts and other tools. You can also save it to a file:
 
 ```sh
 photoc exif photo.jpg --json
@@ -553,9 +571,9 @@ Normal output goes to stdout. Errors and warnings go to stderr.
 | `2` | Invalid command usage |
 | `3` | The command is not implemented |
 
-`stats` can return success even when individual files produce warnings.
-Its normal scan summary and JSON `scan.errors` record those errors. When
-completeness matters, use normal output or inspect `--json`, including in quiet
+`stats` and `timeline` can return success even when individual files produce
+warnings. Their reports count those errors (`stats` JSON `scan.errors`,
+`timeline` JSON `summary.metadata_errors`). When completeness matters, use normal output or inspect `--json`, including in quiet
 mode. `query` returns **1** when a JPEG load fails, while still listing successful
 directory matches; no matches returns **0**.
 
@@ -567,11 +585,11 @@ Global flags work before or after the command:
 | --- | --- |
 | Default | Show the existing results, operation summaries, and warnings. |
 | `-q`, `--quiet` | Keep requested results; suppress status text, operation summaries, and non-critical warnings. Errors explaining a non-zero exit remain on stderr. |
-| `-v`, `--verbose` | Keep normal output and add diagnostics on stderr: operating mode, recursion, discovery/skip/failure counts, and relevant paths. Statistics and duplicate scans also report the worker limit; small workloads or worker startup failures can run serially. |
+| `-v`, `--verbose` | Keep normal output and add diagnostics on stderr: operating mode, recursion, discovery/skip/failure counts, and relevant paths. Statistics, timeline, and duplicate scans also report the worker limit; small workloads or worker startup failures can run serially. |
 
 Quiet mode keeps EXIF fields, statistics and distributions, duplicate groups
-and savings, focus scores, query paths, check rows/counts, and rename/sort
-mappings. It hides scan status and rename/sort summaries. Successful `compress`
+and savings, focus scores, query paths, check rows/counts, timeline sessions
+and skipped/error counts, and rename/sort mappings. It hides scan status and rename/sort summaries. Successful `compress`
 and `scrub` operations have no stdout in quiet mode; their file operations and
 exit codes stay the same.
 Warnings that explain failures, including partial duplicate/focus results or

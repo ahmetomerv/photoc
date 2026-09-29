@@ -10,6 +10,7 @@ Commands:
   exif         Inspect JPEG and Sony ARW metadata
   duplicates   Find exact duplicate files
   stats        Summarize JPEG and Sony ARW collections
+  timeline     Summarize shooting dates and sessions
   rename       Preview or apply photo renames
   sort         Preview or apply photo sorting
   focus        Compare JPEG sharpness scores
