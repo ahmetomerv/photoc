@@ -47,6 +47,53 @@ Option values must be separate arguments; combined short flags and
 .B \-\-option=value
 syntax are not supported.
 .SH COMMANDS
+.SS check
+.B photoc check
+.I file|directory
+.RB [ \-\-recursive ]
+.RB [ \-\-only\-errors ]
+.RB [ \-\-json ]
+.PP
+Audit JPEG marker structure, decode every pixel scanline, and inspect standard
+EXIF directory/value bounds and libexif corruption diagnostics.
+Read-only: no repair, recompression, renaming, deletion, or sidecar writing.
+Directory scans include regular .jpg/.jpeg files, case-insensitively.
+Symlinks are never followed; recursion requires a directory.
+Rows are sorted by path, relative to a directory input.
+OK means structure and pixels are readable without a detected issue.
+WARNING means pixels decode with malformed/unreadable EXIF, unusual structure,
+or a recoverable decoder condition.
+ERROR means decoding failed or an operational/resource/unsupported condition
+prevented a reliable complete audit.
+Some truncated JPEGs are recovered by the decoder and remain WARNING; the
+photograph may still be incomplete.
+Warnings return status 0; one or more errors return status 1.
+.B \-\-only\-errors
+excludes OK and WARNING rows, in human and JSON output.
+Summary counts always cover all checked files.
+Quiet retains rows and counts but suppresses the explanatory footer.
+Errors remain on stderr; verbose adds mode, paths, recursion, serial worker
+count, and checked/skipped/warning/error counts on stderr.
+JSON contains summary fields files_checked, ok, warnings, errors, files_skipped,
+and a files array with path, status, code, and message per row.
+Codes are stable identifiers; one primary finding is reported per file.
+All JSON stdout remains JSON only.
+Usage, unsupported input paths, and traversal failures leave stdout empty.
+Directory checks continue after per-file errors; empty directories succeed.
+.PP
+Compressed input is streamed into a bounded buffer, and decoded output uses
+one row. Multi-scan coefficient storage is bounded; files are checked serially.
+Limits are 512 MiB per file, 100 million pixels, 256 scans, and estimated
+multi-scan coefficient storage of 256 MiB.
+EXIF audits bound directory graphs to 64 directories and aggregate value/entry
+storage to 4 MiB.
+Resource-limit and unsupported-process errors mean not fully checked, not
+proven corruption.
+This is not a visual-quality, authenticity, backup, or comprehensive metadata
+validator. ICC/XMP contents, MakerNote internals, thumbnail contents, and data
+after the first image's EOI are outside the audit.
+The OS may update access times; ordinary size/timestamp changes during reading
+are detected, but the audit is not an atomic filesystem snapshot.
 .SS compress
 .B photoc compress
 .I file|directory
@@ -377,7 +424,7 @@ Cannot be combined with quiet (status 2), regardless of option order.
 .TP
 .BR \-q ", " \-\-quiet
 Keep requested result data: EXIF fields, statistics/distributions, duplicate
-groups/counts/savings, focus scores, and rename/sort mappings.
+groups/counts/savings, focus scores, check rows/counts, and rename/sort mappings.
 Suppress scan status, operation summaries, and non-critical warnings.
 Successful compress and scrub operations produce no standard output.
 Errors explaining non-zero exits remain on standard error, including warnings
@@ -390,8 +437,9 @@ Print structured JSON for
 .BR exif ,
 .BR stats ,
 .BR duplicates ,
+.BR focus ,
 and
-.BR focus .
+.BR check .
 Optional metadata is null, presence fields are booleans, and numbers remain
 numeric.
 No human-readable decorations are printed on standard output.

@@ -10,6 +10,7 @@ real photographs.
 | --- | --- |
 | EXIF-rich JPEG | Generated: inject APP1 into a tiny 3×2 base (`with_exif.jpg`) |
 | ICC/XMP marker preservation | Generated: isolated RGB/grayscale marker fixtures in [`jpeg_metadata/`](jpeg_metadata/README.md); regenerate with `python3 scripts/make-jpeg-segment-fixtures.py` |
+| JPEG integrity | Generated in temporary directories by `tests/test_check_cli.py` and `tests/test_jpeg_check.c`: malformed EXIF/markers, truncations, resource limits, baseline/progressive RGB and CMYK. Existing grayscale and metadata fixtures are reused. |
 | No-EXIF JPEG | Generated: 3×2 RGB JPEG with no APP1 (`no_exif.jpg`) |
 | GPS JPEG | Generated: same base plus GPS IFD (`with_gps.jpeg`) |
 | Malformed JPEG | Generated: truncated SOI/APP1 (`invalid.jpg`) |

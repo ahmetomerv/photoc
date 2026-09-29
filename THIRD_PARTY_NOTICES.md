@@ -19,11 +19,16 @@ photoc. photoc source and build instructions are also available so users can
 rebuild against a modified library. If distributing a statically linked build
 or bundling dependency libraries, review their additional distribution terms.
 
-## libjpeg-turbo (TurboJPEG API)
+## libjpeg-turbo (TurboJPEG and libjpeg APIs)
 
 This software is based in part on the work of the Independent JPEG Group.
 
-[libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo) uses the IJG
+[libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo) supplies both the
+TurboJPEG API used by image operations and the streaming libjpeg API used by
+the read-only JPEG audit. Both shared libraries are installed separately and
+dynamically linked; no additional upstream source or library binary is bundled.
+
+libjpeg-turbo uses the IJG
 license and the Modified BSD License; its SIMD implementation also uses the
 zlib license, whose conditions are subsumed by the IJG license as explained
 upstream. The TurboJPEG API wraps the libjpeg implementation, so both IJG

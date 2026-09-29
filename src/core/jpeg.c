@@ -17,27 +17,41 @@ static int invalid_or_io(FILE *file)
     return -1;
 }
 
-static int header_marker(FILE *file)
+static int header_marker(FILE *file, uint64_t limit)
 {
+    off_t offset = ftello(file);
+    if (offset < 0 || (uint64_t)offset >= limit)
+        return -1;
+    uint64_t position = (uint64_t)offset;
     int value = fgetc(file);
     if (value != 0xff) {
         return -1;
     }
     do {
+        if (++position >= limit)
+            return -1;
         value = fgetc(file);
     } while (value == 0xff);
     return value == 0x00 ? -1 : value;
 }
 
-static int scan_marker(FILE *file)
+static int scan_marker(FILE *file, uint64_t limit)
 {
+    off_t offset = ftello(file);
+    if (offset < 0)
+        return -1;
+    uint64_t position = (uint64_t)offset;
     int value;
-    while ((value = fgetc(file)) != EOF) {
+    while (position < limit && (value = fgetc(file)) != EOF) {
+        ++position;
         if (value != 0xff) {
             continue;
         }
         do {
+            if (position >= limit)
+                return -1;
             value = fgetc(file);
+            ++position;
         } while (value == 0xff);
         if (value == EOF) {
             break;
@@ -70,8 +84,9 @@ static bool is_frame_marker(int value)
            (value >= 0xc9 && value <= 0xcb) || (value >= 0xcd && value <= 0xcf);
 }
 
-int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
-                            photoc_jpeg_app_visitor visitor, void *user_data)
+int photoc_jpeg_inspect_app_limited(FILE *file, photoc_jpeg_info *info,
+                                    photoc_jpeg_app_visitor visitor,
+                                    void *user_data, uint64_t byte_limit)
 {
     if (file == NULL || info == NULL) {
         errno = EINVAL;
@@ -79,14 +94,14 @@ int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
     }
     *info = (photoc_jpeg_info){0};
     info->exif_insert_offset = 2;
-    if (fgetc(file) != 0xff || fgetc(file) != 0xd8) {
+    if (byte_limit < 2 || fgetc(file) != 0xff || fgetc(file) != 0xd8) {
         return invalid_or_io(file);
     }
 
     bool has_frame = false;
     bool has_scan = false;
     bool leading_app0 = true;
-    int current = header_marker(file);
+    int current = header_marker(file, byte_limit);
     while (current >= 0) {
         if (current == 0xd9) {
             return has_frame && has_scan ? 0 : invalid_or_io(file);
@@ -95,7 +110,7 @@ int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
             return invalid_or_io(file);
         }
         if (current == 0x01) {
-            current = header_marker(file);
+            current = header_marker(file, byte_limit);
             continue;
         }
 
@@ -103,6 +118,9 @@ int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
         if (marker_end < 2) {
             return -1;
         }
+        if ((uint64_t)marker_end > byte_limit ||
+            byte_limit - (uint64_t)marker_end < 2)
+            return invalid_or_io(file);
         uint64_t marker_offset = (uint64_t)(marker_end - 2);
         int high = fgetc(file);
         int low = fgetc(file);
@@ -110,7 +128,7 @@ int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
             return invalid_or_io(file);
         }
         unsigned int length = ((unsigned int)high << 8) | (unsigned int)low;
-        if (length < 2) {
+        if (length < 2 || length > byte_limit - (uint64_t)marker_end) {
             return invalid_or_io(file);
         }
         if (leading_app0 && current == 0xe0) {
@@ -174,16 +192,24 @@ int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
         }
 
         if (current == 0xda) {
+            ++info->scan_count;
             if (!has_scan) {
                 info->scan_offset = marker_offset;
             }
             has_scan = true;
-            current = scan_marker(file);
+            current = scan_marker(file, byte_limit);
         } else {
-            current = header_marker(file);
+            current = header_marker(file, byte_limit);
         }
     }
     return invalid_or_io(file);
+}
+
+int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
+                            photoc_jpeg_app_visitor visitor, void *user_data)
+{
+    return photoc_jpeg_inspect_app_limited(file, info, visitor, user_data,
+                                           UINT64_MAX);
 }
 
 int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)

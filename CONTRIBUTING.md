@@ -88,6 +88,25 @@ Report suspected vulnerabilities or data-safety defects through
    benchmarks are documented in [`benchmarks/README.md`](benchmarks/README.md).
 8. Describe what changed and how it was tested in your pull request.
 
+## JPEG audit architecture
+
+`src/core/jpeg_check.c` owns the read-only audit and stable status/reason model
+in `include/photoc/jpeg_check.h`. It reuses the JPEG marker parser and the
+shared EXIF loader; audit-only TIFF bounds/log checks do not change editing
+rules. Command collection, sorted reports, and CLI options live in
+`src/commands/check.c` and the existing CLI/parser tables. JSON strings and
+verbosity use the shared helpers.
+
+The audit uses the streaming libjpeg interface from the existing libjpeg-turbo
+dependency because TurboJPEG requires a complete compressed buffer and its
+current wrapper collapses warnings into failures. Link the additional `libjpeg`
+shared library from that same dependency (`libjpeg-dev` for Ubuntu builds,
+`libjpeg8` for runtime). No new third-party project or copied implementation is
+introduced. Fatal decoder recovery uses heap-owned state and `setjmp`/`longjmp`
+so cleanup cannot depend on modified automatic variables. No decoded image is
+retained; files are checked serially to bound multi-scan memory. The photo
+metadata scanner intentionally is not used to discard unreadable candidates.
+
 ## Code formatting
 
 Use **clang-format 18** and the repository's [`.clang-format`](.clang-format):

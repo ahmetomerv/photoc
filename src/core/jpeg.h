@@ -9,6 +9,7 @@ typedef struct {
     uint32_t width;
     uint32_t height;
     unsigned int components;
+    unsigned int scan_count;
     uint64_t scan_offset; /* First SOS marker, including its 0xff byte. */
     uint64_t exif_insert_offset; /* After leading APP0 segments, if present. */
     uint64_t exif_offset; /* First EXIF APP1 marker, including its 0xff byte. */
@@ -30,5 +31,11 @@ typedef int (*photoc_jpeg_app_visitor)(unsigned char marker,
                                        void *user_data);
 int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
                             photoc_jpeg_app_visitor visitor, void *user_data);
+
+/* Same parser with a byte budget from the opened file's size. Reading stops
+   at that boundary even if another process appends to the file. */
+int photoc_jpeg_inspect_app_limited(FILE *file, photoc_jpeg_info *info,
+                                    photoc_jpeg_app_visitor visitor,
+                                    void *user_data, uint64_t byte_limit);
 
 #endif

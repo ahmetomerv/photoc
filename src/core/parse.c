@@ -104,8 +104,9 @@ enum {
     CMD_SORT = 1u << 5,
     CMD_FOCUS = 1u << 6,
     CMD_SCRUB = 1u << 7,
+    CMD_CHECK = 1u << 8,
     CMD_RECURSIVE = CMD_COMPRESS | CMD_DUPLICATES | CMD_STATS | CMD_RENAME |
-                    CMD_SORT | CMD_FOCUS | CMD_SCRUB,
+                    CMD_SORT | CMD_FOCUS | CMD_SCRUB | CMD_CHECK,
     CMD_APPLY = CMD_RENAME | CMD_SORT
 };
 
@@ -136,7 +137,8 @@ static const photoc_flag flags[] = {{"-h", 0, false},
                                     {"--gap", CMD_SORT, true},
                                     {"--format", CMD_RENAME, true},
                                     {"--threshold", CMD_FOCUS, true},
-                                    {"--only-blurry", CMD_FOCUS, false}};
+                                    {"--only-blurry", CMD_FOCUS, false},
+                                    {"--only-errors", CMD_CHECK, false}};
 
 static const photoc_flag *find_flag(const char *name)
 {
@@ -176,6 +178,9 @@ static unsigned command_mask(const char *name)
     }
     if (strcmp(name, "scrub") == 0) {
         return CMD_SCRUB;
+    }
+    if (strcmp(name, "check") == 0) {
+        return CMD_CHECK;
     }
     return 0;
 }
@@ -255,6 +260,8 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
             options->in_place = true;
         } else if (strcmp(name, "--only-blurry") == 0) {
             options->only_blurry = true;
+        } else if (strcmp(name, "--only-errors") == 0) {
+            options->only_errors = true;
         }
         return PHOTOC_PARSE_OK;
     }

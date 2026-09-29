@@ -55,12 +55,12 @@ lacks() {
 }
 
 query 'photoc '
-for name in compress exif duplicates stats rename sort focus scrub; do has "$name"; done
+for name in check compress exif duplicates stats rename sort focus scrub; do has "$name"; done
 query 'photoc --ver'
 has --version
 query 'photoc -v st'
 has stats
-for name in exif duplicates stats focus; do
+for name in check exif duplicates stats focus; do
     query "photoc $name --"
     has --json; lacks --version
 done
@@ -68,7 +68,7 @@ for name in compress rename sort scrub; do
     query "photoc $name --"
     lacks --json
 done
-for name in compress duplicates stats rename sort focus scrub; do
+for name in check compress duplicates stats rename sort focus scrub; do
     query "photoc $name --rec"
     has --recursive
 done
@@ -104,4 +104,11 @@ query 'photoc compress ./ --output-dir Photo'
 has 'Photo\ album'; lacks 'Photo\ image.JPG'
 query 'photoc exif -- --'
 lacks --help; lacks --json
+
+query 'photoc check --'
+has --only-errors; has --recursive; has --json; lacks --apply; lacks --threshold
+query 'photoc check Photo'
+has 'Photo\ album'; has 'Photo\ image.JPG'
+query 'photoc exif --'
+lacks --only-errors
 print -r -- 'zsh completion checks passed.'

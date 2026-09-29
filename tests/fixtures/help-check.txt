@@ -1,0 +1,20 @@
+Usage: photoc [global options] check <file|directory> [--recursive] [--only-errors] [--json]
+       photoc check --help
+
+Audit JPEG structural readability
+
+Status: available for JPEG files (read-only)
+
+Example:
+  photoc check photo.jpg
+  photoc check ~/Pictures --recursive
+  photoc check ~/Pictures --recursive --only-errors
+  photoc check ~/Pictures --json
+
+Options:
+  --recursive          Include nested directories
+  --only-errors        List ERROR rows only; summary counts all checked files
+  --json               Print structured JSON
+
+Read-only; rows are sorted by path. Warnings return 0; errors return 1.
+Checks structural readability, not visual quality or complete metadata validity.

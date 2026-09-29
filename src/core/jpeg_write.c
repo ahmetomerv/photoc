@@ -13,7 +13,9 @@
 #include <fcntl.h>
 #include <libexif/exif-content.h>
 #include <libexif/exif-data.h>
+#include <libexif/exif-log.h>
 #include <libexif/exif-mem.h>
+#include <libexif/exif-utils.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,9 +67,91 @@ void photoc_jpeg_exif_free(photoc_jpeg_exif *exif)
     free(exif);
 }
 
-static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
-                                          unsigned int length,
-                                          photoc_jpeg_exif **out)
+typedef struct {
+    bool corrupt;
+    bool no_memory;
+} exif_audit;
+
+static void audit_log(ExifLog *log, ExifLogCode code, const char *domain,
+                      const char *format, va_list arguments, void *user_data)
+{
+    (void)log;
+    (void)domain;
+    (void)format;
+    (void)arguments;
+    exif_audit *audit = user_data;
+    audit->corrupt |= code == EXIF_LOG_CODE_CORRUPT_DATA;
+    audit->no_memory |= code == EXIF_LOG_CODE_NO_MEMORY;
+}
+
+/* Audit standard TIFF directory/value bounds before libexif can silently skip
+   broken entries. MakerNotes and tag meanings remain opaque. A fixed queue
+   bounds cycles and pathological directory graphs. */
+static bool audit_tiff(const unsigned char *tiff, size_t length)
+{
+    ExifByteOrder order =
+        tiff[0] == 'I' ? EXIF_BYTE_ORDER_INTEL : EXIF_BYTE_ORDER_MOTOROLA;
+    uint32_t offsets[64] = {exif_get_long(tiff + 4, order)};
+    size_t count = 1;
+    uint64_t stored = 0;
+    for (size_t i = 0; i < count; ++i) {
+        uint32_t offset = offsets[i];
+        if (offset < 8 || offset > length || length - offset < 2)
+            return false;
+        for (size_t j = 0; j < i; ++j) {
+            if (offsets[j] == offset)
+                return false;
+        }
+        unsigned int entries = exif_get_short(tiff + offset, order);
+        size_t available = length - offset - 2;
+        if (available < 4 || entries > (available - 4) / 12)
+            return false;
+        for (unsigned int j = 0; j < entries; ++j) {
+            const unsigned char *entry = tiff + offset + 2 + (size_t)j * 12;
+            unsigned int tag = exif_get_short(entry, order);
+            unsigned int format = exif_get_short(entry + 2, order);
+            uint32_t components = exif_get_long(entry + 4, order);
+            unsigned int unit = exif_format_get_size((ExifFormat)format);
+            if (unit == 0)
+                return false;
+            uint64_t bytes = (uint64_t)components * unit;
+            /* Repeated references to a small payload must not make libexif
+               allocate an unbounded number of copies of the same values. */
+            const uint64_t budget = UINT64_C(4194304);
+            if (bytes > budget - stored ||
+                sizeof(ExifEntry) + sizeof(ExifEntry *) >
+                    budget - stored - bytes) {
+                return false;
+            }
+            stored += bytes + sizeof(ExifEntry) + sizeof(ExifEntry *);
+            uint32_t value = exif_get_long(entry + 8, order);
+            if (bytes > 4 && (value > length || bytes > length - value))
+                return false;
+            if (tag == 0x8769 || tag == 0x8825 || tag == 0xa005) {
+                if (format != EXIF_FORMAT_LONG || components != 1)
+                    return false;
+                if (value != 0) {
+                    if (count == sizeof(offsets) / sizeof(offsets[0]))
+                        return false;
+                    offsets[count++] = value;
+                }
+            }
+        }
+        uint32_t next =
+            exif_get_long(tiff + offset + 2 + (size_t)entries * 12, order);
+        if (next != 0) {
+            if (count == sizeof(offsets) / sizeof(offsets[0]))
+                return false;
+            offsets[count++] = next;
+        }
+    }
+    return true;
+}
+
+static photoc_jpeg_edit_result parse_exif_segment(const unsigned char *bytes,
+                                                  unsigned int length,
+                                                  photoc_jpeg_exif **out,
+                                                  bool auditing)
 {
     if (length < 14 || memcmp(bytes, "Exif\0\0", 6) != 0 ||
         !((bytes[6] == 'I' && bytes[7] == 'I' && bytes[8] == 0x2a &&
@@ -77,6 +161,9 @@ static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
         return PHOTOC_JPEG_EDIT_INVALID_EXIF;
     }
 
+    if (auditing && !audit_tiff(bytes + 6, length - 6)) {
+        return PHOTOC_JPEG_EDIT_INVALID_EXIF;
+    }
     photoc_jpeg_exif *exif = calloc(1, sizeof(*exif));
     if (exif == NULL) {
         return PHOTOC_JPEG_EDIT_NO_MEMORY;
@@ -93,7 +180,26 @@ static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
        automatic EXIF repairs that could discard unrelated metadata. */
     exif_data_unset_option(exif->data, EXIF_DATA_OPTION_IGNORE_UNKNOWN_TAGS);
     exif_data_unset_option(exif->data, EXIF_DATA_OPTION_FOLLOW_SPECIFICATION);
+    exif_audit audit = {0};
+    ExifLog *log = auditing ? exif_log_new_mem(exif->memory) : NULL;
+    if (auditing && log == NULL) {
+        photoc_jpeg_exif_free(exif);
+        return PHOTOC_JPEG_EDIT_NO_MEMORY;
+    }
+    if (log != NULL) {
+        exif_log_set_func(log, audit_log, &audit);
+        exif_data_log(exif->data, log);
+    }
     exif_data_load_data(exif->data, bytes, length);
+    if (log != NULL) {
+        exif_data_log(exif->data, NULL);
+        exif_log_unref(log);
+    }
+    if (audit.no_memory || audit.corrupt) {
+        photoc_jpeg_exif_free(exif);
+        return audit.no_memory ? PHOTOC_JPEG_EDIT_NO_MEMORY
+                               : PHOTOC_JPEG_EDIT_INVALID_EXIF;
+    }
     bool has_entries = false;
     for (size_t i = 0; i < EXIF_IFD_COUNT; ++i) {
         if (exif->data->ifd[i] != NULL && exif->data->ifd[i]->count != 0) {
@@ -107,6 +213,23 @@ static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
     }
     *out = exif;
     return PHOTOC_JPEG_EDIT_OK;
+}
+
+static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
+                                          unsigned int length,
+                                          photoc_jpeg_exif **out)
+{
+    return parse_exif_segment(bytes, length, out, false);
+}
+
+photoc_jpeg_edit_result
+photoc_jpeg_exif_audit_segment(const unsigned char *bytes, unsigned int length)
+{
+    photoc_jpeg_exif *exif = NULL;
+    photoc_jpeg_edit_result result =
+        parse_exif_segment(bytes, length, &exif, true);
+    photoc_jpeg_exif_free(exif);
+    return result;
 }
 
 photoc_jpeg_edit_result

@@ -10,6 +10,9 @@
 photoc_jpeg_edit_result
 photoc_jpeg_exif_validate_segment(const unsigned char *bytes,
                                   unsigned int length);
+/* Also observes libexif corruption diagnostics, without changing edit rules. */
+photoc_jpeg_edit_result
+photoc_jpeg_exif_audit_segment(const unsigned char *bytes, unsigned int length);
 photoc_jpeg_edit_result
 photoc_jpeg_metadata_write_encoded(FILE *file,
                                    const photoc_jpeg_buffer *encoded,

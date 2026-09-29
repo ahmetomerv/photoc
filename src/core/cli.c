@@ -131,6 +131,23 @@ static const char *const scrub_examples[] = {
     "photoc scrub photo.jpg --gps", "photoc scrub ~/Pictures --gps --recursive",
     "photoc scrub photo.jpg --gps --in-place", NULL};
 
+static const char *const check_examples[] = {
+    "photoc check photo.jpg", "photoc check ~/Pictures --recursive",
+    "photoc check ~/Pictures --recursive --only-errors",
+    "photoc check ~/Pictures --json", NULL};
+
+static const photoc_help_option check_options[] = {
+    {"--recursive", "Include nested directories"},
+    {"--only-errors", "List ERROR rows only; summary counts all checked files"},
+    {"--json", "Print structured JSON"},
+    {NULL, NULL}};
+
+static const char *const check_notes[] = {
+    "Read-only; rows are sorted by path. Warnings return 0; errors return 1.",
+    "Checks structural readability, not visual quality or complete metadata "
+    "validity.",
+    NULL};
+
 static const photoc_help_option scrub_options[] = {
     {"--gps", "Required; remove EXIF GPS tags"},
     {"--recursive", "Include nested directories"},
@@ -358,7 +375,26 @@ static int run_scrub(const photoc_cli_options *options,
         options->first_argument, options->recursive, options->in_place, output);
 }
 
+static int run_check(const photoc_cli_options *options,
+                     const photoc_output *output)
+{
+    static const char usage[] =
+        "check <file|directory> [--recursive] [--only-errors] [--json]";
+    if (options->argument_count != 1) {
+        usage_error("check", "expected exactly one JPEG file or directory",
+                    usage);
+        return PHOTOC_EXIT_USAGE;
+    }
+    return photoc_command_check_with_output(
+        options->first_argument, options->recursive, options->only_errors,
+        options->json, output);
+}
+
 static const photoc_command commands[] = {
+    {"check", "Audit JPEG structural readability",
+     "<file|directory> [--recursive] [--only-errors] [--json]",
+     "Status: available for JPEG files (read-only)", check_examples,
+     check_options, check_notes, true, true, run_check},
     {"compress", "Re-encode JPEGs by quality or target size",
      "<file|directory> [--quality <1-100> | --target <size> [--min-quality "
      "<1-100>]] [--recursive] [--output-dir <directory>]",

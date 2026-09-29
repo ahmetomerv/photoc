@@ -22,6 +22,8 @@ class OutputFailureTests(unittest.TestCase):
             ("stats", str(ROOT / "tests/fixtures/jpeg"), "--json"),
             ("focus", str(ROOT / "tests/fixtures/jpeg/flat.jpg")),
             ("focus", str(ROOT / "tests/fixtures/jpeg/flat.jpg"), "--json"),
+            ("check", str(ROOT / "tests/fixtures/jpeg/flat.jpg")),
+            ("check", str(ROOT / "tests/fixtures/jpeg/flat.jpg"), "--json"),
         )
         with tempfile.TemporaryDirectory(prefix="photoc-output-test-") as temporary:
             path = Path(temporary) / "readonly"

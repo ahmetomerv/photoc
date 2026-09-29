@@ -30,7 +30,7 @@ glibc 2.35 or later. Check the release notes for any additional requirements.
    brew install libexif jpeg-turbo
 
    # Ubuntu / Debian
-   sudo apt install libexif12 libturbojpeg
+   sudo apt install libexif12 libturbojpeg libjpeg8
    ```
 
 2. Download and run the installer:
@@ -89,7 +89,7 @@ Run these steps in your terminal:
    **Ubuntu / Debian:**
 
    ```sh
-   sudo apt install build-essential git cmake pkg-config libexif-dev libturbojpeg0-dev
+   sudo apt install build-essential git cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev
    ```
 
    On other Linux distributions, install the equivalent packages.
@@ -295,6 +295,7 @@ Put options before `--` when a path begins with `-`, for example
 
 | Command | Purpose | Default behavior |
 | --- | --- | --- |
+| [`check`](docs/check.md) | Audit JPEG structural readability and report warnings/errors | Read only; JSON supported |
 | [`compress`](docs/compress.md) | Compress JPEGs at a chosen quality or target file size | Write new copies |
 | [`exif`](docs/exif.md) | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
 | [`duplicates`](docs/duplicates.md) | Find files with identical bytes using SHA-256 and show potential space savings | Read only; JSON supported |
@@ -306,8 +307,24 @@ Put options before `--` when a path begins with `-`, for example
 
 Each command link includes usage, options, examples, special cases, safety
 notes, and a JSON schema when the command supports JSON.
+`check` is currently available in source builds; it is not included in v0.2.0.
 
 ## Examples
+
+### Check photographs for reading problems
+
+```sh
+photoc check photo.jpg
+photoc check ./photos --recursive --only-errors
+photoc check ./photos --recursive --json > check.json
+```
+
+The command parses JPEG structure and decodes the pixels without changing files.
+Warnings, including malformed EXIF or decoder recovery, return **0**; errors
+or incomplete checks return **1**. `--only-errors` hides warning and OK rows;
+summary counts cover every checked file. See [check details](docs/check.md)
+for reason codes and limits. Successful decoding is not proof of visual quality
+or complete metadata validity.
 
 ### Compress JPEG copies
 
@@ -415,6 +432,9 @@ data in other metadata may remain.
 
 ## File safety
 
+- **Check:** reads JPEGs without changing file contents or metadata. A warning
+  can mean the decoder recovered missing data; an OK result is not a backup
+  or visual-quality guarantee. See [audit limits](docs/check.md#safety-performance-and-limits).
 - **Rename and sort:** preview first, then add `--apply` to the same command.
   photoc checks the whole plan before changing files. If any entry is blocked,
   no changes are applied. Existing destination files are never overwritten.
@@ -446,7 +466,7 @@ data in other metadata may remain.
 
 ## JSON output
 
-Add `--json` to `exif`, `stats`, `duplicates`, or `focus` to get output for
+Add `--json` to `check`, `exif`, `stats`, `duplicates`, or `focus` to get output for
 scripts and other tools. You can also save it to a file:
 
 ```sh
@@ -502,7 +522,8 @@ Global flags work before or after the command:
 | `-v`, `--verbose` | Keep normal output and add diagnostics on stderr: operating mode, recursion, discovery/skip/failure counts, and relevant paths. Statistics and duplicate scans also report the worker limit; small workloads or worker startup failures can run serially. |
 
 Quiet mode keeps EXIF fields, statistics and distributions, duplicate groups
-and savings, focus scores, and rename/sort mappings. It hides scan status and
+and savings, focus scores, check rows/counts, and rename/sort mappings. It hides
+scan status and
 rename/sort summaries. Successful `compress` and `scrub` operations have no
 stdout in quiet mode; their file operations and exit codes stay the same.
 Warnings that explain failures, including partial duplicate/focus results or

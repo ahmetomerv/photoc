@@ -16,6 +16,7 @@ typedef struct {
     bool gps;
     bool in_place;
     bool only_blurry;
+    bool only_errors;
     const char *command;
     const char *first_argument;
     const char *format;

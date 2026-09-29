@@ -44,6 +44,7 @@ function __fish_photoc_path
 end
 
 complete -c photoc -f
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a check -d 'Audit JPEG structural readability'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a compress -d 'Re-encode JPEGs by quality or target size'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a exif -d 'Inspect JPEG metadata'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a duplicates -d 'Find exact duplicate files'
@@ -57,8 +58,9 @@ complete -c photoc -n __fish_photoc_options -s h -l help -d 'Show help'
 complete -c photoc -n __fish_photoc_options -s v -l verbose -d 'Add diagnostics on stderr'
 complete -c photoc -n __fish_photoc_options -s q -l quiet -d 'Suppress status and non-critical warnings'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -s V -l version -d 'Show version'
-complete -c photoc -n '__fish_photoc_options; and begin; not __fish_photoc_command >/dev/null; or __fish_photoc_using_command exif stats duplicates focus; end' -l json -d 'Print structured JSON where supported'
-complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command compress duplicates stats rename sort focus scrub' -l recursive -d 'Include nested directories'
+complete -c photoc -n '__fish_photoc_options; and begin; not __fish_photoc_command >/dev/null; or __fish_photoc_using_command check exif stats duplicates focus; end' -l json -d 'Print structured JSON where supported'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command check compress duplicates stats rename sort focus scrub' -l recursive -d 'Include nested directories'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command check' -l only-errors -d 'List ERROR rows only'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command rename sort' -l apply -d 'Apply the plan after preflight'
 
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command compress' -l quality -x -a '60 70 75 80 85 90 95 100' -d 'JPEG quality (default 80)'
@@ -74,4 +76,4 @@ complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command sc
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command scrub' -l in-place -d 'Replace originals without a backup'
 
 complete -c photoc -n '__fish_photoc_path; and __fish_photoc_using_command duplicates stats rename sort' -a '(__fish_complete_directories)'
-complete -c photoc -n '__fish_photoc_path; and __fish_photoc_using_command compress exif focus scrub' -F
+complete -c photoc -n '__fish_photoc_path; and __fish_photoc_using_command check compress exif focus scrub' -F

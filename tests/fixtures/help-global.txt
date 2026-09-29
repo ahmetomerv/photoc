@@ -4,6 +4,7 @@ Usage: photoc [global options] <command> [args]
        photoc <command> --help
 
 Commands:
+  check        Audit JPEG structural readability
   compress     Re-encode JPEGs by quality or target size
   exif         Inspect JPEG metadata
   duplicates   Find exact duplicate files

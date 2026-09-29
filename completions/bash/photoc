@@ -48,6 +48,7 @@ _photoc_complete()
         candidates='-h --help -v --verbose -q --quiet'
         case $command in
             '') candidates="$candidates -V --version --json" ;;
+            check) candidates="$candidates --recursive --only-errors --json" ;;
             compress) candidates="$candidates --quality --target --min-quality --recursive --output-dir" ;;
             exif) candidates="$candidates --json" ;;
             duplicates|stats) candidates="$candidates --recursive --json" ;;
@@ -62,7 +63,7 @@ _photoc_complete()
     fi
     if [[ -z $command && -z $pending ]]; then
         while IFS= read -r word; do COMPREPLY+=("$word"); done \
-            < <(compgen -W 'compress exif duplicates stats rename sort focus scrub' -- "$current")
+            < <(compgen -W 'check compress exif duplicates stats rename sort focus scrub' -- "$current")
         return 0
     fi
 
@@ -70,7 +71,7 @@ _photoc_complete()
         ((paths == 0)) || return 0
         case $command in
             duplicates|stats|rename|sort) kind='directory' ;;
-            compress|exif|focus|scrub) ;;
+            check|compress|exif|focus|scrub) ;;
             *) return 0 ;;
         esac
     fi

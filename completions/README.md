@@ -2,11 +2,12 @@
 
 [Project README](../README.md)
 
-The scripts complete all eight command names, global flags, applicable command
+The scripts complete all nine command names, global flags, applicable command
 options, and file/directory paths. They also suggest common values for quality,
 target size, session gap, and `sort --by date|session`. Suggestions are examples,
-not a restriction on valid values. `--json` is suggested for `exif`, `stats`,
-`duplicates`, and `focus`; `focus` also supports JPEG sharpness review options.
+not a restriction on valid values. `--json` is suggested for `check`, `exif`,
+`stats`, `duplicates`, and `focus`. `check` includes `--only-errors`; `focus`
+also supports JPEG sharpness review options.
 
 Completion uses each shell's native facilities. It never runs `photoc`, reads
 photo metadata, or requires a CLI parsing/completion package. The Bash script
@@ -79,6 +80,7 @@ Type these prefixes and press Tab:
 photoc com
 photoc --ver
 photoc stats --rec
+photoc check ./photos --only
 photoc sort ./photos --by
 photoc compress photo.jpg --quality
 photoc scrub photo.jpg --in-

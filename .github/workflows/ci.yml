@@ -56,7 +56,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake pkg-config libexif-dev libturbojpeg0-dev \
+            build-essential cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev \
             zsh fish mandoc shellcheck python3
 
       - name: Install macOS dependencies
@@ -101,7 +101,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang cmake pkg-config libexif-dev libturbojpeg0-dev zsh fish mandoc
+            clang cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev zsh fish mandoc
 
       - name: Configure
         run: >-

@@ -36,6 +36,14 @@ int photoc_command_focus(const char *path, bool recursive, double threshold,
                          bool only_blurry, bool json);
 int photoc_command_scrub(const char *path, bool recursive, bool in_place);
 
+/* Read-only JPEG readability audit. Paths/output are borrowed synchronously.
+   Warnings do not fail the audit; only_errors excludes warning and OK rows. */
+int photoc_command_check(const char *path, bool recursive, bool only_errors,
+                         bool json);
+int photoc_command_check_with_output(const char *path, bool recursive,
+                                     bool only_errors, bool json,
+                                     const photoc_output *output);
+
 /* Output-aware entry points. All arguments and output are borrowed only for
    the synchronous call. NULL output preserves the original normal behavior;
    the entry points above remain compatible wrappers. No context is retained. */

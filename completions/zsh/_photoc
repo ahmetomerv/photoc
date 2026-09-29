@@ -4,6 +4,7 @@
 local command='' word pending=0 ended=0 index
 local -a command_descriptions specs
 command_descriptions=(
+    'check:Audit JPEG structural readability'
     'compress:Re-encode JPEGs by quality or target size'
     'exif:Inspect JPEG metadata'
     'duplicates:Find exact duplicate files'
@@ -41,6 +42,13 @@ specs=(
 case $command in
     '')
         specs+=('(-V --version)'{-V,--version}'[Show version]' '--json[Request JSON where supported]') ;;
+    check)
+        specs+=(
+            '--recursive[Include nested directories]'
+            '--only-errors[List ERROR rows only]'
+            '--json[Print structured JSON]'
+            '2:JPEG file or directory:_files'
+        ) ;;
     compress)
         specs+=(
             '(--target --min-quality)--quality[JPEG quality (default 80)]:quality:(60 70 75 80 85 90 95 100)'

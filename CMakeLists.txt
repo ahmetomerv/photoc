@@ -35,6 +35,7 @@ find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
 pkg_check_modules(TURBOJPEG REQUIRED IMPORTED_TARGET libturbojpeg)
+pkg_check_modules(LIBJPEG REQUIRED IMPORTED_TARGET libjpeg)
 
 function(photoc_configure_c_target target)
     set_target_properties("${target}" PROPERTIES
@@ -84,6 +85,7 @@ add_library(photoc_core STATIC
     src/core/image_analysis.c
     src/core/filename_template.c
     src/core/jpeg.c
+    src/core/jpeg_check.c
     src/core/jpeg_metadata.c
     src/core/jpeg_write.c
     src/core/json.c
@@ -100,12 +102,13 @@ add_library(photoc_core STATIC
 )
 photoc_configure_c_target(photoc_core)
 target_include_directories(photoc_core PUBLIC include)
-target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF PkgConfig::TURBOJPEG Threads::Threads)
+target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF PkgConfig::TURBOJPEG PkgConfig::LIBJPEG Threads::Threads)
 
 add_executable(photoc
     src/main.c
     src/core/cli.c
     src/core/parse.c
+    src/commands/check.c
     src/commands/compress.c
     src/commands/duplicates.c
     src/commands/exif.c
@@ -163,6 +166,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_COMPRESS_METADATA_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_compress_metadata.py")
             set_tests_properties(compress_metadata_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME check_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_CHECK_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_check_cli.py")
+            set_tests_properties(check_cli PROPERTIES TIMEOUT 60)
             add_test(NAME focus_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")
@@ -333,6 +340,12 @@ if(BUILD_TESTING)
     add_test(NAME jpeg_metadata_segments COMMAND test_jpeg_metadata)
     set_tests_properties(jpeg_metadata_segments PROPERTIES TIMEOUT 60)
 
+    add_executable(test_jpeg_check tests/test_jpeg_check.c)
+    photoc_configure_c_target(test_jpeg_check)
+    target_link_libraries(test_jpeg_check PRIVATE photoc_core)
+    add_test(NAME jpeg_integrity COMMAND test_jpeg_check)
+    set_tests_properties(jpeg_integrity PROPERTIES TIMEOUT 60)
+
     add_executable(test_jpeg_temp_failure tests/test_jpeg_temp_failure.c)
     photoc_configure_c_target(test_jpeg_temp_failure)
     target_link_libraries(test_jpeg_temp_failure PRIVATE photoc_core)
@@ -420,6 +433,7 @@ if(BUILD_TESTING)
     add_cli_test(command_sort_help command_help sort)
     add_cli_test(command_scrub_help command_help scrub)
     add_cli_test(command_compress_help command_help compress)
+    add_cli_test(command_check_help command_help check)
 
     foreach(case IN ITEMS default quality quality_one quality_hundred quality_effect
                           no_exif extension collision invalid
