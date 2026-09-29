@@ -55,7 +55,7 @@ glibc 2.35 or later. Check the release notes for any additional requirements.
 To choose a published version and a different install directory:
 
 ```sh
-sh install-photoc.sh --version v0.2.0 --install-dir "$HOME/bin"
+sh install-photoc.sh --version v0.3.0 --install-dir "$HOME/bin"
 ```
 
 The chosen tag must exist as a published release. If you already have a checkout
@@ -193,7 +193,7 @@ Installed copies do not update automatically. To install the latest release:
 4. Run `photoc --version` to check the result.
 
 Use the same install directory as before. To select a particular release,
-pass `--version v0.2.0` to the installer. See the
+pass `--version v0.3.0` to the installer. See the
 [upgrade guide](docs/installation.md#upgrading) for copyable commands and how
 to return to an earlier version.
 
@@ -311,8 +311,8 @@ Put options before `--` when a path begins with `-`, for example
 
 Each command link includes usage, options, examples, special cases, safety
 notes, and a JSON schema when the command supports JSON.
-`check`, `query`, `contact`, `timeline`, and Sony ARW metadata support are currently
-available in source builds; they are not included in v0.2.0.
+The v0.3.0 release includes `check`, `query`, `contact`, `timeline`, and Sony
+ARW metadata support.
 
 ### File-type support
 

@@ -29,7 +29,7 @@ JPEG pixel/scan data is never recompressed or rotated.
 | `--all-metadata` | EXIF except a valid Orientation tag; standard and Extended Adobe XMP APP1 packets; Photoshop/IPTC APP13 segments; JPEG COM comments | ICC APP2 chunks byte for byte; JFIF/Adobe and structural JPEG markers; compressed scan data; valid Orientation value 1–8 in a minimal EXIF APP1 segment |
 
 `--privacy` uses libexif for EXIF and libxml2 for standard XMP. Those libraries
-are required by source builds. XMP is matched by namespace and property name,
+are required at build and run time. XMP is matched by namespace and property name,
 not a text search. IPTC removal edits individual datasets and keeps unrelated
 Photoshop resources. `--all-metadata` does not reencode pixels: it retains the
 Orientation tag, so a viewer that honored the original tag will display the

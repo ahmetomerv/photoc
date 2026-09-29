@@ -1,99 +1,88 @@
-# photoc 0.2.0
+# photoc 0.3.0
 
-This release adds working global output verbosity and preserves photographic
-metadata when recompressing JPEGs. Runtime dependencies and installation
-commands are unchanged from 0.1.0.
+This release adds JPEG integrity and metadata search, Sony ARW metadata support,
+shooting timelines, expanded statistics, privacy metadata removal, and JPEG
+contact sheets. Existing `scrub --gps` behavior remains available.
 
-## Changes since 0.1.0
+## Changes since 0.2.0
 
-- `--verbose` / `-v` adds command diagnostics on stderr, including operating
-  mode, paths, scan/skip/failure counts, and relevant processing settings.
-- `--quiet` / `-q` suppresses informational status and non-critical metadata
-  warnings while keeping requested results and errors visible. JSON schemas
-  are unchanged, and JSON stdout remains uncontaminated in both modes.
-- Quiet and verbose flags work before or after the command. Combining them
-  now returns usage status **2**; in 0.1.0 both flags were accepted without
-  affecting output.
-- `compress` now preserves EXIF APP1, ICC_PROFILE APP2 chunks, and standard
-  and Extended Adobe XMP APP1 payloads byte for byte, in their original
-  relative order. This applies to quality, target-size, and directory modes.
-- Compression validates complete, consistent ICC chunk sets and rejects
-  malformed sets without publishing that file's output. Target-size searches
-  include all preserved marker overhead. Outputs are decoded and checked for
-  dimensions and metadata before publication; grayscale inputs with ICC stay
-  grayscale, and EXIF Orientation is retained without rotating pixels.
-- Documentation now includes source-install uninstall instructions and clearer
-  shell PATH setup.
+- `check` audits JPEG marker structure, decodes every scanline, and reports
+  EXIF and decoder warnings. It is read only and supports human or JSON output.
+- `query` searches JPEG metadata with camera, exposure, capture-date, and GPS
+  filters. It emits paths, NUL-separated paths, or JSON for scripts.
+- `exif`, `stats`, `timeline`, `rename`, and `sort` now read common metadata from
+  Sony ARW files. RAW pixels are never developed or rewritten. Other RAW
+  formats remain unsupported.
+- `stats` adds file-size, exposure, dimension, calendar, and session summaries.
+  Existing JSON fields remain; new fields are additive.
+- `timeline` groups JPEG and ARW photos by recorded date and capture-time
+  session, with configurable gaps and JSON output.
+- `scrub --privacy` selectively removes supported EXIF identifiers and GPS,
+  standard XMP location and personal fields, and supported IPTC location
+  fields. `scrub --all-metadata` removes descriptive metadata while retaining
+  ICC profiles and EXIF orientation. The three scrub modes are exclusive.
+- `contact` generates paged JPEG contact sheets with filenames and optional
+  exposure lines. Thumbnails keep aspect ratio and apply EXIF orientation.
+  The built-in text font needs no platform GUI or extra font package.
 
-See the [verbosity guide](https://github.com/ahmetomerv/photoc/blob/v0.2.0/README.md#output-verbosity)
-and [metadata support](https://github.com/ahmetomerv/photoc/blob/v0.2.0/docs/compress.md#metadata-preservation)
-for exact behavior.
+See the [command guides](https://github.com/ahmetomerv/photoc/tree/v0.3.0/docs)
+for exact options, output contracts, and limits.
 
-## Included commands
+## File safety and limits
 
-- `exif`: read JPEG dimensions, camera and exposure settings, capture time, and GPS.
-- `stats`: summarize a JPEG collection's storage, dates, cameras, and exposure settings.
-- `duplicates`: find exact file duplicates using SHA-256.
-- `rename` and `sort`: preview metadata-based filenames and date/session folders,
-  then apply changes with `--apply`.
-- `compress`: make JPEG copies at a chosen quality or target size.
-- `focus`: compare JPEG sharpness scores as a photo-review aid.
-- `scrub`: remove EXIF GPS tags, writing copies by default.
+`check`, `query`, `stats`, and `timeline` do not modify photos. `rename` and
+`sort` still preview changes unless `--apply` is supplied. `scrub` writes new
+copies by default; `--in-place` atomically replaces originals without making
+a backup. Contact sheets never overwrite an existing output. If a later page
+fails, earlier completed sheets remain. Directory scrub operations are also
+not transactional across photos.
 
-JSON output is available for `exif`, `stats`, `duplicates`, and `focus`.
-Shell completions are included for zsh, bash, and fish.
+Privacy mode does **not** parse or guarantee sanitization of MakerNotes.
+Sensitive fields may remain in MakerNotes, unsupported proprietary markers,
+filenames, sidecars, or visible image content. Unsupported or malformed XMP
+layouts can cause scrub to fail rather than publish a partial edit. Review
+outputs before sharing. `--all-metadata` retains ICC and orientation, but
+contact sheets copy neither source metadata nor ICC and do not perform color
+profile conversion. They are for review, not color-managed proofs.
 
-## File safety and current limits
+`check` reports detected readability problems; an OK result is not a backup or
+a full metadata/security audit. Contact scans are limited to 1,000 JPEGs,
+64 MiB per source file, 24 tiles per page, and a 64 MiB RGB canvas. Large
+shoots are paged with `-001`, `-002`, and subsequent filename suffixes.
 
-Rename and sort preview by default and never overwrite existing destinations.
-Compression is lossy and can increase file size. Preserved EXIF and XMP include
-GPS and other location information; compression is not a privacy scrub.
-ICC packaging is validated without interpreting or converting the profile.
-Standard and Extended XMP are copied as opaque packets; XML, GUID links, and
-extended completeness are not validated or repaired. Other original APP
-markers, comments, Photoshop/IPTC resources, and MPF/MPO offset data are not
-copied. Recognized metadata after the first scan is rejected, and metadata
-snapshots are capped at 64 MiB including segment bookkeeping. The existing
-decoder does not support CMYK/YCCK JPEGs.
-
-Scrub behavior is unchanged: it removes EXIF GPS only;
-location data in other metadata may remain. `scrub --in-place` replaces
-originals without creating a backup. See the
-[file-safety notes](https://github.com/ahmetomerv/photoc/blob/v0.2.0/README.md#file-safety)
-and command guides before changing or sharing important photos.
-
-Image commands currently support JPEG files. Sharpness scores are review hints,
-not proof of blur. The command-line interface may change during the `0.x` series;
-review each release's notes before upgrading.
+The CLI remains in the `0.x` series; review each release's notes when
+upgrading. There are no intentional removals of existing commands or flags
+in this release.
 
 ## Upgrading
 
-Existing installations do not update automatically. Follow the
-[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.2.0/docs/installation.md#upgrading)
-to replace an owned release installation. For source installations, rebuild
-from the new tag and reinstall as documented there. Confirm the update with
-`photoc --version`, which should print `photoc 0.2.0`.
+Installed copies do not update automatically. Follow the
+[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.3.0/docs/installation.md#upgrading)
+to replace an owned release installation. Source installations should be
+rebuilt and reinstalled from the new tag. Verify with `photoc --version`,
+which should print `photoc 0.3.0`.
 
 ## Downloads and requirements
 
 Choose the archive or executable matching your OS and CPU:
 
 - **macOS arm64 or x86_64:** macOS 15 or newer. Install runtime libraries with
-  `brew install libexif jpeg-turbo` on the matching architecture.
+  `brew install libexif jpeg-turbo libxml2` on the matching architecture.
 - **Linux x86_64:** built on Ubuntu 22.04; requires glibc 2.35 or newer,
-  libexif (`libexif.so.12`), and TurboJPEG (`libturbojpeg.so.0`). On Ubuntu,
-  install them with `sudo apt install libexif12 libturbojpeg`.
+  libexif (`libexif.so.12`), TurboJPEG (`libturbojpeg.so.0`), libjpeg
+  (`libjpeg.so.8`), and libxml2 (`libxml2.so.2`). On Ubuntu, install them
+  with `sudo apt install libexif12 libturbojpeg libjpeg8 libxml2`.
 
-Dependency libraries are dynamically linked and are not bundled. macOS
-binaries are not developer-signed or notarized. Other CPUs and Linux systems
-without glibc should build from source.
+These libraries are dynamically linked and are not bundled. macOS binaries
+are not developer-signed or notarized. Other CPUs and Linux systems without
+glibc should build from source.
 
 Archives contain `bin/photoc`, its man page, shell completions, documentation,
 the MIT license, and third-party notices and license texts. `SHA256SUMS` covers
-all archives and raw executables;
-`SHA256SUMS-<platform>` covers that platform's archive and executable. Verify
-downloaded files with `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
+all archives and raw executables; `SHA256SUMS-<platform>` covers that
+platform's archive and executable. Verify downloaded files with
+`shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
 `sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that directory.
 
-See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.2.0/docs/installation.md)
+See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.3.0/docs/installation.md)
 for the checksum-verified release installer and safe uninstall flow.

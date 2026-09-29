@@ -6,9 +6,6 @@ Search JPEG metadata without changing photographs. By default, stdout contains
 only matching paths, one per line, sorted in bytewise path order. No filters
 means every successfully parsed JPEG matches, including JPEGs without EXIF.
 
-`query` is available in current source builds; releases through **v0.2.0** do
-not include it. See [Build from source](../README.md#build-from-source).
-
 ## Usage
 
 ```sh

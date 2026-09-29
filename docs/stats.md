@@ -11,8 +11,7 @@ uses the shared metadata scanner and does not modify files.
 
 Sony `.arw` files are supported for common TIFF/EXIF metadata, with the same
 command safety/exit behavior. Other RAW formats are unsupported. This is
-metadata-only support: see [ARW fields and limits](raw.md). It is available in
-current source builds, not releases through v0.2.0.
+metadata-only support: see [ARW fields and limits](raw.md).
 
 ## Syntax
 

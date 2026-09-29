@@ -9,9 +9,6 @@ marker structure, decodes every image scanline, and inspects EXIF for invalid
 headers, directory/value offsets, and libexif corruption diagnostics. It never
 repairs, recompresses, renames, or deletes photographs or writes sidecars.
 
-`check` is available in current source builds; releases through **v0.2.0** do
-not include it. See [Build from source](../README.md#build-from-source).
-
 ## Syntax and examples
 
 ```sh
