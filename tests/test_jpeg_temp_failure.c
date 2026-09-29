@@ -7,6 +7,7 @@
 #include "photoc/hash.h"
 #include "photoc/image.h"
 #include "photoc/jpeg_write.h"
+#include "photoc/jpeg_metadata.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -119,7 +120,16 @@ int main(void)
           PHOTOC_JPEG_EDIT_IO_ERROR);
     CHECK(errno == EEXIST);
     check_protected(encoded_temp);
-    CHECK(temporary_attempts == 3);
+    photoc_jpeg_metadata *metadata = NULL;
+    CHECK(photoc_jpeg_metadata_load_copy(source, &metadata) ==
+          PHOTOC_JPEG_EDIT_OK);
+    protect_file(encoded_temp);
+    CHECK(photoc_jpeg_write_encoded_with_metadata(
+              destination, &encoded, metadata) == PHOTOC_JPEG_EDIT_IO_ERROR);
+    CHECK(errno == EEXIST);
+    check_protected(encoded_temp);
+    photoc_jpeg_metadata_free(metadata);
+    CHECK(temporary_attempts == 4);
     CHECK(access(destination, F_OK) == -1 && errno == ENOENT);
     CHECK(photoc_hash_file_sha256(source, after) == 0);
     CHECK(memcmp(before, after, sizeof(before)) == 0);

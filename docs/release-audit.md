@@ -7,6 +7,8 @@ This is a historical audit snapshot. `focus` has since been implemented;
 see [its current documentation](focus.md) for supported options and limitations.
 The current source also implements [output verbosity](../README.md#output-verbosity);
 the no-op verbosity limitation below describes the audited snapshot.
+Compression now preserves [EXIF, ICC, and XMP](compress.md#metadata-preservation);
+the ICC/XMP loss noted below describes the audited snapshot.
 
 ## Release status
 

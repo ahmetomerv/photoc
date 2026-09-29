@@ -58,7 +58,9 @@ static const char *const compress_notes[] = {
     "mode.",
     "Sizes use bytes, KB/MB/GB (decimal), or KiB/MiB/GiB (binary).",
     "An unreachable target writes at minimum quality and returns failure.",
-    "EXIF is preserved where possible, including GPS coordinates.", NULL};
+    "EXIF, ICC, and standard/Extended XMP are preserved, including GPS.",
+    "Invalid ICC chunk sets fail without publishing a copy.",
+    NULL};
 
 static const char *const exif_examples[] = {
     "photoc exif photo.jpg", "photoc exif photo.jpg --json", NULL};

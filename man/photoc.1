@@ -103,8 +103,28 @@ Report original/output sizes, chosen quality, and savings.
 Re-encoding can increase file size.
 An unreachable target writes a best-effort copy at the minimum quality and
 returns status 1.
-EXIF, including GPS, is retained where possible.
-ICC profiles, XMP, and other original JPEG marker segments are not copied.
+EXIF APP1 payloads (including Orientation and GPS), ICC_PROFILE APP2 chunks,
+and standard/Extended Adobe XMP APP1 packets are preserved byte for byte
+in their original relative order, in quality and target-size modes.
+EXIF passes the existing validity checks and is no longer rebuilt for compression.
+ICC chunk counts and sequence indices must be complete, unique, and consistent,
+with nonempty total profile data; invalid sets fail before publishing a copy.
+No ICC interpretation or conversion is performed.
+Grayscale images with ICC remain grayscale; CMYK/YCCK is unsupported by the
+existing RGB decoder.
+Standard and Extended XMP packets are preserved as opaque bytes; XML, GUID
+links, and extended completeness are not validated or repaired.
+Recognized metadata after the first scan is refused.
+Metadata snapshots are capped at 64 MiB including bookkeeping; excessive
+metadata fails the file with status 1.
+Other original APP markers, comments, Photoshop/IPTC resources, and MPF/MPO
+image-offset data are not copied.
+JPEG coding tables and scan data are generated afresh.
+Raw dimensions and EXIF Orientation are retained without rotating pixels.
+Preserved metadata contributes to target-size calculations.
+The temporary output is decoded and its dimensions/metadata verified before
+publication without overwriting originals.
+Compression is not a privacy scrub; XMP location data is also retained.
 .SS exif
 .B photoc exif
 .I file

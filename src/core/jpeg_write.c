@@ -7,6 +7,7 @@
 
 #include "photoc/fs.h"
 #include "jpeg.h"
+#include "jpeg_metadata_internal.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -106,6 +107,16 @@ static photoc_jpeg_edit_result parse_exif(const unsigned char *bytes,
     }
     *out = exif;
     return PHOTOC_JPEG_EDIT_OK;
+}
+
+photoc_jpeg_edit_result
+photoc_jpeg_exif_validate_segment(const unsigned char *bytes,
+                                  unsigned int length)
+{
+    photoc_jpeg_exif *exif = NULL;
+    photoc_jpeg_edit_result result = parse_exif(bytes, length, &exif);
+    photoc_jpeg_exif_free(exif);
+    return result;
 }
 
 static photoc_jpeg_edit_result inspect_file(FILE *file, photoc_jpeg_info *info)
@@ -713,10 +724,10 @@ photoc_jpeg_replace_with_exif(const char *source_path,
     return write_with_exif(source_path, source_path, exif, true);
 }
 
-photoc_jpeg_edit_result
-photoc_jpeg_write_encoded(const char *destination_path,
-                          const photoc_jpeg_buffer *encoded,
-                          const photoc_jpeg_exif *exif)
+static photoc_jpeg_edit_result
+write_encoded(const char *destination_path, const photoc_jpeg_buffer *encoded,
+              const photoc_jpeg_exif *exif,
+              const photoc_jpeg_metadata *metadata)
 {
     if (destination_path == NULL || destination_path[0] == '\0' ||
         destination_path[strlen(destination_path) - 1] == '/' ||
@@ -762,8 +773,16 @@ photoc_jpeg_write_encoded(const char *destination_path,
         goto cleanup;
     }
     errno = 0;
-    if (fwrite(encoded->data, 1, encoded->size, file) != encoded->size ||
-        fflush(file) != 0 || fsync(fileno(file)) != 0) {
+    if (metadata != NULL) {
+        result = photoc_jpeg_metadata_write_encoded(file, encoded, metadata);
+    } else if (fwrite(encoded->data, 1, encoded->size, file) != encoded->size) {
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
+    if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
+        saved_errno = errno == 0 ? EIO : errno;
+    }
+    if (result == PHOTOC_JPEG_EDIT_OK &&
+        (fflush(file) != 0 || fsync(fileno(file)) != 0)) {
         result = PHOTOC_JPEG_EDIT_IO_ERROR;
         saved_errno = errno == 0 ? EIO : errno;
     }
@@ -793,6 +812,15 @@ photoc_jpeg_write_encoded(const char *destination_path,
     if (result != PHOTOC_JPEG_EDIT_OK) {
         goto cleanup;
     }
+    if (metadata != NULL) {
+        result = photoc_jpeg_metadata_verify(metadata, temporary);
+        if (result != PHOTOC_JPEG_EDIT_OK) {
+            if (result == PHOTOC_JPEG_EDIT_IO_ERROR) {
+                saved_errno = errno;
+            }
+            goto cleanup;
+        }
+    }
     if (exif != NULL) {
         result = photoc_jpeg_write_with_exif(temporary, destination_path, exif);
     } else if (photoc_fs_rename_noreplace(temporary, destination_path) != 0) {
@@ -813,6 +841,25 @@ cleanup:
         errno = saved_errno;
     }
     return result;
+}
+
+photoc_jpeg_edit_result
+photoc_jpeg_write_encoded(const char *destination_path,
+                          const photoc_jpeg_buffer *encoded,
+                          const photoc_jpeg_exif *exif)
+{
+    return write_encoded(destination_path, encoded, exif, NULL);
+}
+
+photoc_jpeg_edit_result
+photoc_jpeg_write_encoded_with_metadata(const char *destination_path,
+                                        const photoc_jpeg_buffer *encoded,
+                                        const photoc_jpeg_metadata *metadata)
+{
+    if (metadata == NULL) {
+        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
+    }
+    return write_encoded(destination_path, encoded, NULL, metadata);
 }
 
 const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result)
@@ -836,6 +883,12 @@ const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result)
         return "JPEG I/O error";
     case PHOTOC_JPEG_EDIT_NO_MEMORY:
         return "out of memory";
+    case PHOTOC_JPEG_EDIT_INVALID_ICC:
+        return "invalid ICC chunk sequence/count or empty profile";
+    case PHOTOC_JPEG_EDIT_METADATA_TOO_LARGE:
+        return "JPEG metadata exceeds 64 MiB snapshot limit";
+    case PHOTOC_JPEG_EDIT_UNSAFE_METADATA_LAYOUT:
+        return "unsupported or changed JPEG metadata layout";
     case PHOTOC_JPEG_EDIT_UNSAFE_SOURCE:
         return "unsafe in-place source (changed, linked, symlinked, or not "
                "owned by this user)";

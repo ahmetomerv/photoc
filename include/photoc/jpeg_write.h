@@ -7,6 +7,7 @@
 #include "photoc/image.h"
 
 typedef struct photoc_jpeg_exif photoc_jpeg_exif;
+typedef struct photoc_jpeg_metadata photoc_jpeg_metadata;
 
 typedef enum {
     PHOTOC_JPEG_EDIT_OK = 0,
@@ -18,7 +19,10 @@ typedef enum {
     PHOTOC_JPEG_EDIT_EXIF_TOO_LARGE,
     PHOTOC_JPEG_EDIT_IO_ERROR,
     PHOTOC_JPEG_EDIT_NO_MEMORY,
-    PHOTOC_JPEG_EDIT_UNSAFE_SOURCE
+    PHOTOC_JPEG_EDIT_UNSAFE_SOURCE,
+    PHOTOC_JPEG_EDIT_INVALID_ICC,
+    PHOTOC_JPEG_EDIT_METADATA_TOO_LARGE,
+    PHOTOC_JPEG_EDIT_UNSAFE_METADATA_LAYOUT
 } photoc_jpeg_edit_result;
 
 /* Load an owned, editable copy of the EXIF from a JPEG. A JPEG without an
@@ -64,6 +68,15 @@ photoc_jpeg_edit_result
 photoc_jpeg_write_encoded(const char *destination_path,
                           const photoc_jpeg_buffer *encoded,
                           const photoc_jpeg_exif *exif);
+
+/* Save encoded JPEG bytes with an owned metadata snapshot borrowed from the
+   caller. Preserves recognized segment payloads/order exactly, checks output
+   metadata and decoded dimensions, then publishes without overwriting. The
+   caller retains both encoded and metadata. metadata must not be NULL. */
+photoc_jpeg_edit_result
+photoc_jpeg_write_encoded_with_metadata(const char *destination_path,
+                                        const photoc_jpeg_buffer *encoded,
+                                        const photoc_jpeg_metadata *metadata);
 
 /* Replace source_path with an edited JPEG only after writing, syncing, and
    verifying a temporary JPEG beside it. Preserves POSIX permission bits and

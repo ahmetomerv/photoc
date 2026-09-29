@@ -244,9 +244,8 @@ photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
     return decode_jpeg(path, max_dimension, out);
 }
 
-photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
-                                             int quality,
-                                             photoc_jpeg_buffer *out)
+static photoc_image_result encode_jpeg(const photoc_image *image, int quality,
+                                       photoc_jpeg_buffer *out, int subsampling)
 {
     if (image == NULL || out == NULL || quality < 1 || quality > 100 ||
         image->pixels == NULL || image->width == 0 || image->height == 0 ||
@@ -268,7 +267,7 @@ photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
     unsigned long length = 0;
     int encoded = tjCompress2(handle, image->pixels, (int)image->width,
                               (int)image->stride, (int)image->height, TJPF_RGB,
-                              &jpeg, &length, TJSAMP_420, quality, 0);
+                              &jpeg, &length, subsampling, quality, 0);
     tjDestroy(handle);
     if (encoded != 0 || jpeg == NULL || length == 0) {
         tjFree(jpeg);
@@ -277,6 +276,20 @@ photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
     out->data = jpeg;
     out->size = (size_t)length;
     return PHOTOC_IMAGE_OK;
+}
+
+photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
+                                             int quality,
+                                             photoc_jpeg_buffer *out)
+{
+    return encode_jpeg(image, quality, out, TJSAMP_420);
+}
+
+photoc_image_result
+photoc_image_encode_jpeg_grayscale(const photoc_image *image, int quality,
+                                   photoc_jpeg_buffer *out)
+{
+    return encode_jpeg(image, quality, out, TJSAMP_GRAY);
 }
 
 const char *photoc_image_result_message(photoc_image_result result)

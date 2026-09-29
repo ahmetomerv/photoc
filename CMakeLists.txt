@@ -84,6 +84,7 @@ add_library(photoc_core STATIC
     src/core/image_analysis.c
     src/core/filename_template.c
     src/core/jpeg.c
+    src/core/jpeg_metadata.c
     src/core/jpeg_write.c
     src/core/json.c
     src/core/metadata.c
@@ -158,6 +159,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_VERBOSITY_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_verbosity.py")
             set_tests_properties(verbosity_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME compress_metadata_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_COMPRESS_METADATA_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_compress_metadata.py")
+            set_tests_properties(compress_metadata_cli PROPERTIES TIMEOUT 60)
             add_test(NAME focus_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")
@@ -319,6 +324,14 @@ if(BUILD_TESTING)
         PHOTOC_METADATA_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
     )
     add_test(NAME jpeg_safe_write COMMAND test_jpeg_write)
+
+    add_executable(test_jpeg_metadata tests/test_jpeg_metadata.c)
+    photoc_configure_c_target(test_jpeg_metadata)
+    target_link_libraries(test_jpeg_metadata PRIVATE photoc_core)
+    target_compile_definitions(test_jpeg_metadata PRIVATE
+        PHOTOC_SEGMENT_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg_metadata")
+    add_test(NAME jpeg_metadata_segments COMMAND test_jpeg_metadata)
+    set_tests_properties(jpeg_metadata_segments PROPERTIES TIMEOUT 60)
 
     add_executable(test_jpeg_temp_failure tests/test_jpeg_temp_failure.c)
     photoc_configure_c_target(test_jpeg_temp_failure)

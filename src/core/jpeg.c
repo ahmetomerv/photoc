@@ -70,7 +70,8 @@ static bool is_frame_marker(int value)
            (value >= 0xc9 && value <= 0xcb) || (value >= 0xcd && value <= 0xcf);
 }
 
-int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)
+int photoc_jpeg_inspect_app(FILE *file, photoc_jpeg_info *info,
+                            photoc_jpeg_app_visitor visitor, void *user_data)
 {
     if (file == NULL || info == NULL) {
         errno = EINVAL;
@@ -133,6 +134,7 @@ int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)
                 length != 8u + 3u * (unsigned int)components) {
                 return invalid_or_io(file);
             }
+            info->components = (unsigned int)components;
             info->height = (uint32_t)((h1 << 8) | h2);
             info->width = (uint32_t)((w1 << 8) | w2);
             if (info->height == 0 || info->width == 0 ||
@@ -140,14 +142,14 @@ int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)
                 return invalid_or_io(file);
             }
             has_frame = true;
-        } else if (current == 0xe1 && length >= 8) {
-            unsigned char signature[6];
-            if (fread(signature, 1, sizeof(signature), file) !=
-                    sizeof(signature) ||
-                skip_bytes(file, length - 8) != 0) {
+        } else if (current == 0xe1 || current == 0xe2) {
+            unsigned char payload[65533];
+            unsigned int payload_length = length - 2;
+            if (fread(payload, 1, payload_length, file) != payload_length) {
                 return invalid_or_io(file);
             }
-            if (memcmp(signature, "Exif\0\0", sizeof(signature)) == 0) {
+            if (current == 0xe1 && payload_length >= 6 &&
+                memcmp(payload, "Exif\0\0", 6) == 0) {
                 if (info->exif_count == 0) {
                     info->exif_offset = marker_offset;
                     info->exif_length = (uint64_t)length + 2;
@@ -156,6 +158,11 @@ int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)
                 if (has_scan) {
                     info->exif_after_scan = true;
                 }
+            }
+            if (visitor != NULL &&
+                visitor((unsigned char)current, payload, payload_length,
+                        has_scan, user_data) != 0) {
+                return -1;
             }
         } else {
             if (current == 0xda && (!has_frame || length < 6)) {
@@ -177,4 +184,9 @@ int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)
         }
     }
     return invalid_or_io(file);
+}
+
+int photoc_jpeg_inspect(FILE *file, photoc_jpeg_info *info)
+{
+    return photoc_jpeg_inspect_app(file, info, NULL, NULL);
 }

@@ -22,4 +22,5 @@ Options:
 Output: photo.compressed.jpg; existing outputs are skipped in directory mode.
 Sizes use bytes, KB/MB/GB (decimal), or KiB/MiB/GiB (binary).
 An unreachable target writes at minimum quality and returns failure.
-EXIF is preserved where possible, including GPS coordinates.
+EXIF, ICC, and standard/Extended XMP are preserved, including GPS.
+Invalid ICC chunk sets fail without publishing a copy.

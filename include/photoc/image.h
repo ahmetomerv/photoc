@@ -59,6 +59,13 @@ photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
                                              int quality,
                                              photoc_jpeg_buffer *out);
 
+/* Encode decoded grayscale RGB samples as a one-component JPEG. This keeps
+   grayscale ICC profiles associated with grayscale image data. Ownership and
+   quality rules are identical to encode_jpeg. No ICC conversion is performed. */
+photoc_image_result
+photoc_image_encode_jpeg_grayscale(const photoc_image *image, int quality,
+                                   photoc_jpeg_buffer *out);
+
 void photoc_image_cleanup(photoc_image *image);
 void photoc_jpeg_buffer_cleanup(photoc_jpeg_buffer *buffer);
 

@@ -424,8 +424,12 @@ data in other metadata may remain.
 - **Compress:** originals stay unchanged; outputs are named
   `photo.compressed.jpg`. Existing outputs are skipped in directory mode and
   rejected in single-file mode. Compression loses image detail and can produce
-  a larger file. EXIF, including GPS, is kept where possible; ICC color profiles
-  and XMP metadata are not copied. If the target size cannot be reached, photoc
+  a larger file. EXIF (including orientation and GPS), ICC color profiles, and
+  standard/Extended XMP marker payloads are preserved byte for byte by default.
+  Incomplete or inconsistent ICC chunk sets fail without creating that copy.
+  Other original APP markers are not copied; see
+  [metadata support and limits](docs/compress.md#metadata-preservation).
+  If the target size cannot be reached, photoc
   still writes a copy at the minimum quality and returns exit status **1**.
   `2MB` means 2,000,000 bytes; `2MiB` means 2,097,152 bytes.
 - **Scrub:** originals stay unchanged by default, and existing copy destinations

@@ -20,7 +20,9 @@ Shell completions are included for zsh, bash, and fish.
 ## File safety and current limits
 
 Rename and sort preview by default and never overwrite existing destinations.
-Compression is lossy and drops ICC/XMP metadata. Scrub removes EXIF GPS only;
+Compression in v0.1.0 is lossy and drops ICC/XMP metadata. Current source
+preserves [EXIF, ICC, and XMP](compress.md#metadata-preservation); use a source
+build until a release includes that behavior. Scrub removes EXIF GPS only;
 location data in other metadata may remain. `scrub --in-place` replaces
 originals without creating a backup. See the
 [file-safety notes](https://github.com/ahmetomerv/photoc/blob/v0.1.0/README.md#file-safety)
