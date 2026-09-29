@@ -105,8 +105,9 @@ enum {
     CMD_FOCUS = 1u << 6,
     CMD_SCRUB = 1u << 7,
     CMD_CHECK = 1u << 8,
+    CMD_QUERY = 1u << 9,
     CMD_RECURSIVE = CMD_COMPRESS | CMD_DUPLICATES | CMD_STATS | CMD_RENAME |
-                    CMD_SORT | CMD_FOCUS | CMD_SCRUB | CMD_CHECK,
+                    CMD_SORT | CMD_FOCUS | CMD_SCRUB | CMD_CHECK | CMD_QUERY,
     CMD_APPLY = CMD_RENAME | CMD_SORT
 };
 
@@ -138,7 +139,17 @@ static const photoc_flag flags[] = {{"-h", 0, false},
                                     {"--format", CMD_RENAME, true},
                                     {"--threshold", CMD_FOCUS, true},
                                     {"--only-blurry", CMD_FOCUS, false},
-                                    {"--only-errors", CMD_CHECK, false}};
+                                    {"--only-errors", CMD_CHECK, false},
+                                    {"--camera", CMD_QUERY, true},
+                                    {"--make", CMD_QUERY, true},
+                                    {"--iso", CMD_QUERY, true},
+                                    {"--aperture", CMD_QUERY, true},
+                                    {"--focal", CMD_QUERY, true},
+                                    {"--after", CMD_QUERY, true},
+                                    {"--before", CMD_QUERY, true},
+                                    {"--has-gps", CMD_QUERY, false},
+                                    {"--no-gps", CMD_QUERY, false},
+                                    {"--print0", CMD_QUERY, false}};
 
 static const photoc_flag *find_flag(const char *name)
 {
@@ -181,6 +192,9 @@ static unsigned command_mask(const char *name)
     }
     if (strcmp(name, "check") == 0) {
         return CMD_CHECK;
+    }
+    if (strcmp(name, "query") == 0) {
+        return CMD_QUERY;
     }
     return 0;
 }
@@ -262,6 +276,12 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
             options->only_blurry = true;
         } else if (strcmp(name, "--only-errors") == 0) {
             options->only_errors = true;
+        } else if (strcmp(name, "--print0") == 0) {
+            options->print0 = true;
+        } else if (strcmp(name, "--has-gps") == 0) {
+            options->has_gps = true;
+        } else if (strcmp(name, "--no-gps") == 0) {
+            options->no_gps = true;
         }
         return PHOTOC_PARSE_OK;
     }
@@ -283,6 +303,20 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
         slot = &options->format;
     } else if (strcmp(name, "--threshold") == 0) {
         slot = &options->threshold;
+    } else if (strcmp(name, "--camera") == 0) {
+        slot = &options->camera;
+    } else if (strcmp(name, "--make") == 0) {
+        slot = &options->make;
+    } else if (strcmp(name, "--iso") == 0) {
+        slot = &options->iso;
+    } else if (strcmp(name, "--aperture") == 0) {
+        slot = &options->aperture;
+    } else if (strcmp(name, "--focal") == 0) {
+        slot = &options->focal;
+    } else if (strcmp(name, "--after") == 0) {
+        slot = &options->after;
+    } else if (strcmp(name, "--before") == 0) {
+        slot = &options->before;
     }
     if (slot == NULL) {
         *error_arg = name;

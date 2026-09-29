@@ -91,7 +91,9 @@ add_library(photoc_core STATIC
     src/core/json.c
     src/core/metadata.c
     src/core/output.c
+    src/core/parse.c
     src/core/photo.c
+    src/core/query.c
     src/core/quality_search.c
     src/core/scan.c
     src/core/session.c
@@ -107,12 +109,12 @@ target_link_libraries(photoc_core PUBLIC PkgConfig::LIBEXIF PkgConfig::TURBOJPEG
 add_executable(photoc
     src/main.c
     src/core/cli.c
-    src/core/parse.c
     src/commands/check.c
     src/commands/compress.c
     src/commands/duplicates.c
     src/commands/exif.c
     src/commands/focus.c
+    src/commands/query.c
     src/commands/rename.c
     src/commands/scrub.c
     src/commands/sort.c
@@ -170,6 +172,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_CHECK_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_check_cli.py")
             set_tests_properties(check_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME query_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_QUERY_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_query_cli.py")
+            set_tests_properties(query_cli PROPERTIES TIMEOUT 60)
             add_test(NAME focus_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")
@@ -277,6 +283,11 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_photo)
     target_link_libraries(test_photo PRIVATE photoc_core)
     add_test(NAME photo_model COMMAND test_photo)
+
+    add_executable(test_query tests/test_query.c)
+    photoc_configure_c_target(test_query)
+    target_link_libraries(test_query PRIVATE photoc_core)
+    add_test(NAME query_predicates COMMAND test_query)
 
     add_executable(test_session tests/test_session.c)
     photoc_configure_c_target(test_session)
@@ -434,6 +445,7 @@ if(BUILD_TESTING)
     add_cli_test(command_scrub_help command_help scrub)
     add_cli_test(command_compress_help command_help compress)
     add_cli_test(command_check_help command_help check)
+    add_cli_test(command_query_help command_help query)
 
     foreach(case IN ITEMS default quality quality_one quality_hundred quality_effect
                           no_exif extension collision invalid

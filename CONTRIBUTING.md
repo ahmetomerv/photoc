@@ -88,6 +88,21 @@ Report suspected vulnerabilities or data-safety defects through
    benchmarks are documented in [`benchmarks/README.md`](benchmarks/README.md).
 8. Describe what changed and how it was tested in your pull request.
 
+## Metadata query architecture
+
+`src/core/query.c` parses numeric comparisons, validates inclusive date bounds
+using the shared timestamp API, and evaluates predicates against `Photo`
+presence flags. `include/photoc/query.h` exposes a compiled query that borrows
+filter strings and owns no allocations. The shared parser is linked into
+`photoc_core` so comparator parsing can reuse its numeric grammar.
+
+`src/commands/query.c` reuses the bounded photo scanner and retains owned copies
+of matching metadata only, then sorts paths before writing line, NUL, or JSON
+output. Predicate logic performs no I/O and knows nothing about formatting.
+A skipped JPEG load fails the search with status 1 while retaining other
+matches; the scanner's existing treatment of unavailable EXIF is unchanged.
+Path modes write only requested paths to stdout, regardless of verbosity.
+
 ## JPEG audit architecture
 
 `src/core/jpeg_check.c` owns the read-only audit and stable status/reason model

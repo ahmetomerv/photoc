@@ -22,6 +22,9 @@ class OutputFailureTests(unittest.TestCase):
             ("stats", str(ROOT / "tests/fixtures/jpeg"), "--json"),
             ("focus", str(ROOT / "tests/fixtures/jpeg/flat.jpg")),
             ("focus", str(ROOT / "tests/fixtures/jpeg/flat.jpg"), "--json"),
+            ("query", str(ROOT / "tests/fixtures/jpeg/flat.jpg")),
+            ("query", str(ROOT / "tests/fixtures/jpeg/flat.jpg"), "--json"),
+            ("query", str(ROOT / "tests/fixtures/jpeg/flat.jpg"), "--print0"),
             ("check", str(ROOT / "tests/fixtures/jpeg/flat.jpg")),
             ("check", str(ROOT / "tests/fixtures/jpeg/flat.jpg"), "--json"),
         )

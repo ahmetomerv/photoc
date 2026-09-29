@@ -47,6 +47,95 @@ Option values must be separate arguments; combined short flags and
 .B \-\-option=value
 syntax are not supported.
 .SH COMMANDS
+.SS query
+.B photoc query
+.I file|directory
+.RI [ filters ]
+.RB [ \-\-recursive ]
+.RB [ \-\-json " | " \-\-print0 ]
+.PP
+Search JPEG metadata without modifying photographs.
+All supplied filters are ANDed; missing or invalid queried fields do not match.
+With no filters, every successfully parsed JPEG matches, even without EXIF.
+Directory scans are flat by default and never follow symlinks.
+Recursion requires a directory.
+.TP
+.BI \-\-camera " value"
+Exact, case-sensitive EXIF camera model.
+.TP
+.BI \-\-make " value"
+Exact, case-sensitive EXIF camera manufacturer.
+.TP
+.BI \-\-iso " expression"
+Numeric ISO comparison: 100, =100, >100, >=100, <100, or <=100.
+.TP
+.BI \-\-aperture " expression"
+Compare aperture f-number with the same operators.
+.TP
+.BI \-\-focal " expression"
+Compare focal length in millimeters, not a 35 mm equivalent.
+.TP
+.BI \-\-after " YYYY-MM-DD"
+Capture date on or after this day, including midnight.
+.TP
+.BI \-\-before " YYYY-MM-DD"
+Capture date on or before this day, including 23:59:59.
+.TP
+.B \-\-has\-gps
+Require valid latitude/longitude coordinates.
+.TP
+.B \-\-no\-gps
+Require no valid coordinates, including absent or invalid GPS tags.
+Exclusive with \-\-has\-gps.
+.TP
+.B \-\-print0
+Emit NUL-separated paths, including a final NUL, for xargs \-0.
+Exclusive with \-\-json.
+.PP
+Default stdout contains raw matching paths only, separated by newlines.
+Paths are sorted bytewise and retain the supplied input directory prefix so
+relative paths can be used by another command in the same working directory.
+Use \-\-print0 for paths containing spaces or newlines; line output does not
+escape filenames. A single-file path is preserved as supplied.
+Quiet preserves results; verbose adds scan/match counts and mode on stderr.
+.PP
+Numbers are finite and nonnegative; decimals and scientific notation are
+accepted. Whitespace, malformed expressions, NaN/infinity, and range errors
+are usage errors. Equality compares loaded doubles directly.
+Quote comparisons to protect shell redirection characters.
+Dates must be real Gregorian dates (years 0001 through 9999); bounds are
+inclusive and use DateTimeOriginal without timezone conversion or fallback
+to filesystem timestamps. Inverted ranges are invalid.
+Camera/make filters do not expand wildcards or match substrings.
+Each valued filter may be supplied once; empty string filters are invalid.
+.PP
+JSON contains query (path, recursive, filters, string_matching, date_bounds),
+matches (path and metadata), and summary (files_visited, jpeg_files_found,
+photos_parsed, skipped_files, errors, matched).
+Metadata includes camera, make, iso, aperture, focal_length_mm,
+capture_timestamp, has_gps, latitude, longitude, width, and height.
+Unavailable values are null; GPS filter is present, absent, or null.
+JSON stdout remains JSON only at every verbosity level.
+.PP
+No matches returns 0. Individual JPEG load failures are reported on stderr,
+including in quiet mode, and return 1 with successful directory matches.
+Input, traversal, allocation, and single-file load failures leave stdout empty.
+Invalid usage or conflicting options return 2.
+The shared scanner buffers at most 32 regular entries and uses at most two
+workers. Only matching metadata is retained before sorting.
+Query does not fully decode images; use check for integrity auditing.
+Invalid EXIF may become unavailable through the existing metadata loader.
+.PP
+Examples (jq is optional):
+.nf
+photoc query ./photos \-\-iso ">800" \-\-aperture "<=4"
+photoc query ./photos \-\-recursive \-\-has\-gps \-\-print0 |
+  xargs \-0 sh \-c 'for path do photoc exif \-\- "$path" || exit; done' sh
+photoc query ./photos \-\-recursive \-\-json |
+  jq \-r '.matches[] | [.path, .metadata.iso] | @tsv'
+.fi
+.PP
+Use pipefail where supported to detect query failures in pipelines.
 .SS check
 .B photoc check
 .I file|directory
@@ -424,7 +513,8 @@ Cannot be combined with quiet (status 2), regardless of option order.
 .TP
 .BR \-q ", " \-\-quiet
 Keep requested result data: EXIF fields, statistics/distributions, duplicate
-groups/counts/savings, focus scores, check rows/counts, and rename/sort mappings.
+groups/counts/savings, focus scores, query paths, check rows/counts, and
+rename/sort mappings.
 Suppress scan status, operation summaries, and non-critical warnings.
 Successful compress and scrub operations produce no standard output.
 Errors explaining non-zero exits remain on standard error, including warnings
@@ -438,8 +528,9 @@ Print structured JSON for
 .BR stats ,
 .BR duplicates ,
 .BR focus ,
+.BR check ,
 and
-.BR check .
+.BR query .
 Optional metadata is null, presence fields are booleans, and numbers remain
 numeric.
 No human-readable decorations are printed on standard output.

@@ -4,6 +4,7 @@
 local command='' word pending=0 ended=0 index
 local -a command_descriptions specs
 command_descriptions=(
+    'query:Search JPEG metadata'
     'check:Audit JPEG structural readability'
     'compress:Re-encode JPEGs by quality or target size'
     'exif:Inspect JPEG metadata'
@@ -24,7 +25,7 @@ for ((index = 2; index < CURRENT; ++index)); do
     if ((! ended)); then
         case $word in
             --) ended=1; continue ;;
-            --quality|--target|--min-quality|--output-dir|--by|--gap|--format|--threshold)
+            --quality|--target|--min-quality|--output-dir|--by|--gap|--format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before)
                 pending=1; continue ;;
             -*) continue ;;
         esac
@@ -42,6 +43,22 @@ specs=(
 case $command in
     '')
         specs+=('(-V --version)'{-V,--version}'[Show version]' '--json[Request JSON where supported]') ;;
+    query)
+        specs+=(
+            '--camera[Exact camera model]:model:'
+            '--make[Exact camera make]:make:'
+            '--iso[Numeric ISO comparison]:expression:'
+            '--aperture[F-number comparison]:expression:'
+            '--focal[Focal length comparison in mm]:expression:'
+            '--after[Inclusive start date]:YYYY-MM-DD:'
+            '--before[Inclusive end date]:YYYY-MM-DD:'
+            '(--no-gps)--has-gps[Require valid GPS coordinates]'
+            '(--has-gps)--no-gps[Require no valid GPS coordinates]'
+            '--recursive[Include nested directories]'
+            '(--json)--print0[Print NUL-separated paths]'
+            '(--print0)--json[Print filters, matches, metadata, and summary]'
+            '2:JPEG file or directory:_files'
+        ) ;;
     check)
         specs+=(
             '--recursive[Include nested directories]'

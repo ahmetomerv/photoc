@@ -295,6 +295,7 @@ Put options before `--` when a path begins with `-`, for example
 
 | Command | Purpose | Default behavior |
 | --- | --- | --- |
+| [`query`](docs/query.md) | Search JPEG metadata using combined filters | Read only; paths, NUL paths, or JSON |
 | [`check`](docs/check.md) | Audit JPEG structural readability and report warnings/errors | Read only; JSON supported |
 | [`compress`](docs/compress.md) | Compress JPEGs at a chosen quality or target file size | Write new copies |
 | [`exif`](docs/exif.md) | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
@@ -307,9 +308,26 @@ Put options before `--` when a path begins with `-`, for example
 
 Each command link includes usage, options, examples, special cases, safety
 notes, and a JSON schema when the command supports JSON.
-`check` is currently available in source builds; it is not included in v0.2.0.
+`check` and `query` are currently available in source builds; they are not
+included in v0.2.0.
 
 ## Examples
+
+### Search photo metadata
+
+```sh
+photoc query ./photos --recursive --iso ">800" --aperture "<=4"
+photoc query ./photos --camera "DSC-RX100M7A"
+photoc query ./photos --after 2026-01-01 --before 2026-12-31
+photoc query ./photos --recursive --has-gps --print0 |
+  xargs -0 sh -c 'for path do photoc exif -- "$path" || exit; done' sh
+photoc query ./photos --recursive --json | jq '.summary'
+```
+
+All filters are ANDed. Camera/make matching is exact and case-sensitive; date
+bounds include the named days. Missing queried fields do not match. Default
+stdout contains only sorted paths; use `--print0` for arbitrary filenames or
+`--json` for metadata and scan counts. See [query details](docs/query.md).
 
 ### Check photographs for reading problems
 
@@ -466,8 +484,8 @@ data in other metadata may remain.
 
 ## JSON output
 
-Add `--json` to `check`, `exif`, `stats`, `duplicates`, or `focus` to get output for
-scripts and other tools. You can also save it to a file:
+Add `--json` to `query`, `check`, `exif`, `stats`, `duplicates`, or `focus`
+to get output for scripts and other tools. You can also save it to a file:
 
 ```sh
 photoc exif photo.jpg --json
@@ -509,7 +527,8 @@ Normal output goes to stdout. Errors and warnings go to stderr.
 `stats` can return success even when individual files produce warnings.
 Its normal scan summary and JSON `scan.errors` record those errors. When
 completeness matters, use normal output or inspect `--json`, including in quiet
-mode.
+mode. `query` returns **1** when a JPEG load fails, while still listing successful
+directory matches; no matches returns **0**.
 
 ## Output verbosity
 
@@ -522,10 +541,10 @@ Global flags work before or after the command:
 | `-v`, `--verbose` | Keep normal output and add diagnostics on stderr: operating mode, recursion, discovery/skip/failure counts, and relevant paths. Statistics and duplicate scans also report the worker limit; small workloads or worker startup failures can run serially. |
 
 Quiet mode keeps EXIF fields, statistics and distributions, duplicate groups
-and savings, focus scores, check rows/counts, and rename/sort mappings. It hides
-scan status and
-rename/sort summaries. Successful `compress` and `scrub` operations have no
-stdout in quiet mode; their file operations and exit codes stay the same.
+and savings, focus scores, query paths, check rows/counts, and rename/sort
+mappings. It hides scan status and rename/sort summaries. Successful `compress`
+and `scrub` operations have no stdout in quiet mode; their file operations and
+exit codes stay the same.
 Warnings that explain failures, including partial duplicate/focus results or
 blocked rename/sort plans, remain visible.
 

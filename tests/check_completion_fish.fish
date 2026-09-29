@@ -24,14 +24,14 @@ function lacks
 end
 
 query 'photoc '
-for name in check compress exif duplicates stats rename sort focus scrub
+for name in query check compress exif duplicates stats rename sort focus scrub
     has $name
 end
 query 'photoc --ver'
 has --version
 query 'photoc -v st'
 has stats
-for name in check exif duplicates stats focus
+for name in query check exif duplicates stats focus
     query "photoc $name --"
     has --json
     lacks --version
@@ -40,7 +40,7 @@ for name in compress rename sort scrub
     query "photoc $name --"
     lacks --json
 end
-for name in check compress duplicates stats rename sort focus scrub
+for name in query check compress duplicates stats rename sort focus scrub
     query "photoc $name --rec"
     has --recursive
 end
@@ -85,4 +85,13 @@ query 'photoc check Photo'
 has 'Photo album/'; has 'Photo image.JPG'
 query 'photoc exif --'
 lacks --only-errors
+query 'photoc query --'
+for flag in --camera --make --iso --aperture --focal --after --before --has-gps --no-gps --print0 --json --recursive
+    has $flag
+end
+lacks --apply; lacks --only-errors
+query 'photoc --iso 200 query Photo'
+has 'Photo album/'; has 'Photo image.JPG'
+query 'photoc exif --'
+lacks --camera; lacks --print0
 printf 'fish completion checks passed.\n'

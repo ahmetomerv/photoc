@@ -15,7 +15,7 @@ function __fish_photoc_command
                 case --
                     set ended 1
                     continue
-                case --quality --target --min-quality --output-dir --by --gap --format --threshold
+                case --quality --target --min-quality --output-dir --by --gap --format --threshold --camera --make --iso --aperture --focal --after --before
                     set pending 1
                     continue
                 case '-*'
@@ -40,10 +40,11 @@ end
 function __fish_photoc_path
     set -l tokens (commandline -opc)
     # Option arguments have their own rules; do not offer input paths there.
-    not contains -- $tokens[-1] --quality --target --min-quality --output-dir --by --gap --format --threshold
+    not contains -- $tokens[-1] --quality --target --min-quality --output-dir --by --gap --format --threshold --camera --make --iso --aperture --focal --after --before
 end
 
 complete -c photoc -f
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a query -d 'Search JPEG metadata'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a check -d 'Audit JPEG structural readability'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a compress -d 'Re-encode JPEGs by quality or target size'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a exif -d 'Inspect JPEG metadata'
@@ -58,10 +59,21 @@ complete -c photoc -n __fish_photoc_options -s h -l help -d 'Show help'
 complete -c photoc -n __fish_photoc_options -s v -l verbose -d 'Add diagnostics on stderr'
 complete -c photoc -n __fish_photoc_options -s q -l quiet -d 'Suppress status and non-critical warnings'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -s V -l version -d 'Show version'
-complete -c photoc -n '__fish_photoc_options; and begin; not __fish_photoc_command >/dev/null; or __fish_photoc_using_command check exif stats duplicates focus; end' -l json -d 'Print structured JSON where supported'
-complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command check compress duplicates stats rename sort focus scrub' -l recursive -d 'Include nested directories'
+complete -c photoc -n '__fish_photoc_options; and begin; not __fish_photoc_command >/dev/null; or __fish_photoc_using_command query check exif stats duplicates focus; end' -l json -d 'Print structured JSON where supported'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query check compress duplicates stats rename sort focus scrub' -l recursive -d 'Include nested directories'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command check' -l only-errors -d 'List ERROR rows only'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command rename sort' -l apply -d 'Apply the plan after preflight'
+
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l camera -x -d 'Exact camera model'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l make -x -d 'Exact camera make'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l iso -x -d 'Numeric ISO comparison'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l aperture -x -d 'F-number comparison'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l focal -x -d 'Focal length comparison in mm'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l after -x -d 'Inclusive start date YYYY-MM-DD'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l before -x -d 'Inclusive end date YYYY-MM-DD'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l has-gps -d 'Require valid GPS coordinates'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l no-gps -d 'Require no valid GPS coordinates'
+complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command query' -l print0 -d 'Print NUL-separated paths'
 
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command compress' -l quality -x -a '60 70 75 80 85 90 95 100' -d 'JPEG quality (default 80)'
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command compress' -l target -x -a '500KB 1MB 2MB 5MB' -d 'Desired maximum size'
@@ -76,4 +88,4 @@ complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command sc
 complete -c photoc -n '__fish_photoc_options; and __fish_photoc_using_command scrub' -l in-place -d 'Replace originals without a backup'
 
 complete -c photoc -n '__fish_photoc_path; and __fish_photoc_using_command duplicates stats rename sort' -a '(__fish_complete_directories)'
-complete -c photoc -n '__fish_photoc_path; and __fish_photoc_using_command check compress exif focus scrub' -F
+complete -c photoc -n '__fish_photoc_path; and __fish_photoc_using_command query check compress exif focus scrub' -F

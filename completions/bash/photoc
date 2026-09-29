@@ -18,7 +18,7 @@ _photoc_complete()
         if (( ! ended )); then
             case $word in
                 --) ended=1; continue ;;
-                --quality|--target|--min-quality|--output-dir|--by|--gap|--format|--threshold)
+                --quality|--target|--min-quality|--output-dir|--by|--gap|--format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before)
                     pending=$word; continue ;;
                 -*) continue ;;
             esac
@@ -36,7 +36,7 @@ _photoc_complete()
         --min-quality) candidates='20 30 40 50' ;;
         --target) candidates='500KB 1MB 2MB 5MB' ;;
         --gap) candidates='30m 60m 2h' ;;
-        --format|--threshold) return 0 ;;
+        --format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before) return 0 ;;
         --output-dir) kind='directory' ;;
     esac
     if [[ -n $candidates ]]; then
@@ -48,6 +48,7 @@ _photoc_complete()
         candidates='-h --help -v --verbose -q --quiet'
         case $command in
             '') candidates="$candidates -V --version --json" ;;
+            query) candidates="$candidates --camera --make --iso --aperture --focal --after --before --has-gps --no-gps --recursive --print0 --json" ;;
             check) candidates="$candidates --recursive --only-errors --json" ;;
             compress) candidates="$candidates --quality --target --min-quality --recursive --output-dir" ;;
             exif) candidates="$candidates --json" ;;
@@ -63,7 +64,7 @@ _photoc_complete()
     fi
     if [[ -z $command && -z $pending ]]; then
         while IFS= read -r word; do COMPREPLY+=("$word"); done \
-            < <(compgen -W 'check compress exif duplicates stats rename sort focus scrub' -- "$current")
+            < <(compgen -W 'query check compress exif duplicates stats rename sort focus scrub' -- "$current")
         return 0
     fi
 
@@ -71,7 +72,7 @@ _photoc_complete()
         ((paths == 0)) || return 0
         case $command in
             duplicates|stats|rename|sort) kind='directory' ;;
-            check|compress|exif|focus|scrub) ;;
+            query|check|compress|exif|focus|scrub) ;;
             *) return 0 ;;
         esac
     fi

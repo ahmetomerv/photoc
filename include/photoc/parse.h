@@ -17,6 +17,9 @@ typedef struct {
     bool in_place;
     bool only_blurry;
     bool only_errors;
+    bool print0;
+    bool has_gps;
+    bool no_gps;
     const char *command;
     const char *first_argument;
     const char *format;
@@ -27,6 +30,13 @@ typedef struct {
     const char *min_quality;
     const char *output_dir;
     const char *threshold;
+    const char *camera;
+    const char *make;
+    const char *iso;
+    const char *aperture;
+    const char *focal;
+    const char *after;
+    const char *before;
     size_t argument_count;
 } photoc_cli_options;
 
@@ -38,7 +48,7 @@ typedef enum {
 } photoc_parse_status;
 
 /* command, first_argument, format, sort_by, gap, quality, target,
-   min_quality, output_dir, threshold, and error_arg
+   min_quality, output_dir, threshold, query filter values, and error_arg
    borrow argv strings. */
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,

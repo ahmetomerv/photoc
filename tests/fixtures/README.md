@@ -97,3 +97,9 @@ CLI text changes; those are exact-match snapshots, not generated images.
    rebuild it without an external photo.
 3. Document the file in `jpeg/README.md` (or this README for non-JPEG assets).
 4. Keep dimensions tiny unless a test specifically needs a large canvas.
+
+Query tests reuse the tiny JPEG fixtures and generate DateTimeOriginal APP1
+packets in temporary files for inclusive date boundaries and malformed dates.
+Core predicate tests use owned synthetic Photo fields; CLI tests cover NUL
+paths with spaces/newlines and verify source bytes, modes, and mtimes remain
+unchanged. No external photographs or fixture dependencies are introduced.

@@ -2,7 +2,7 @@ if(NOT DEFINED PHOTOC)
     message(FATAL_ERROR "PHOTOC is required")
 endif()
 
-foreach(command IN ITEMS check compress exif duplicates stats rename sort focus scrub)
+foreach(command IN ITEMS query check compress exif duplicates stats rename sort focus scrub)
     execute_process(
         COMMAND "${PHOTOC}" "${command}" --bogus
         RESULT_VARIABLE result

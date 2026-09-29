@@ -2,6 +2,7 @@
 #define PHOTOC_COMMANDS_H
 
 #include "photoc/output.h"
+#include "photoc/query.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -42,6 +43,15 @@ int photoc_command_check(const char *path, bool recursive, bool only_errors,
                          bool json);
 int photoc_command_check_with_output(const char *path, bool recursive,
                                      bool only_errors, bool json,
+                                     const photoc_output *output);
+
+/* Read-only metadata search. All arguments are borrowed synchronously.
+   json and print0 are exclusive. Scan/load failures return 1, no matches 0. */
+int photoc_command_query(const char *path, const photoc_query *query,
+                         bool recursive, bool json, bool print0);
+int photoc_command_query_with_output(const char *path,
+                                     const photoc_query *query, bool recursive,
+                                     bool json, bool print0,
                                      const photoc_output *output);
 
 /* Output-aware entry points. All arguments and output are borrowed only for

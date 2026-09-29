@@ -154,6 +154,37 @@ static const photoc_help_option scrub_options[] = {
     {"--in-place", "Replace each original after temporary-file verification"},
     {NULL, NULL}};
 
+static const char *const query_examples[] = {
+    "photoc query ~/Photos --iso \">800\"",
+    "photoc query ~/Photos --camera \"DSC-RX100M7A\" --aperture \"<=4\"",
+    "photoc query ~/Photos --after 2026-01-01 --before 2026-12-31",
+    "photoc query ~/Photos --recursive --has-gps --print0",
+    "photoc query ~/Photos --recursive --json",
+    NULL};
+
+static const photoc_help_option query_options[] = {
+    {"--camera <value>", "Exact, case-sensitive camera model"},
+    {"--make <value>", "Exact, case-sensitive camera make"},
+    {"--iso <expression>", "Compare ISO: 100, =100, >100, >=100, <100, <=100"},
+    {"--aperture <expr>", "Compare f-number with the same operators"},
+    {"--focal <expr>", "Compare focal length in millimeters"},
+    {"--after YYYY-MM-DD", "Capture date on or after this day (inclusive)"},
+    {"--before YYYY-MM-DD", "Capture date on or before this day (inclusive)"},
+    {"--has-gps", "Require valid GPS coordinates"},
+    {"--no-gps", "Require no valid GPS coordinates"},
+    {"--recursive", "Include nested directories"},
+    {"--print0", "NUL-separated paths; exclusive with --json"},
+    {"--json", "Print filters, matches, metadata, and scan summary"},
+    {NULL, NULL}};
+
+static const char *const query_notes[] = {
+    "Read-only; all filters are ANDed. Missing queried fields do not match.",
+    "Default stdout contains only sorted paths. Use --print0 for xargs -0.",
+    "Dates use local EXIF capture time without timezone conversion.",
+    "No matches returns 0; scan/load failures return 1; invalid usage returns "
+    "2.",
+    NULL};
+
 static const char *const scrub_notes[] = {
     "Warning: --in-place replaces original files and creates no backup.",
     "It preserves mode bits; ACLs and extended attributes may change.",
@@ -390,7 +421,47 @@ static int run_check(const photoc_cli_options *options,
         options->json, output);
 }
 
+static int run_query(const photoc_cli_options *options,
+                     const photoc_output *output)
+{
+    if (options->argument_count != 1) {
+        usage_error("query", "expected exactly one JPEG file or directory",
+                    "query <file|directory> [filters] [--recursive] "
+                    "[--json | --print0]");
+        return PHOTOC_EXIT_USAGE;
+    }
+    if (options->json && options->print0) {
+        command_error("query", "--json and --print0 are mutually exclusive\n");
+        return PHOTOC_EXIT_USAGE;
+    }
+    photoc_query_filters filters = {.camera = options->camera,
+                                    .make = options->make,
+                                    .iso = options->iso,
+                                    .aperture = options->aperture,
+                                    .focal = options->focal,
+                                    .after = options->after,
+                                    .before = options->before,
+                                    .has_gps = options->has_gps,
+                                    .no_gps = options->no_gps};
+    photoc_query query;
+    const char *invalid = NULL;
+    if (!photoc_query_init(&filters, &query, &invalid)) {
+        command_error("query",
+                      "invalid or conflicting filter %s; "
+                      "see 'photoc query --help'\n",
+                      invalid);
+        return PHOTOC_EXIT_USAGE;
+    }
+    return photoc_command_query_with_output(options->first_argument, &query,
+                                            options->recursive, options->json,
+                                            options->print0, output);
+}
+
 static const photoc_command commands[] = {
+    {"query", "Search JPEG metadata and print matching paths",
+     "<file|directory> [filters] [--recursive] [--json | --print0]",
+     "Status: available for JPEG files (read-only)", query_examples,
+     query_options, query_notes, true, true, run_query},
     {"check", "Audit JPEG structural readability",
      "<file|directory> [--recursive] [--only-errors] [--json]",
      "Status: available for JPEG files (read-only)", check_examples,
