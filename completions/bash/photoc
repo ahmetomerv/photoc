@@ -18,7 +18,7 @@ _photoc_complete()
         if (( ! ended )); then
             case $word in
                 --) ended=1; continue ;;
-                --quality|--target|--min-quality|--output-dir|--by|--gap|--format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before)
+                --quality|--target|--min-quality|--output-dir|--output|--columns|--thumb-size|--sort|--by|--gap|--format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before)
                     pending=$word; continue ;;
                 -*) continue ;;
             esac
@@ -36,8 +36,12 @@ _photoc_complete()
         --min-quality) candidates='20 30 40 50' ;;
         --target) candidates='500KB 1MB 2MB 5MB' ;;
         --gap) candidates='30m 60m 2h' ;;
+        --columns) candidates='2 3 4 5 6' ;;
+        --thumb-size) candidates='96 160 240 320 512' ;;
+        --sort) candidates='name date' ;;
         --format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before) return 0 ;;
         --output-dir) kind='directory' ;;
+        --output) kind='file' ;;
     esac
     if [[ -n $candidates ]]; then
         while IFS= read -r word; do COMPREPLY+=("$word"); done \
@@ -51,6 +55,7 @@ _photoc_complete()
             query) candidates="$candidates --camera --make --iso --aperture --focal --after --before --has-gps --no-gps --recursive --print0 --json" ;;
             check) candidates="$candidates --recursive --only-errors --json" ;;
             compress) candidates="$candidates --quality --target --min-quality --recursive --output-dir" ;;
+            contact) candidates="$candidates --output --recursive --columns --thumb-size --quality --metadata --sort" ;;
             exif) candidates="$candidates --json" ;;
             timeline) candidates="$candidates --recursive --gap --json" ;;
             duplicates|stats) candidates="$candidates --recursive --json" ;;
@@ -65,14 +70,14 @@ _photoc_complete()
     fi
     if [[ -z $command && -z $pending ]]; then
         while IFS= read -r word; do COMPREPLY+=("$word"); done \
-            < <(compgen -W 'query check compress exif duplicates stats timeline rename sort focus scrub' -- "$current")
+            < <(compgen -W 'query check compress contact exif duplicates stats timeline rename sort focus scrub' -- "$current")
         return 0
     fi
 
     if [[ -z $pending ]]; then
         ((paths == 0)) || return 0
         case $command in
-            duplicates|stats|timeline|rename|sort) kind='directory' ;;
+            duplicates|stats|timeline|rename|sort|contact) kind='directory' ;;
             query|check|compress|exif|focus|scrub) ;;
             *) return 0 ;;
         esac

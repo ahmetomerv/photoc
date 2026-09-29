@@ -24,7 +24,7 @@ function lacks
 end
 
 query 'photoc '
-for name in query check compress exif duplicates stats timeline rename sort focus scrub
+for name in query check compress contact exif duplicates stats timeline rename sort focus scrub
     has $name
 end
 query 'photoc --ver'
@@ -36,11 +36,11 @@ for name in query check exif duplicates stats timeline focus
     has --json
     lacks --version
 end
-for name in compress rename sort scrub
+for name in compress contact rename sort scrub
     query "photoc $name --"
     lacks --json
 end
-for name in query check compress duplicates stats timeline rename sort focus scrub
+for name in query check compress contact duplicates stats timeline rename sort focus scrub
     query "photoc $name --rec"
     has --recursive
 end
@@ -58,6 +58,12 @@ query 'photoc compress --'
 for flag in --quality --target --min-quality --output-dir
     has $flag
 end
+query 'photoc contact --'
+for flag in --output --recursive --columns --thumb-size --quality --metadata --sort
+    has $flag
+end
+query 'photoc contact ./ --sort '
+has name; has date
 query 'photoc sort ./ --by '
 has date; has session
 query 'photoc compress ./ --quality 8'

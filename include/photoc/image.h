@@ -52,6 +52,13 @@ photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
                                                     uint32_t max_dimension,
                                                     photoc_image *out);
 
+/* As above, but refuse compressed files larger than max_file_bytes before
+   allocating the compressed-byte buffer. A positive cap is required. This
+   protects commands that need a strict source-file memory limit. */
+photoc_image_result photoc_image_decode_jpeg_scaled_bounded(
+    const char *path, uint32_t max_dimension, uint64_t max_file_bytes,
+    photoc_image *out);
+
 /* Encode RGB pixels as JPEG. quality is an integer from 1 to 100. out must
    be zero-initialized or cleaned first. On success out owns data; on error
    out remains empty. This function never writes a file. */

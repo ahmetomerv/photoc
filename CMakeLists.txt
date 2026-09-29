@@ -79,6 +79,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_library(photoc_core STATIC
     src/core/arw.c
+    src/core/bitmap_font.c
     src/core/duplicates.c
     src/core/error.c
     src/core/fs.c
@@ -116,6 +117,7 @@ add_executable(photoc
     src/core/cli.c
     src/commands/check.c
     src/commands/compress.c
+    src/commands/contact.c
     src/commands/duplicates.c
     src/commands/exif.c
     src/commands/focus.c
@@ -178,6 +180,15 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_SCRUB_PRIVACY_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_scrub_privacy.py")
             set_tests_properties(scrub_privacy_cli PROPERTIES TIMEOUT 60)
+            add_executable(contact_image_tool tests/contact_image_tool.c)
+            photoc_configure_c_target(contact_image_tool)
+            target_link_libraries(contact_image_tool PRIVATE photoc_core)
+            add_test(NAME contact_cli
+                COMMAND "${CMAKE_COMMAND}" -E env
+                    "PHOTOC_CONTACT_BINARY=$<TARGET_FILE:photoc>"
+                    "PHOTOC_CONTACT_IMAGE_TOOL=$<TARGET_FILE:contact_image_tool>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_contact.py")
+            set_tests_properties(contact_cli PROPERTIES TIMEOUT 120)
             add_test(NAME check_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_CHECK_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_check_cli.py")
@@ -479,6 +490,7 @@ if(BUILD_TESTING)
     add_cli_test(command_sort_help command_help sort)
     add_cli_test(command_scrub_help command_help scrub)
     add_cli_test(command_compress_help command_help compress)
+    add_cli_test(command_contact_help command_help contact)
     add_cli_test(command_check_help command_help check)
     add_cli_test(command_query_help command_help query)
 

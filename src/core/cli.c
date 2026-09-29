@@ -43,6 +43,28 @@ static const char *const compress_examples[] = {
     "~/Compressed",
     NULL};
 
+static const char *const contact_examples[] = {
+    "photoc contact ./photos --output sheet.jpg",
+    "photoc contact ./photos --output sheet.jpg --metadata",
+    "photoc contact ./photos --output sheet.jpg --recursive --sort date",
+    NULL};
+
+static const photoc_help_option contact_options[] = {
+    {"--output <file>", "Required JPEG output path; pages use -001, -002, ..."},
+    {"--recursive", "Include nested directories"},
+    {"--columns <1-8>", "Columns per sheet (default: 4)"},
+    {"--thumb-size <96-512>", "Thumbnail box in pixels (default: 240)"},
+    {"--quality <1-100>", "JPEG quality (default: 85)"},
+    {"--metadata", "Show available ISO, aperture, shutter and focal length"},
+    {"--sort name|date", "Sort by filename (default) or capture timestamp"},
+    {NULL, NULL}};
+
+static const char *const contact_notes[] = {
+    "Up to 24 tiles per page and at most 6 rows; pages are never overwritten.",
+    "EXIF orientation is applied to thumbnails. Output has no source EXIF or ICC.",
+    "Non-ASCII filename characters display as '?' in the built-in font.",
+    NULL};
+
 static const photoc_help_option compress_options[] = {
     {"--quality <1-100>", "JPEG quality (default: 80)"},
     {"--target <size>",
@@ -254,6 +276,77 @@ static bool parse_quality_value(const char *value, int *quality)
     }
     *quality = parsed;
     return true;
+}
+
+static bool parse_bounded_uint(const char *value, uint32_t minimum,
+                               uint32_t maximum, uint32_t *number)
+{
+    if (value == NULL || value[0] == '\0')
+        return false;
+    uint32_t parsed = 0;
+    for (const char *digit = value; *digit != '\0'; ++digit) {
+        if (*digit < '0' || *digit > '9')
+            return false;
+        uint32_t value_digit = (uint32_t)(*digit - '0');
+        if (value_digit > maximum ||
+            parsed > (maximum - value_digit) / 10u)
+            return false;
+        parsed = parsed * 10u + value_digit;
+    }
+    if (parsed < minimum || parsed > maximum)
+        return false;
+    *number = parsed;
+    return true;
+}
+
+static int run_contact(const photoc_cli_options *options,
+                       const photoc_output *output)
+{
+    static const char usage[] =
+        "contact <directory> --output <file.jpg> [--recursive] "
+        "[--columns <1-8>] [--thumb-size <96-512>] [--quality <1-100>] "
+        "[--metadata] [--sort name|date]";
+    if (options->argument_count != 1 || options->output_path == NULL) {
+        usage_error("contact", "expected one directory and --output <file.jpg>",
+                    usage);
+        return PHOTOC_EXIT_USAGE;
+    }
+    photoc_contact_options contact = {.output_path = options->output_path,
+                                      .columns = 4,
+                                      .thumb_size = 240,
+                                      .quality = 85,
+                                      .recursive = options->recursive,
+                                      .metadata = options->metadata};
+    if (options->columns != NULL &&
+        !parse_bounded_uint(options->columns, 1, 8, &contact.columns)) {
+        command_error("contact", "invalid columns '%s'; use 1-8\n",
+                      options->columns);
+        return PHOTOC_EXIT_USAGE;
+    }
+    if (options->thumb_size != NULL &&
+        !parse_bounded_uint(options->thumb_size, 96, 512,
+                            &contact.thumb_size)) {
+        command_error("contact", "invalid thumb size '%s'; use 96-512\n",
+                      options->thumb_size);
+        return PHOTOC_EXIT_USAGE;
+    }
+    if (options->quality != NULL &&
+        !parse_quality_value(options->quality, &contact.quality)) {
+        command_error("contact", "invalid quality '%s'; use 1-100\n",
+                      options->quality);
+        return PHOTOC_EXIT_USAGE;
+    }
+    if (options->contact_sort != NULL) {
+        if (strcmp(options->contact_sort, "date") == 0)
+            contact.sort_date = true;
+        else if (strcmp(options->contact_sort, "name") != 0) {
+            command_error("contact", "invalid sort '%s'; use name or date\n",
+                          options->contact_sort);
+            return PHOTOC_EXIT_USAGE;
+        }
+    }
+    return photoc_command_contact_with_output(options->first_argument,
+                                              &contact, output);
 }
 
 static int run_compress(const photoc_cli_options *options,
@@ -532,6 +625,13 @@ static const photoc_command commands[] = {
      "Status: available for JPEG files; writes .compressed copies",
      compress_examples, compress_options, compress_notes, true, false,
      run_compress},
+    {"contact", "Generate paged JPEG contact sheets",
+     "<directory> --output <file.jpg> [--recursive] [--columns <1-8>] "
+     "[--thumb-size <96-512>] [--quality <1-100>] [--metadata] "
+     "[--sort name|date]",
+     "Status: writes new JPEG sheet(s); never overwrites",
+     contact_examples, contact_options, contact_notes, true, false,
+     run_contact},
     {"exif", "Inspect JPEG and Sony ARW metadata", "<file>",
      "Status: available for JPEG and Sony ARW metadata", exif_examples,
      exif_options, NULL, true, true, run_exif},
@@ -602,7 +702,7 @@ static void print_global_help(void)
     puts("Exif and stats inspect JPEG/ARW metadata; duplicates compares file "
          "bytes.");
     puts(
-        "Rename and sort preview by default; compress and scrub write copies.");
+        "Rename and sort preview by default; compress, scrub, and contact write JPEGs.");
     puts("Focus scores JPEG sharpness as a review aid, not a blur verdict.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }

@@ -2,7 +2,7 @@ if(NOT DEFINED PHOTOC)
     message(FATAL_ERROR "PHOTOC is required")
 endif()
 
-foreach(command IN ITEMS query check compress exif duplicates stats timeline rename sort focus scrub)
+foreach(command IN ITEMS query check compress contact exif duplicates stats timeline rename sort focus scrub)
     execute_process(
         COMMAND "${PHOTOC}" "${command}" --bogus
         RESULT_VARIABLE result
@@ -27,7 +27,7 @@ foreach(command IN ITEMS query check compress exif duplicates stats timeline ren
     endif()
 endforeach()
 
-foreach(command IN ITEMS compress rename sort scrub)
+foreach(command IN ITEMS compress contact rename sort scrub)
     execute_process(
         COMMAND "${PHOTOC}" "${command}" --json
         RESULT_VARIABLE result

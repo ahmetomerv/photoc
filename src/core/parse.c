@@ -107,9 +107,10 @@ enum {
     CMD_CHECK = 1u << 8,
     CMD_QUERY = 1u << 9,
     CMD_TIMELINE = 1u << 10,
+    CMD_CONTACT = 1u << 11,
     CMD_RECURSIVE = CMD_COMPRESS | CMD_DUPLICATES | CMD_STATS | CMD_RENAME |
                     CMD_SORT | CMD_FOCUS | CMD_SCRUB | CMD_CHECK | CMD_QUERY |
-                    CMD_TIMELINE,
+                    CMD_TIMELINE | CMD_CONTACT,
     CMD_APPLY = CMD_RENAME | CMD_SORT
 };
 
@@ -134,7 +135,12 @@ static const photoc_flag flags[] = {{"-h", 0, false},
                                     {"--privacy", CMD_SCRUB, false},
                                     {"--all-metadata", CMD_SCRUB, false},
                                     {"--in-place", CMD_SCRUB, false},
-                                    {"--quality", CMD_COMPRESS, true},
+                                    {"--quality", CMD_COMPRESS | CMD_CONTACT, true},
+                                    {"--output", CMD_CONTACT, true},
+                                    {"--columns", CMD_CONTACT, true},
+                                    {"--thumb-size", CMD_CONTACT, true},
+                                    {"--metadata", CMD_CONTACT, false},
+                                    {"--sort", CMD_CONTACT, true},
                                     {"--target", CMD_COMPRESS, true},
                                     {"--min-quality", CMD_COMPRESS, true},
                                     {"--output-dir", CMD_COMPRESS, true},
@@ -202,6 +208,9 @@ static unsigned command_mask(const char *name)
     }
     if (strcmp(name, "query") == 0) {
         return CMD_QUERY;
+    }
+    if (strcmp(name, "contact") == 0) {
+        return CMD_CONTACT;
     }
     return 0;
 }
@@ -293,6 +302,8 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
             options->has_gps = true;
         } else if (strcmp(name, "--no-gps") == 0) {
             options->no_gps = true;
+        } else if (strcmp(name, "--metadata") == 0) {
+            options->metadata = true;
         }
         return PHOTOC_PARSE_OK;
     }
@@ -300,6 +311,14 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
     const char **slot = NULL;
     if (strcmp(name, "--quality") == 0) {
         slot = &options->quality;
+    } else if (strcmp(name, "--output") == 0) {
+        slot = &options->output_path;
+    } else if (strcmp(name, "--columns") == 0) {
+        slot = &options->columns;
+    } else if (strcmp(name, "--thumb-size") == 0) {
+        slot = &options->thumb_size;
+    } else if (strcmp(name, "--sort") == 0) {
+        slot = &options->contact_sort;
     } else if (strcmp(name, "--target") == 0) {
         slot = &options->target;
     } else if (strcmp(name, "--min-quality") == 0) {

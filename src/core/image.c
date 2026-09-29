@@ -29,7 +29,8 @@ void photoc_jpeg_buffer_cleanup(photoc_jpeg_buffer *buffer)
 }
 
 static photoc_image_result read_file(const char *path, unsigned char **bytes,
-                                     unsigned long *length)
+                                     unsigned long *length,
+                                     uint64_t max_file_bytes)
 {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
@@ -44,6 +45,9 @@ static photoc_image_result read_file(const char *path, unsigned char **bytes,
         result = PHOTOC_IMAGE_IO_ERROR;
     } else if (result == PHOTOC_IMAGE_OK && size == 0) {
         result = PHOTOC_IMAGE_INVALID_JPEG;
+    } else if (result == PHOTOC_IMAGE_OK && max_file_bytes != 0 &&
+               (uintmax_t)size > max_file_bytes) {
+        result = PHOTOC_IMAGE_TOO_LARGE;
     } else if (result == PHOTOC_IMAGE_OK &&
                ((uintmax_t)size > SIZE_MAX || (uintmax_t)size > ULONG_MAX)) {
         result = PHOTOC_IMAGE_TOO_LARGE;
@@ -108,7 +112,7 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
     }
     unsigned char *bytes = NULL;
     unsigned long length = 0;
-    photoc_image_result result = read_file(path, &bytes, &length);
+    photoc_image_result result = read_file(path, &bytes, &length, 0);
     if (result != PHOTOC_IMAGE_OK) {
         return result;
     }
@@ -130,6 +134,7 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
 }
 
 static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
+                                       uint64_t max_file_bytes,
                                        photoc_image *out)
 {
     if (path == NULL || path[0] == '\0' || out == NULL) {
@@ -138,7 +143,8 @@ static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
     *out = (photoc_image){0};
     unsigned char *bytes = NULL;
     unsigned long length = 0;
-    photoc_image_result result = read_file(path, &bytes, &length);
+    photoc_image_result result = read_file(path, &bytes, &length,
+                                           max_file_bytes);
     if (result != PHOTOC_IMAGE_OK) {
         return result;
     }
@@ -231,7 +237,7 @@ static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
 photoc_image_result photoc_image_decode_jpeg(const char *path,
                                              photoc_image *out)
 {
-    return decode_jpeg(path, 0, out);
+    return decode_jpeg(path, 0, 0, out);
 }
 
 photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
@@ -241,7 +247,16 @@ photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
     if (max_dimension == 0) {
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
     }
-    return decode_jpeg(path, max_dimension, out);
+    return decode_jpeg(path, max_dimension, 0, out);
+}
+
+photoc_image_result photoc_image_decode_jpeg_scaled_bounded(
+    const char *path, uint32_t max_dimension, uint64_t max_file_bytes,
+    photoc_image *out)
+{
+    if (max_dimension == 0 || max_file_bytes == 0)
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    return decode_jpeg(path, max_dimension, max_file_bytes, out);
 }
 
 static photoc_image_result encode_jpeg(const photoc_image *image, int quality,

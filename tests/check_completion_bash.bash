@@ -36,7 +36,7 @@ lacks()
 }
 
 query photoc ''
-for name in query check compress exif duplicates stats timeline rename sort focus scrub; do has "$name"; done
+for name in query check compress contact exif duplicates stats timeline rename sort focus scrub; do has "$name"; done
 query photoc --ver
 has --version
 query photoc -v st
@@ -48,11 +48,11 @@ for name in query check exif duplicates stats timeline focus; do
     has --json
     lacks --version
 done
-for name in compress rename sort scrub; do
+for name in compress contact rename sort scrub; do
     query photoc "$name" --
     lacks --json
 done
-for name in query check compress duplicates stats timeline rename sort focus scrub; do
+for name in query check compress contact duplicates stats timeline rename sort focus scrub; do
     query photoc "$name" --rec
     has --recursive
 done
@@ -74,6 +74,10 @@ query photoc focus ./ ''
 [[ ${#COMPREPLY[@]} == 0 ]]
 query photoc compress --
 for flag in --quality --target --min-quality --output-dir; do has "$flag"; done
+query photoc contact --
+for flag in --output --recursive --columns --thumb-size --quality --metadata --sort; do has "$flag"; done
+query photoc contact ./ --sort ''
+has name; has date
 query photoc sort ./ --by ''
 has date; has session; lacks compress
 query photoc compress ./ --quality 8

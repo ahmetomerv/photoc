@@ -11,7 +11,7 @@
 
 `photoc` helps you manage photos on your computer from the terminal. Read photo
 metadata, summarize a shoot, find exact duplicates, rename and organize photos,
-make compressed copies, or remove EXIF GPS tags. You can also use it in shell
+make compressed copies or contact sheets, or remove EXIF GPS tags. You can also use it in shell
 scripts to repeat these tasks.
 
 ## Installation
@@ -299,6 +299,7 @@ Put options before `--` when a path begins with `-`, for example
 | [`query`](docs/query.md) | Search JPEG metadata using combined filters | Read only; paths, NUL paths, or JSON |
 | [`check`](docs/check.md) | Audit JPEG structural readability and report warnings/errors | Read only; JSON supported |
 | [`compress`](docs/compress.md) | Compress JPEGs at a chosen quality or target file size | Write new copies |
+| [`contact`](docs/contact.md) | Make paged JPEG contact sheets with filenames and optional exposure data | Write new sheets |
 | [`exif`](docs/exif.md) | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
 | [`duplicates`](docs/duplicates.md) | Find files with identical bytes using SHA-256 and show potential space savings | Read only; JSON supported |
 | [`stats`](docs/stats.md) | Summarize storage, capture dates, cameras, and exposure settings | Read only; JSON supported |
@@ -310,7 +311,7 @@ Put options before `--` when a path begins with `-`, for example
 
 Each command link includes usage, options, examples, special cases, safety
 notes, and a JSON schema when the command supports JSON.
-`check`, `query`, `timeline`, and Sony ARW metadata support are currently
+`check`, `query`, `contact`, `timeline`, and Sony ARW metadata support are currently
 available in source builds; they are not included in v0.2.0.
 
 ### File-type support
@@ -318,7 +319,7 @@ available in source builds; they are not included in v0.2.0.
 | Command | JPEG | Sony ARW | Other RAW files |
 | --- | --- | --- | --- |
 | `exif`, `stats`, `timeline`, `rename`, `sort` | Metadata | Common TIFF/EXIF metadata | Unsupported/skipped |
-| `query`, `check`, `compress`, `focus`, `scrub` | Supported | Unsupported/skipped | Unsupported/skipped |
+| `query`, `check`, `compress`, `contact`, `focus`, `scrub` | Supported | Unsupported/skipped | Unsupported/skipped |
 | `duplicates` | Exact bytes | Exact bytes | Exact bytes |
 
 ARW support is **metadata only**: no RAW development, pixel decoding, compression,
@@ -482,6 +483,18 @@ Results show the lowest sharpness scores first. The second command shows only
 photos scoring below 100. Scores help you choose photos to review; they are
 not a final judgment of blur. Subject detail and noise can affect the result.
 See [focus details](docs/focus.md) for the scoring limits.
+
+### Make a contact sheet
+
+```sh
+photoc contact ./photos --output sheet.jpg
+photoc contact ./photos --output sheet.jpg --metadata --sort date
+```
+
+Each tile shows an aspect-preserving thumbnail and filename. `--metadata` adds
+available ISO, aperture, shutter, and focal length. Larger shoots create
+`sheet-001.jpg`, `sheet-002.jpg`, and so on. Existing sheets are never
+overwritten. See [contact options and limits](docs/contact.md).
 
 ### Remove JPEG metadata
 

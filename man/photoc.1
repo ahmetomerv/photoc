@@ -19,7 +19,7 @@ photoc \- Command-line tools for photographers
 is a command-line toolkit for photographers working with local files and
 repeatable shell workflows.
 It inspects metadata, summarizes collections, finds exact duplicates,
-renames and organizes photos, compresses copies, and removes EXIF GPS tags.
+renames and organizes photos, compresses copies, makes contact sheets, and removes EXIF GPS tags.
 Normal output goes to standard output; diagnostics go to standard error.
 .PP
 macOS and Linux are the initial supported platforms.
@@ -28,7 +28,7 @@ recognize JPEG
 (.jpg/.jpeg) and Sony ARW (.arw), ignoring extension case.
 ARW support reads common TIFF/EXIF metadata only, without developing or
 validating RAW pixels. Other RAW formats are unsupported.
-Query, check, compress, focus, and scrub remain JPEG-only; directory scans
+Query, check, compress, contact, focus, and scrub remain JPEG-only; directory scans
 skip ARW for those commands and single-file ARW input fails.
 The
 .B duplicates
@@ -533,6 +533,39 @@ Apply creates needed directories and uses exclusive moves; no copy-and-delete
 fallback is provided across filesystems.
 Report plan rows and summary counts as for
 .BR rename .
+.SS contact
+.B photoc contact
+.I directory
+.BI "\-\-output " sheet.jpg
+.RI [ \-\-recursive ]
+.RI [ "\-\-columns 1-8" ]
+.RI [ "\-\-thumb-size 96-512" ]
+.RI [ "\-\-quality 1-100" ]
+.RI [ \-\-metadata ]
+.RI [ "\-\-sort name|date" ]
+.PP
+Generate JPEG contact sheets with an aspect-preserving thumbnail and filename
+per tile. Optional exposure lines show available aperture, shutter, ISO, and
+focal length. Defaults are four columns, 240-pixel thumbnail boxes, JPEG
+quality 85, and filename sorting. Date sorting uses EXIF capture time;
+undated photos follow dated photos. Recursion includes nested directories.
+.PP
+One page uses the requested output path. Multiple pages insert -001, -002,
+and so on before its extension. Each page contains at most 24 photos and six
+rows. All output paths are checked first; existing files are never overwritten.
+Each page is validated and published through a temporary file. Earlier pages
+remain if a later page fails.
+.PP
+EXIF orientation is applied to rendered thumbnails. Source metadata and ICC
+profiles are not copied into sheets; no color-profile conversion is performed.
+Non-sRGB source colors may differ. Labels use an internal bitmap font; long
+names are shortened, and non-ASCII characters display as question marks.
+.PP
+At most 1,000 JPEGs are scanned, each source file may be at most 64 MiB, and
+each RGB canvas may be at most 64 MiB and 8,192 pixels per side. Oversized
+layouts fail without an unbounded allocation. Bad JPEGs and metadata loads
+return status 1; invalid options return status 2. See docs/contact.md for
+details.
 .SS focus
 .B photoc focus
 .I file|directory
@@ -710,6 +743,12 @@ Review possible low-sharpness photos:
 .nf
 photoc focus ./photos \-\-recursive \-\-threshold 100 \-\-only\-blurry
 photoc focus ./photos \-\-recursive \-\-json > focus.json
+.fi
+.PP
+Create contact sheets for reviewing a shoot:
+.PP
+.nf
+photoc contact ./photos \-\-output sheet.jpg \-\-metadata
 .fi
 .PP
 Inspect a path beginning with a dash:

@@ -7,6 +7,7 @@ command_descriptions=(
     'query:Search JPEG metadata'
     'check:Audit JPEG structural readability'
     'compress:Re-encode JPEGs by quality or target size'
+    'contact:Generate paged JPEG contact sheets'
     'exif:Inspect JPEG and Sony ARW metadata'
     'duplicates:Find exact duplicate files'
     'stats:Summarize JPEG and Sony ARW collections'
@@ -26,7 +27,7 @@ for ((index = 2; index < CURRENT; ++index)); do
     if ((! ended)); then
         case $word in
             --) ended=1; continue ;;
-            --quality|--target|--min-quality|--output-dir|--by|--gap|--format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before)
+            --quality|--target|--min-quality|--output-dir|--output|--columns|--thumb-size|--sort|--by|--gap|--format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before)
                 pending=1; continue ;;
             -*) continue ;;
         esac
@@ -75,6 +76,17 @@ case $command in
             '--recursive[Include nested directories]'
             '--output-dir[Destination directory]:directory:_files -/'
             '2:JPEG file or directory:_files'
+        ) ;;
+    contact)
+        specs+=(
+            '--output[Required JPEG output path]:JPEG output:_files'
+            '--recursive[Include nested directories]'
+            '--columns[Columns per sheet (default 4)]:columns:(2 3 4 5 6)'
+            '--thumb-size[Thumbnail box size (default 240)]:pixels:(96 160 240 320 512)'
+            '--quality[JPEG quality (default 85)]:quality:(60 70 75 80 85 90 95 100)'
+            '--metadata[Show exposure metadata beneath each thumbnail]'
+            '--sort[Sort photos by filename or capture time]:sort:(name date)'
+            '2:directory:_files -/'
         ) ;;
     exif)
         specs+=('--json[Print structured JSON]' '2:JPEG or Sony ARW file:_files') ;;

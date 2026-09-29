@@ -7,6 +7,7 @@ Commands:
   query        Search JPEG metadata and print matching paths
   check        Audit JPEG structural readability
   compress     Re-encode JPEGs by quality or target size
+  contact      Generate paged JPEG contact sheets
   exif         Inspect JPEG and Sony ARW metadata
   duplicates   Find exact duplicate files
   stats        Summarize JPEG and Sony ARW collections
@@ -24,6 +25,6 @@ Global options:
       --json       Request JSON output where supported
 
 Exif and stats inspect JPEG/ARW metadata; duplicates compares file bytes.
-Rename and sort preview by default; compress and scrub write copies.
+Rename and sort preview by default; compress, scrub, and contact write JPEGs.
 Focus scores JPEG sharpness as a review aid, not a blur verdict.
 Run 'photoc <command> --help' for usage and examples.

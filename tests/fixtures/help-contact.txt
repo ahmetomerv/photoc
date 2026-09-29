@@ -1,0 +1,24 @@
+Usage: photoc [global options] contact <directory> --output <file.jpg> [--recursive] [--columns <1-8>] [--thumb-size <96-512>] [--quality <1-100>] [--metadata] [--sort name|date]
+       photoc contact --help
+
+Generate paged JPEG contact sheets
+
+Status: writes new JPEG sheet(s); never overwrites
+
+Example:
+  photoc contact ./photos --output sheet.jpg
+  photoc contact ./photos --output sheet.jpg --metadata
+  photoc contact ./photos --output sheet.jpg --recursive --sort date
+
+Options:
+  --output <file>      Required JPEG output path; pages use -001, -002, ...
+  --recursive          Include nested directories
+  --columns <1-8>      Columns per sheet (default: 4)
+  --thumb-size <96-512> Thumbnail box in pixels (default: 240)
+  --quality <1-100>    JPEG quality (default: 85)
+  --metadata           Show available ISO, aperture, shutter and focal length
+  --sort name|date     Sort by filename (default) or capture timestamp
+
+Up to 24 tiles per page and at most 6 rows; pages are never overwritten.
+EXIF orientation is applied to thumbnails. Output has no source EXIF or ICC.
+Non-ASCII filename characters display as '?' in the built-in font.

@@ -22,6 +22,7 @@ typedef struct {
     bool print0;
     bool has_gps;
     bool no_gps;
+    bool metadata;
     const char *command;
     const char *first_argument;
     const char *format;
@@ -31,6 +32,10 @@ typedef struct {
     const char *target;
     const char *min_quality;
     const char *output_dir;
+    const char *output_path;
+    const char *columns;
+    const char *thumb_size;
+    const char *contact_sort;
     const char *threshold;
     const char *camera;
     const char *make;

@@ -19,6 +19,20 @@ typedef struct {
     const char *output_dir; /* Borrowed; NULL writes beside each source. */
 } photoc_compress_options;
 
+typedef struct {
+    const char *output_path; /* Borrowed; required JPEG destination. */
+    uint32_t columns;
+    uint32_t thumb_size;
+    int quality;
+    bool recursive;
+    bool metadata;
+    bool sort_date;
+} photoc_contact_options;
+
+int photoc_command_contact_with_output(const char *directory,
+                                       const photoc_contact_options *options,
+                                       const photoc_output *output);
+
 int photoc_command_compress(const char *path,
                             const photoc_compress_options *options);
 int photoc_command_exif(const char *path, bool json);
