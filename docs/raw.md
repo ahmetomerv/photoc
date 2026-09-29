@@ -55,6 +55,8 @@ stamp; no filesystem-time fallback is added.
 | Aperture | EXIF FNumber rational (f-number). |
 | Exposure time | EXIF ExposureTime rational (seconds). |
 | Focal length | EXIF FocalLength rational (millimeters). |
+| Stats lens usage | Standard EXIF LensModel ASCII only. |
+| Stats 35mm-equivalent focal length | Positive EXIF FocalLengthIn35mmFilm SHORT, kept separate from physical focal length; no crop-factor guess. |
 | GPS | Standard latitude/longitude rationals and reference tags; both coordinates must be valid. |
 | Orientation | Standard IFD0 orientation 1–8; no pixels are rotated or decoded. |
 

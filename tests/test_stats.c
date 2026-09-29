@@ -1,6 +1,7 @@
 #include "photoc/stats.h"
 
 #include <errno.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -221,11 +222,102 @@ static void test_errors(void)
     photoc_stats_cleanup(NULL);
 }
 
+static void test_extended_statistics(void)
+{
+    photoc_stats_aggregate aggregate = {0};
+    double median = -1;
+    CHECK(!photoc_stats_median_file_size(&aggregate, &median));
+    CHECK(median == -1);
+    const char *dates[] = {"2025:01:01 01:00:01",
+                           "2024:12:31 23:00:00",
+                           "2025:01:01 00:00:00",
+                           "2025:02:01 12:00:00",
+                           "invalid",
+                           NULL};
+    for (size_t i = 0; i < 6; ++i) {
+        Photo photo = {0};
+        if (dates[i] != NULL) {
+            photo.capture_timestamp = copy_text(dates[i]);
+            CHECK(photo.capture_timestamp != NULL);
+        }
+        if (i < 4) {
+            photo.lens_model = copy_text(i < 2 ? "Lens B" : "Lens A");
+            CHECK(photo.lens_model != NULL);
+        }
+        photo.has_file_size = true;
+        photo.file_size = (6 - i) * 100;
+        photo.has_width = photo.has_height = i < 4;
+        photo.width = i == 2 ? 4000 : 6000;
+        photo.height = i == 2 || i == 3 ? 6000 : 4000;
+        if (i == 3)
+            photo.width = photo.height; /* Square. */
+        photo.has_orientation = i == 1;
+        photo.orientation = 6;
+        photo.has_focal_length = i < 4;
+        photo.focal_length = 9;
+        photo.has_focal_length_35mm = i < 2;
+        photo.focal_length_35mm = 24;
+        photo.has_exposure_time = true;
+        photo.exposure_time = i == 0   ? 1.0 / 125.0
+                              : i == 1 ? 2.0 / 250.0
+                              : i == 2 ? 1.0 / 60.0
+                              : i == 3 ? 2.0
+                              : i == 4 ? NAN
+                                       : -1;
+        CHECK(photoc_stats_add_photo(&aggregate, &photo) == 0);
+        photo_cleanup(&photo);
+    }
+    photoc_stats_sort(&aggregate);
+    CHECK(photoc_stats_median_file_size(&aggregate, &median) && median == 350);
+    CHECK(aggregate.session_count ==
+          3); /* Exact 60 minutes joins; 60m1s splits. */
+    CHECK(aggregate.smallest_session == 1 && aggregate.largest_session == 2);
+    CHECK(aggregate.capture_seconds.count == 4);
+    check_count(&aggregate.lens_models, 0, "Lens A", 2);
+    check_count(&aggregate.lens_models, 1, "Lens B", 2);
+    check_count(&aggregate.shutter_speeds, 0, "0.008", 2);
+    check_count(&aggregate.focal_lengths, 0, "9", 4);
+    check_count(&aggregate.focal_lengths_35mm, 0, "24", 2);
+    check_count(&aggregate.orientations, 0, "portrait", 2);
+    check_count(&aggregate.orientations, 1, "landscape", 1);
+    check_count(&aggregate.orientations, 2, "square", 1);
+    check_count(&aggregate.years, 0, "2025", 3);
+    check_count(&aggregate.months, 0, "2025-01", 2);
+    CHECK(photoc_stats_available(&aggregate.orientations) == 4);
+    CHECK(photoc_stats_percentage(2, 6) > 33.3333);
+    CHECK(photoc_stats_percentage(0, 0) == 0);
+    CHECK(aggregate.resolutions.count == 3);
+    photoc_stats_sort(&aggregate); /* Finalization is repeatable. */
+    CHECK(aggregate.session_count == 3);
+    photoc_stats_cleanup(&aggregate);
+
+    Photo photo = {.has_file_size = true, .file_size = 9};
+    CHECK(photoc_stats_add_photo(&aggregate, &photo) == 0);
+    photoc_stats_sort(&aggregate);
+    CHECK(photoc_stats_median_file_size(&aggregate, &median) && median == 9);
+    photo.file_size = 2;
+    CHECK(photoc_stats_add_photo(&aggregate, &photo) == 0);
+    photo.file_size = 3;
+    CHECK(photoc_stats_add_photo(&aggregate, &photo) == 0);
+    photoc_stats_sort(&aggregate);
+    CHECK(photoc_stats_median_file_size(&aggregate, &median) && median == 3);
+    photoc_stats_cleanup(&aggregate);
+    photo.file_size = 0;
+    CHECK(photoc_stats_add_photo(&aggregate, &photo) == 0);
+    photo.file_size = UINT64_MAX;
+    CHECK(photoc_stats_add_photo(&aggregate, &photo) == 0);
+    photoc_stats_sort(&aggregate);
+    CHECK(photoc_stats_median_file_size(&aggregate, &median));
+    CHECK(isfinite(median) && median > 9e18); /* No uint64 addition overflow. */
+    photoc_stats_cleanup(&aggregate);
+}
+
 int main(void)
 {
     test_aggregation();
     test_one_photo_and_missing_exif();
     test_errors();
+    test_extended_statistics();
     if (failures != 0) {
         fprintf(stderr, "%d aggregation test failure(s)\n", failures);
         return 1;

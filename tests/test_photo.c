@@ -32,11 +32,13 @@ static void check_empty_metadata(const Photo *photo)
     CHECK(photo->height == 0 && !photo->has_height);
     CHECK(photo->camera_make == NULL);
     CHECK(photo->camera_model == NULL);
+    CHECK(photo->lens_model == NULL);
     CHECK(photo->capture_timestamp == NULL);
     CHECK(photo->iso == 0 && !photo->has_iso);
     CHECK(photo->aperture == 0.0 && !photo->has_aperture);
     CHECK(photo->exposure_time == 0.0 && !photo->has_exposure_time);
     CHECK(photo->focal_length == 0.0 && !photo->has_focal_length);
+    CHECK(photo->focal_length_35mm == 0 && !photo->has_focal_length_35mm);
     CHECK(!photo->has_gps);
     CHECK(photo->latitude == 0.0 && photo->longitude == 0.0);
 }
@@ -75,9 +77,11 @@ static void test_cleanup_of_optional_strings(void)
 
     photo.camera_make = copy_text("Example Camera Co.");
     photo.camera_model = copy_text("Model A");
+    photo.lens_model = copy_text("Standard EXIF Lens");
     photo.capture_timestamp = copy_text("2026:09:27 12:34:56");
     CHECK(photo.camera_make != NULL);
     CHECK(photo.camera_model != NULL);
+    CHECK(photo.lens_model != NULL);
     CHECK(photo.capture_timestamp != NULL);
 
     photo.file_size = 0;
@@ -94,6 +98,8 @@ static void test_cleanup_of_optional_strings(void)
     photo.has_exposure_time = true;
     photo.focal_length = 50.0;
     photo.has_focal_length = true;
+    photo.focal_length_35mm = 75;
+    photo.has_focal_length_35mm = true;
     photo.has_gps = true;
     photo.latitude = 0.0; /* Zero coordinates are valid when has_gps is true. */
     photo.longitude = 11.5;

@@ -5,6 +5,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+bool photoc_session_starts_new(uint64_t previous, uint64_t current,
+                               uint32_t max_gap_minutes)
+{
+    return current < previous ||
+           current - previous > (uint64_t)max_gap_minutes * 60u;
+}
+
 photoc_session_result photoc_session_group(const Photo *photos, size_t count,
                                            uint32_t max_gap_minutes,
                                            size_t *session_ids)
@@ -36,7 +43,6 @@ photoc_session_result photoc_session_group(const Photo *photos, size_t count,
         have_previous = true;
     }
 
-    const uint64_t maximum_gap_seconds = (uint64_t)max_gap_minutes * 60u;
     size_t current_id = PHOTOC_SESSION_ID_MISSING;
     have_previous = false;
     for (size_t i = 0; i < count; ++i) {
@@ -48,7 +54,8 @@ photoc_session_result photoc_session_group(const Photo *photos, size_t count,
         uint64_t current;
         (void)photoc_timestamp_to_seconds(photos[i].capture_timestamp,
                                           &current);
-        if (!have_previous || current - previous > maximum_gap_seconds) {
+        if (!have_previous ||
+            photoc_session_starts_new(previous, current, max_gap_minutes)) {
             ++current_id;
         }
         session_ids[i] = current_id;

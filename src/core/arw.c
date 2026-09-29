@@ -63,7 +63,9 @@ static bool selected(const photoc_tiff_entry *entry, ExifIfd *ifd)
          entry->tag == EXIF_TAG_ISO_SPEED_RATINGS ||
          entry->tag == EXIF_TAG_FNUMBER ||
          entry->tag == EXIF_TAG_EXPOSURE_TIME ||
-         entry->tag == EXIF_TAG_FOCAL_LENGTH)) {
+         entry->tag == EXIF_TAG_FOCAL_LENGTH ||
+         entry->tag == EXIF_TAG_LENS_MODEL ||
+         entry->tag == EXIF_TAG_FOCAL_LENGTH_IN_35MM_FILM)) {
         *ifd = EXIF_IFD_EXIF;
         return true;
     }

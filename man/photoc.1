@@ -362,7 +362,31 @@ counts JPEG candidates,
 counts ARW candidates, and
 .B scan.metadata_files_found
 counts both, including load failures.
-Empty distributions are arrays; unavailable dates and average size are null.
+Empty distributions are arrays; unavailable dates and average/median size are null.
+.PP
+Additional statistics append to the original human report. JSON adds standard
+EXIF LensModel usage, explicit 35mm-equivalent focal lengths, shutter seconds,
+landscape/portrait/square orientation, exact stored resolutions with megapixels,
+and photos by YYYY, YYYY-MM, YYYY-MM-DD, and local hour 0-23.
+All percentages retain parsed photos as the denominator; unavailable contains
+missing/invalid counts for every distribution and file size.
+Orientation values 5-8 swap dimensions for classification; resolution buckets
+retain stored dimensions. Megapixels are width times height divided by 1,000,000.
+Standard EXIF FocalLengthIn35mmFilm is reported separately from physical focal
+length. No MakerNotes, lens inference, or crop-factor guesses are used.
+.PP
+storage.median_file_size_bytes is the middle known size, or the arithmetic mean
+of the middle pair for even counts. With no known sizes it is null.
+sessions sorts valid capture times and applies the existing default 60-minute
+gap rule: exactly 60 minutes joins, greater than 60 minutes starts a new session.
+Missing/invalid dates are excluded, and sessions can cross calendar boundaries.
+The summary reports gap_minutes, dated_photos, unavailable_photos, count,
+average_photos_per_session, smallest_session, and largest_session.
+Average photos per session divides dated photos by sessions. With none, the
+count is zero and the average/minimum/maximum are null. Times are recorded local
+EXIF times without timezone conversion. Only scalar metadata samples are retained.
+No stats --by option is introduced; JSON views can be selected with jq.
+See docs/stats.md for definitions and the additive JSON schema.
 .SS rename
 .B photoc rename
 .I directory

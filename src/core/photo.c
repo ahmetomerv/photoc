@@ -36,6 +36,7 @@ void photo_cleanup(Photo *photo)
     free(photo->path);
     free(photo->camera_make);
     free(photo->camera_model);
+    free(photo->lens_model);
     free(photo->capture_timestamp);
     *photo = (Photo){0};
 }

@@ -399,9 +399,12 @@ photoc stats ./photos --recursive
 ```
 
 These commands do not change files. `duplicates` finds exact file matches.
-`stats` leaves missing metadata out of its counts by camera and exposure
-setting. It sorts those counts from most common to least common, with a fixed
-order for ties. Scans may continue after an individual file fails, so check
+`stats` reports camera/lens usage, exposure settings (including shutter speed
+and explicit 35mm-equivalent focal length), orientation, resolution/megapixels,
+calendar activity, sessions, and average/median file size. Missing fields are
+excluded from each statistic and counted as unavailable. Session grouping uses
+the existing 60-minute gap rule. See [statistics definitions](docs/stats.md).
+Counts sort from most common to least common, with a fixed order for ties. Scans may continue after an individual file fails, so check
 warnings and the scan summary if you need a complete result.
 
 ### Rename photos

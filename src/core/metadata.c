@@ -120,6 +120,8 @@ bool photoc_metadata_read_exif(ExifData *data, Photo *photo)
                    &photo->camera_make) &&
         copy_ascii(entry(data, EXIF_IFD_0, EXIF_TAG_MODEL),
                    &photo->camera_model) &&
+        copy_ascii(entry(data, EXIF_IFD_EXIF, EXIF_TAG_LENS_MODEL),
+                   &photo->lens_model) &&
         copy_ascii(entry(data, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_ORIGINAL),
                    &photo->capture_timestamp);
     if (ok) {
@@ -146,6 +148,14 @@ bool photoc_metadata_read_exif(ExifData *data, Photo *photo)
         photo->has_focal_length =
             read_rational(entry(data, EXIF_IFD_EXIF, EXIF_TAG_FOCAL_LENGTH),
                           order, &photo->focal_length);
+        ExifEntry *equivalent =
+            entry(data, EXIF_IFD_EXIF, EXIF_TAG_FOCAL_LENGTH_IN_35MM_FILM);
+        if (equivalent != NULL && equivalent->format == EXIF_FORMAT_SHORT &&
+            equivalent->components == 1 && equivalent->size >= 2 &&
+            equivalent->data != NULL) {
+            photo->focal_length_35mm = exif_get_short(equivalent->data, order);
+            photo->has_focal_length_35mm = photo->focal_length_35mm != 0;
+        }
         double latitude;
         double longitude;
         if (read_coordinate(

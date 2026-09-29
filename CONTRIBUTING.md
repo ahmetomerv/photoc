@@ -105,6 +105,16 @@ Rename/sort share format discovery but retain their existing plans, preflight,
 no-overwrite apply, and rollback code. Future metadata backends must not expand
 image-operation support merely by changing discovery.
 
+## Statistics aggregation
+
+`src/core/stats.c` owns buckets and scalar size/timestamp samples; it retains no
+Photo pointers or pixels. Missing values use presence flags and remain excluded.
+Finalization sorts distributions/samples and uses `photoc_session_starts_new`
+from the existing session core for summaries. Standard EXIF LensModel and
+FocalLengthIn35mmFilm are read by both metadata backends without MakerNotes or
+crop-factor inference. Command formatting appends sections/JSON fields while
+preserving existing distributions, percentages, and field types.
+
 ## Metadata query architecture
 
 `src/core/query.c` parses numeric comparisons, validates inclusive date bounds

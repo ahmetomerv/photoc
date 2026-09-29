@@ -183,6 +183,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_ARW_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_arw_cli.py")
             set_tests_properties(arw_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME stats_extended_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_STATS_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_stats_extended.py")
+            set_tests_properties(stats_extended_cli PROPERTIES TIMEOUT 60)
             add_test(NAME focus_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")

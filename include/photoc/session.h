@@ -9,6 +9,11 @@
 #define PHOTOC_SESSION_DEFAULT_GAP_MINUTES 60u
 #define PHOTOC_SESSION_ID_MISSING 0u
 
+/* Shared boundary rule for local timestamp seconds. An exact gap stays in
+   the session; a reversal starts a new one. No allocation or ownership. */
+bool photoc_session_starts_new(uint64_t previous, uint64_t current,
+                               uint32_t max_gap_minutes);
+
 typedef enum {
     PHOTOC_SESSION_OK = 0,
     PHOTOC_SESSION_INVALID_ARGUMENT,

@@ -24,6 +24,8 @@ typedef struct Photo {
     /* NULL means unavailable. The timestamp is text with no assumed zone. */
     char *camera_make;
     char *camera_model;
+    char *
+        lens_model; /* Standard EXIF LensModel, never inferred from MakerNotes. */
     char *capture_timestamp;
 
     uint32_t iso;
@@ -34,6 +36,9 @@ typedef struct Photo {
     bool has_exposure_time;
     double focal_length; /* millimeters */
     bool has_focal_length;
+    uint32_t
+        focal_length_35mm; /* Explicit EXIF 35mm equivalent, millimeters. */
+    bool has_focal_length_35mm;
 
     /* Coordinates are decimal degrees and valid only when has_gps is true. */
     bool has_gps;

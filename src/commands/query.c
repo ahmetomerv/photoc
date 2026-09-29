@@ -38,17 +38,21 @@ static bool copy_photo(const Photo *source, Photo *destination)
     copy.path = NULL;
     copy.camera_make = NULL;
     copy.camera_model = NULL;
+    copy.lens_model = NULL;
     copy.capture_timestamp = NULL;
     copy.path = strdup(source->path);
     if (source->camera_make != NULL)
         copy.camera_make = strdup(source->camera_make);
     if (source->camera_model != NULL)
         copy.camera_model = strdup(source->camera_model);
+    if (source->lens_model != NULL)
+        copy.lens_model = strdup(source->lens_model);
     if (source->capture_timestamp != NULL)
         copy.capture_timestamp = strdup(source->capture_timestamp);
     if (copy.path == NULL ||
         (source->camera_make != NULL && copy.camera_make == NULL) ||
         (source->camera_model != NULL && copy.camera_model == NULL) ||
+        (source->lens_model != NULL && copy.lens_model == NULL) ||
         (source->capture_timestamp != NULL && copy.capture_timestamp == NULL)) {
         photo_cleanup(&copy);
         return false;
