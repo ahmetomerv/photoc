@@ -27,6 +27,12 @@ photoc_thread_pool *photoc_thread_pool_create(size_t workers);
 int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
                            photoc_thread_task_fn task, void *user_data);
 
+/* As run, but poll is called on the owning thread about every 90 ms while
+   workers are active. Workers still never call poll. */
+int photoc_thread_pool_run_poll(photoc_thread_pool *pool, size_t count,
+                                photoc_thread_task_fn task, void *user_data,
+                                void (*poll)(void *), void *poll_data);
+
 /* Waits for work to finish, joins every worker, and frees the pool. NULL is
    accepted. Call only after external callers have stopped using the pool. */
 void photoc_thread_pool_destroy(photoc_thread_pool *pool);

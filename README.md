@@ -595,6 +595,21 @@ warnings. Their reports count those errors (`stats` JSON `scan.errors`,
 mode. `query` returns **1** when a JPEG load fails, while still listing successful
 directory matches; no matches returns **0**.
 
+## Progress output
+
+Longer-running directory commands display progress when stderr is connected
+to a terminal. Discovery uses a spinner; processing shows a count and
+percentage when the total is known. Progress is written only to stderr, so
+stdout remains safe for scripts and JSON:
+
+```sh
+photoc stats ./photos --recursive --json > stats.json
+```
+
+Use `--no-progress` to disable it. Progress is also disabled when stderr is
+redirected or `--quiet` is used. Fast operations finish before the spinner's
+200 ms display delay and produce no progress line.
+
 ## Output verbosity
 
 Global flags work before or after the command:
@@ -604,6 +619,7 @@ Global flags work before or after the command:
 | Default | Show the existing results, operation summaries, and warnings. |
 | `-q`, `--quiet` | Keep requested results; suppress status text, operation summaries, and non-critical warnings. Errors explaining a non-zero exit remain on stderr. |
 | `-v`, `--verbose` | Keep normal output and add diagnostics on stderr: operating mode, recursion, discovery/skip/failure counts, and relevant paths. Statistics, timeline, and duplicate scans also report the worker limit; small workloads or worker startup failures can run serially. |
+| `--no-progress` | Disable interactive progress display. |
 
 Quiet mode keeps EXIF fields, statistics and distributions, duplicate groups
 and savings, focus scores, query paths, check rows/counts, timeline sessions

@@ -627,6 +627,11 @@ POSIX permission bits and group ownership are preserved; ACLs and extended
 attributes are not copied.
 .SH GLOBAL OPTIONS
 Global options may appear before or after the command.
+Long-running directory commands show delayed, throttled progress on standard
+error when it is a terminal. Progress does not change JSON or other result
+data on standard output. Redirected standard error, quiet mode, and
+.B \-\-no-progress
+disable progress.
 .TP
 .BR \-h ", " \-\-help
 Print global help, or command help when a command is supplied.
@@ -654,6 +659,9 @@ Errors explaining non-zero exits remain on standard error, including warnings
 for failed duplicate/focus processing and blocked rename/sort entries.
 Help and version output remain available.
 Cannot be combined with verbose (status 2), regardless of option order.
+.TP
+.B \-\-no-progress
+Disable interactive progress display regardless of terminal detection.
 .TP
 .B \-\-json
 Print structured JSON for

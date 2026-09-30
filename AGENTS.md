@@ -14,6 +14,7 @@
 - Keep exit codes stable and predictable. The current CLI uses `0` for success, `2` for usage errors, and `3` for commands that are not implemented. Document any new exit code before using it.
 - File-modifying commands should support a dry-run mode where appropriate. Never overwrite user files unless explicitly requested.
 - Make memory ownership explicit. Document who owns and frees dynamically allocated memory, especially at API boundaries.
+- Use the shared progress subsystem for long operations. Only the caller thread renders to stderr; worker threads never print spinner frames.
 
 ## Verification
 

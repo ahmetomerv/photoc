@@ -29,6 +29,8 @@ for name in query check compress contact exif duplicates stats timeline rename s
 end
 query 'photoc --ver'
 has --version
+query 'photoc stats --no-'
+has --no-progress
 query 'photoc -v st'
 has stats
 for name in query check exif duplicates stats timeline focus

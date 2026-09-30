@@ -13,6 +13,8 @@ void photoc_output_info(const photoc_output *output, const char *format, ...)
         return;
     }
     int saved_errno = errno;
+    if (output != NULL && output->progress != NULL)
+        photoc_progress_before_diagnostic(output->progress);
     va_list args;
     va_start(args, format);
     vfprintf(stdout, format, args);
@@ -27,6 +29,8 @@ void photoc_output_verbose(const photoc_output *output, const char *command,
         return;
     }
     int saved_errno = errno;
+    if (output->progress != NULL)
+        photoc_progress_before_diagnostic(output->progress);
     fprintf(stderr, "photoc %s: verbose: ", command);
     va_list args;
     va_start(args, format);
@@ -44,6 +48,8 @@ void photoc_output_metadata_warning(const photoc_output *output,
         return;
     }
     int saved_errno = errno;
+    if (output != NULL && output->progress != NULL)
+        photoc_progress_before_diagnostic(output->progress);
     photoc_error_metadata(command, PHOTOC_ERR_NOTE_WARNING, path, result,
                           system_errno);
     errno = saved_errno;

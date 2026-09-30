@@ -2,6 +2,7 @@
 
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
+#include "photoc/format.h"
 #include "photoc/json.h"
 #include "photoc/scan.h"
 #include "photoc/stats.h"
@@ -17,6 +18,7 @@ typedef struct {
     photoc_stats_aggregate aggregate;
     int aggregation_errno;
     const photoc_output *output; /* Borrowed during the scan. */
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } stats_context;
 
 static bool collect_photo(const Photo *photo, void *user_data)
@@ -26,13 +28,15 @@ static bool collect_photo(const Photo *photo, void *user_data)
         context->aggregation_errno = errno;
         return false;
     }
+    photoc_progress_increment(context->progress);
     return true;
 }
 
 static void report_warning(const char *path, photoc_metadata_result reason,
                            int system_errno, void *user_data)
 {
-    const stats_context *context = user_data;
+    stats_context *context = user_data;
+    photoc_progress_increment(context->progress);
     photoc_output_metadata_warning(context->output, "stats", path, reason,
                                    system_errno);
 }
@@ -375,10 +379,40 @@ int photoc_command_stats_with_output(const char *directory, bool recursive,
         "worker limit: %u (small batches and startup fallback run serially)\n",
         PHOTOC_DEFAULT_WORKERS);
     stats_context context = {.output = output};
+    context.progress = output == NULL ? NULL : output->progress;
     photoc_stats_init(&context.aggregate);
+    size_t total = 0;
+    photoc_progress_set_message(context.progress, "Discovering photos...");
+    if (photoc_progress_discover(context.progress, directory, recursive,
+                                 PHOTOC_FORMATS_METADATA, &total) != 0) {
+        photoc_progress_fail(context.progress, "Failed to scan directory");
+        photoc_stats_cleanup(&context.aggregate);
+        return photoc_error_report("stats", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, directory,
+                                   "unable to read directory", errno);
+    }
+    photoc_progress_set_message(context.progress, "Reading metadata...");
+    if (context.progress != NULL && context.progress->enabled)
+        photoc_progress_set_total(context.progress, total);
     photoc_scan_stats scan = {0};
     int result = photoc_scan_directory(directory, recursive, collect_photo,
                                        report_warning, &context, &scan);
+    if (result != 0)
+        photoc_progress_fail(context.progress, "Failed to scan directory");
+    else {
+        char message[96];
+        if (scan.errors != 0) {
+            snprintf(message, sizeof(message),
+                     "Analyzed %" PRIu64 " photos; %" PRIu64
+                     " could not be processed",
+                     scan.photos_parsed, scan.errors);
+            photoc_progress_warn(context.progress, message);
+        } else {
+            snprintf(message, sizeof(message), "Analyzed %" PRIu64 " photos",
+                     scan.photos_parsed);
+            photoc_progress_finish(context.progress, message);
+        }
+    }
     photoc_output_verbose(output, "stats",
                           "ARW files discovered: %" PRIu64 "\n",
                           scan.arw_files_found);

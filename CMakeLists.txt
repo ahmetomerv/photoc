@@ -97,6 +97,7 @@ add_library(photoc_core STATIC
     src/core/output.c
     src/core/parse.c
     src/core/photo.c
+    src/core/progress.c
     src/core/query.c
     src/core/quality_search.c
     src/core/scan.c
@@ -172,6 +173,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_VERBOSITY_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_verbosity.py")
             set_tests_properties(verbosity_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME progress_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_PROGRESS_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_progress_cli.py")
+            set_tests_properties(progress_cli PROPERTIES TIMEOUT 60)
             add_test(NAME compress_metadata_cli
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_COMPRESS_METADATA_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_compress_metadata.py")
@@ -450,6 +455,10 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_output)
     target_link_libraries(test_output PRIVATE photoc_core)
     add_test(NAME output_policy COMMAND test_output)
+    add_executable(test_progress tests/test_progress.c)
+    photoc_configure_c_target(test_progress)
+    target_link_libraries(test_progress PRIVATE photoc_core)
+    add_test(NAME progress COMMAND test_progress)
 
     function(add_cli_test name case)
         set(extra_args)

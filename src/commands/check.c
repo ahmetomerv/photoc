@@ -25,6 +25,7 @@ typedef struct {
     size_t skipped;
     int error;
     const photoc_output *output; /* Borrowed during collection. */
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } check_walk;
 
 typedef struct {
@@ -44,6 +45,10 @@ static void cleanup_walk(check_walk *walk)
 static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
 {
     check_walk *walk = user_data;
+    if (photoc_progress_interrupted()) {
+        walk->error = EINTR;
+        return false;
+    }
     if (type != PHOTOC_FS_FILE) {
         return true;
     }
@@ -75,6 +80,7 @@ static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
         return false;
     }
     walk->rows[walk->count++] = (check_row){.path = copy};
+    photoc_progress_update(walk->progress, walk->count);
     return true;
 }
 
@@ -202,13 +208,20 @@ int photoc_command_check_with_output(const char *path, bool recursive,
                           "only errors: %s; output: %s; workers: 1\n",
                           path, recursive ? "yes" : "no",
                           only_errors ? "yes" : "no", json ? "JSON" : "human");
-    check_walk walk = {.output = output};
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    check_walk walk = {.output = output,
+                       .progress = type == PHOTOC_FS_DIRECTORY ? progress : NULL};
+    if (type == PHOTOC_FS_DIRECTORY) {
+        photoc_progress_set_message(progress, "Discovering photos...");
+        photoc_progress_start(progress);
+    }
     int collected =
         type == PHOTOC_FS_FILE
             ? (collect_file(path, type, &walk) ? 0 : 1)
             : (recursive ? photoc_fs_walk_recursive(path, collect_file, &walk)
                          : photoc_fs_walk(path, collect_file, &walk));
     if (collected != 0) {
+        photoc_progress_fail(progress, "Failed to scan directory");
         int saved_errno = walk.error == 0 ? errno : walk.error;
         cleanup_walk(&walk);
         return photoc_error_report(
@@ -221,11 +234,18 @@ int photoc_command_check_with_output(const char *path, bool recursive,
     if (walk.count > 1) {
         qsort(walk.rows, walk.count, sizeof(*walk.rows), compare_rows);
     }
+    if (type == PHOTOC_FS_DIRECTORY) {
+        photoc_progress_set_message(progress, "Checking JPEGs...");
+        if (progress != NULL && progress->enabled)
+            photoc_progress_set_total(progress, walk.count);
+    }
     check_summary summary = {0};
     bool directory = type == PHOTOC_FS_DIRECTORY;
     /* One full decoder at a time bounds coefficient memory without multiplying
        it by the shared pool's worker count. Only paths/results are retained. */
     for (size_t i = 0; i < walk.count; ++i) {
+        if (photoc_progress_interrupted())
+            break;
         check_row *row = &walk.rows[i];
         row->result = photoc_jpeg_check_file(row->path);
         switch (row->result.status) {
@@ -237,10 +257,30 @@ int photoc_command_check_with_output(const char *path, bool recursive,
             break;
         case PHOTOC_CHECK_ERROR:
             ++summary.errors;
+            photoc_progress_before_diagnostic(progress);
             report_error(directory ? photoc_fs_relative(path, row->path)
                                    : row->path,
                          row->result);
             break;
+        }
+        photoc_progress_increment(walk.progress);
+    }
+    if (photoc_progress_interrupted()) {
+        photoc_progress_warn(progress, "Interrupted");
+        cleanup_walk(&walk);
+        return PHOTOC_EXIT_FAILURE;
+    }
+    if (directory) {
+        char message[96];
+        if (summary.errors != 0) {
+            snprintf(message, sizeof(message),
+                     "Checked %zu JPEGs; %zu errors", walk.count,
+                     summary.errors);
+            photoc_progress_warn(progress, message);
+        } else {
+            snprintf(message, sizeof(message), "Checked %zu JPEGs",
+                     walk.count);
+            photoc_progress_finish(progress, message);
         }
     }
     photoc_output_verbose(

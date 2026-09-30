@@ -1,9 +1,12 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "photoc/thread_pool.h"
 
 #include <errno.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <time.h>
 
 struct photoc_thread_pool {
     pthread_mutex_t mutex;
@@ -93,6 +96,13 @@ fail_mutex:
 int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
                            photoc_thread_task_fn task, void *user_data)
 {
+    return photoc_thread_pool_run_poll(pool, count, task, user_data, NULL, NULL);
+}
+
+int photoc_thread_pool_run_poll(photoc_thread_pool *pool, size_t count,
+                                photoc_thread_task_fn task, void *user_data,
+                                void (*poll)(void *), void *poll_data)
+{
     if (pool == NULL || task == NULL) {
         errno = EINVAL;
         return -1;
@@ -110,8 +120,11 @@ int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
     pool->active = true;
     if (pool->thread_count == 0) {
         pthread_mutex_unlock(&pool->mutex);
-        for (size_t i = 0; i < count; ++i)
+        for (size_t i = 0; i < count; ++i) {
             task(i, user_data);
+            if (poll != NULL)
+                poll(poll_data);
+        }
         pthread_mutex_lock(&pool->mutex);
         pool->active = false;
         pthread_cond_broadcast(&pool->done);
@@ -122,8 +135,26 @@ int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
         pool->task = task;
         pool->user_data = user_data;
         pthread_cond_broadcast(&pool->work);
-        while (pool->active)
-            pthread_cond_wait(&pool->done, &pool->mutex);
+        while (pool->active) {
+            if (poll == NULL) {
+                pthread_cond_wait(&pool->done, &pool->mutex);
+            } else {
+                struct timespec deadline;
+                if (clock_gettime(CLOCK_REALTIME, &deadline) != 0) {
+                    pthread_cond_wait(&pool->done, &pool->mutex);
+                } else {
+                    deadline.tv_nsec += 90000000L;
+                    if (deadline.tv_nsec >= 1000000000L) {
+                        ++deadline.tv_sec;
+                        deadline.tv_nsec -= 1000000000L;
+                    }
+                    pthread_cond_timedwait(&pool->done, &pool->mutex, &deadline);
+                }
+                pthread_mutex_unlock(&pool->mutex);
+                poll(poll_data);
+                pthread_mutex_lock(&pool->mutex);
+            }
+        }
         pool->task = NULL;
         pool->user_data = NULL;
     }

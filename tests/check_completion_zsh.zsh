@@ -58,6 +58,8 @@ query 'photoc '
 for name in query check compress contact exif duplicates stats timeline rename sort focus scrub; do has "$name"; done
 query 'photoc --ver'
 has --version
+query 'photoc stats --no-'
+has --no-progress
 query 'photoc -v st'
 has stats
 for name in query check exif duplicates stats timeline focus; do

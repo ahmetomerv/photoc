@@ -51,6 +51,7 @@ typedef struct {
     size_t skipped;
     size_t arw_count;
     const photoc_output *output; /* Borrowed for the synchronous walk. */
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } sort_plan;
 
 typedef struct {
@@ -83,6 +84,10 @@ static bool collect_photo(const char *path, photoc_fs_type type,
                           void *user_data)
 {
     sort_plan *plan = user_data;
+    if (photoc_progress_interrupted()) {
+        plan->error_errno = EINTR;
+        return false;
+    }
     if (type != PHOTOC_FS_FILE ||
         !photoc_format_is_selected(path, PHOTOC_FORMATS_METADATA)) {
         if (type != PHOTOC_FS_DIRECTORY) {
@@ -123,6 +128,7 @@ static bool collect_photo(const char *path, photoc_fs_type type,
     if (photoc_format_from_path(path) == PHOTOC_FORMAT_SONY_ARW)
         ++plan->arw_count;
     plan->entries[plan->count++] = (sort_entry){.source = copy};
+    photoc_progress_update(plan->progress, plan->count);
     return true;
 }
 
@@ -213,6 +219,11 @@ static int build_destination(sort_entry *entry, const char *root,
 static int load_entries(sort_plan *plan)
 {
     for (size_t i = 0; i < plan->count; ++i) {
+        if (photoc_progress_interrupted()) {
+            errno = EINTR;
+            return -1;
+        }
+        photoc_progress_update(plan->progress, i);
         sort_entry *entry = &plan->entries[i];
         struct stat source_info;
         if (lstat(entry->source, &source_info) != 0) {
@@ -748,6 +759,7 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
 {
     created_directories created = {0};
     if (prepare_created_list(plan, &created) != 0) {
+        photoc_progress_before_diagnostic(plan->progress);
         photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
                             errno == ENOMEM ? PHOTOC_ERR_INTERNAL
                                             : PHOTOC_ERR_IO,
@@ -755,12 +767,20 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
         return PHOTOC_EXIT_FAILURE;
     }
     for (size_t i = 0; i < plan->count; ++i) {
+        if (photoc_progress_interrupted()) {
+            photoc_progress_before_diagnostic(plan->progress);
+            rollback_moves(plan, root, root_fd, summary);
+            remove_created_directories(root_fd, &created);
+            free_created_list(&created);
+            return PHOTOC_EXIT_FAILURE;
+        }
         sort_entry *entry = &plan->entries[i];
         if (strcmp(entry->source, entry->destination) == 0) {
             continue;
         }
         int fd = open_directory_chain(root_fd, entry->folder, true, &created);
         if (fd < 0) {
+            photoc_progress_before_diagnostic(plan->progress);
             photoc_error_reportf(
                 "sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL, errno,
                 "unable to create destination directory '%s'", entry->folder);
@@ -772,11 +792,19 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
     }
     int result = PHOTOC_EXIT_SUCCESS;
     for (size_t i = 0; i < plan->count; ++i) {
+        if (photoc_progress_interrupted()) {
+            photoc_progress_before_diagnostic(plan->progress);
+            rollback_moves(plan, root, root_fd, summary);
+            remove_created_directories(root_fd, &created);
+            result = PHOTOC_EXIT_FAILURE;
+            break;
+        }
         sort_entry *entry = &plan->entries[i];
         if (strcmp(entry->source, entry->destination) == 0) {
             continue;
         }
         if (move_entry(root_fd, root, entry, false) != 0) {
+            photoc_progress_before_diagnostic(plan->progress);
             photoc_error_reportf("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                  NULL, errno, "apply failed for '%s' -> '%s'",
                                  photoc_fs_relative(root, entry->source),
@@ -788,6 +816,13 @@ static int apply_plan(sort_plan *plan, const char *root, int root_fd,
         }
         entry->applied = true;
         ++summary->applied;
+        photoc_progress_increment(plan->progress);
+    }
+    if (result == PHOTOC_EXIT_SUCCESS && photoc_progress_interrupted()) {
+        photoc_progress_before_diagnostic(plan->progress);
+        rollback_moves(plan, root, root_fd, summary);
+        remove_created_directories(root_fd, &created);
+        result = PHOTOC_EXIT_FAILURE;
     }
     free_created_list(&created);
     return result;
@@ -811,11 +846,15 @@ int photoc_command_sort_with_output(const char *directory, bool recursive,
                                    directory, "unable to inspect directory",
                                    errno);
     }
-    sort_plan plan = {.output = output};
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    sort_plan plan = {.output = output, .progress = progress};
+    photoc_progress_set_message(progress, "Discovering photos...");
+    photoc_progress_start(progress);
     int walk_result =
         recursive ? photoc_fs_walk_recursive(directory, collect_photo, &plan)
                   : photoc_fs_walk(directory, collect_photo, &plan);
     if (walk_result != 0) {
+        photoc_progress_fail(progress, "Failed to scan directory");
         int saved_errno = walk_result == 1 ? plan.error_errno : errno;
         photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
                             saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL
@@ -827,6 +866,9 @@ int photoc_command_sort_with_output(const char *directory, bool recursive,
     if (plan.count > 1) {
         qsort(plan.entries, plan.count, sizeof(*plan.entries), compare_source);
     }
+    photoc_progress_set_message(progress, "Reading metadata...");
+    if (progress != NULL && progress->enabled)
+        photoc_progress_set_total(progress, plan.count);
     if (load_entries(&plan) != 0 ||
         (mode == PHOTOC_SORT_BY_DATE
              ? prepare_date_destinations(&plan, directory)
@@ -834,10 +876,16 @@ int photoc_command_sort_with_output(const char *directory, bool recursive,
             0 ||
         mark_duplicates(&plan) != 0) {
         int saved_errno = errno;
+        photoc_progress_fail(progress, "Failed to prepare sort plan");
         photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE,
                             saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL
                                                   : PHOTOC_ERR_IO,
                             NULL, "unable to prepare plan", saved_errno);
+        free_plan(&plan);
+        return PHOTOC_EXIT_FAILURE;
+    }
+    if (photoc_progress_interrupted()) {
+        photoc_progress_warn(progress, "Interrupted");
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -847,6 +895,7 @@ int photoc_command_sort_with_output(const char *directory, bool recursive,
         root_fd =
             open(directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
         if (root_fd < 0) {
+            photoc_progress_before_diagnostic(progress);
             photoc_error_report("sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                 directory, "cannot open directory", errno);
             free_plan(&plan);
@@ -856,6 +905,7 @@ int photoc_command_sort_with_output(const char *directory, bool recursive,
         if (fstat(root_fd, &root_now) != 0 ||
             root_before.st_dev != root_now.st_dev ||
             root_before.st_ino != root_now.st_ino) {
+            photoc_progress_before_diagnostic(progress);
             photoc_error_report(
                 "sort", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL,
                 "directory changed during preflight; no files changed", 0);
@@ -883,12 +933,21 @@ int photoc_command_sort_with_output(const char *directory, bool recursive,
     int exit_code =
         summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
     if (!apply) {
+        photoc_progress_finish(progress, "Prepared sort plan");
         print_plan(&plan, directory, true);
     } else if (summary.blocked != 0) {
+        photoc_progress_warn(progress, "Sort preflight blocked");
         print_plan(&plan, directory, false);
         fputs("photoc sort: preflight failed; no files changed\n", stderr);
     } else {
+        photoc_progress_set_message(progress, "Sorting...");
+        if (progress != NULL && progress->enabled)
+            photoc_progress_set_total(progress, summary.planned);
         exit_code = apply_plan(&plan, directory, root_fd, &summary);
+        if (exit_code == PHOTOC_EXIT_SUCCESS)
+            photoc_progress_finish(progress, "Sorted photos");
+        else
+            photoc_progress_fail(progress, "Failed to sort photos");
         if (exit_code == PHOTOC_EXIT_SUCCESS) {
             print_plan(&plan, directory, true);
         }

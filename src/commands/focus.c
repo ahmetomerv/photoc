@@ -2,6 +2,7 @@
 
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
+#include "photoc/format.h"
 #include "photoc/fs.h"
 #include "photoc/json.h"
 #include "photoc/sharpness.h"
@@ -26,6 +27,7 @@ typedef struct {
     size_t skipped;
     int error;
     const photoc_output *output; /* Borrowed during traversal. */
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } focus_walk;
 
 typedef struct {
@@ -51,6 +53,10 @@ static void cleanup_walk(focus_walk *walk)
 static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
 {
     focus_walk *walk = user_data;
+    if (photoc_progress_interrupted()) {
+        walk->error = EINTR;
+        return false;
+    }
     if (type != PHOTOC_FS_FILE) {
         return true;
     }
@@ -88,6 +94,7 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
     row->result = photoc_sharpness_score_jpeg(
         path, PHOTOC_SHARPNESS_DEFAULT_MAX_DIMENSION, &row->score);
     row->system_errno = errno;
+    photoc_progress_increment(walk->progress);
     if (row->result == PHOTOC_IMAGE_NO_MEMORY) {
         walk->error = ENOMEM;
         return false;
@@ -269,7 +276,23 @@ int photoc_command_focus_with_output(const char *path, bool recursive,
                           "threshold: %.6g; only blurry: %s; output: %s\n",
                           path, recursive ? "yes" : "no", threshold,
                           only_blurry ? "yes" : "no", json ? "JSON" : "human");
-    focus_walk walk = {.output = output};
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    focus_walk walk = {.output = output,
+                       .progress = type == PHOTOC_FS_DIRECTORY ? progress : NULL};
+    if (type == PHOTOC_FS_DIRECTORY) {
+        size_t total = 0;
+        photoc_progress_set_message(progress, "Discovering photos...");
+        if (photoc_progress_discover(progress, path, recursive,
+                                     PHOTOC_FORMATS_JPEG, &total) != 0) {
+            photoc_progress_fail(progress, "Failed to scan directory");
+            return photoc_error_report("focus", PHOTOC_ERR_NOTE_NONE,
+                                       PHOTOC_ERR_IO, path,
+                                       "unable to read directory", errno);
+        }
+        photoc_progress_set_message(progress, "Analyzing sharpness...");
+        if (progress != NULL && progress->enabled)
+            photoc_progress_set_total(progress, total);
+    }
     int result;
     if (type == PHOTOC_FS_FILE) {
         result = visit_file(path, type, &walk) ? 0 : 1;
@@ -277,7 +300,10 @@ int photoc_command_focus_with_output(const char *path, bool recursive,
         result = recursive ? photoc_fs_walk_recursive(path, visit_file, &walk)
                            : photoc_fs_walk(path, visit_file, &walk);
     }
+    if (photoc_progress_interrupted())
+        result = 1;
     if (result != 0) {
+        photoc_progress_fail(progress, "Failed to analyze photos");
         int saved_errno = walk.error != 0 ? walk.error : errno;
         cleanup_walk(&walk);
         return photoc_error_report(
@@ -291,6 +317,19 @@ int photoc_command_focus_with_output(const char *path, bool recursive,
         qsort(walk.rows, walk.count, sizeof(*walk.rows), compare_rows);
     }
     focus_summary summary = summarize_results(&walk, threshold);
+    if (type == PHOTOC_FS_DIRECTORY) {
+        char message[96];
+        if (summary.failed != 0) {
+            snprintf(message, sizeof(message),
+                     "Analyzed %zu photos; %zu could not be processed",
+                     summary.analyzed, summary.failed);
+            photoc_progress_warn(progress, message);
+        } else {
+            snprintf(message, sizeof(message), "Analyzed %zu photos",
+                     summary.analyzed);
+            photoc_progress_finish(progress, message);
+        }
+    }
     photoc_output_verbose(output, "focus",
                           "JPEG files discovered: %zu; analyzed: %zu; skipped: "
                           "%zu; decode failures: %zu\n",

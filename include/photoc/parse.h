@@ -10,6 +10,7 @@ typedef struct {
     bool version;
     bool verbose;
     bool quiet;
+    bool no_progress;
     bool json;
     bool recursive;
     bool apply;

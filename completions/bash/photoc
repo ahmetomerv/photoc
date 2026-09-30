@@ -49,7 +49,7 @@ _photoc_complete()
         return 0
     fi
     if [[ -z $pending ]] && (( ! ended )) && [[ $current == -* ]]; then
-        candidates='-h --help -v --verbose -q --quiet'
+        candidates='-h --help -v --verbose -q --quiet --no-progress'
         case $command in
             '') candidates="$candidates -V --version --json" ;;
             query) candidates="$candidates --camera --make --iso --aperture --focal --after --before --has-gps --no-gps --recursive --print0 --json" ;;

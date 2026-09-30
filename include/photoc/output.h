@@ -2,6 +2,7 @@
 #define PHOTOC_OUTPUT_H
 
 #include "photoc/photo.h"
+#include "photoc/progress.h"
 
 #include <stdbool.h>
 
@@ -19,6 +20,7 @@ typedef enum {
 typedef struct {
     photoc_output_level level;
     bool json;
+    photoc_progress *progress; /* Borrowed; NULL for direct library callers. */
 } photoc_output;
 
 #if defined(__GNUC__) || defined(__clang__)

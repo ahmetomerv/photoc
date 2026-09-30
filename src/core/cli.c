@@ -695,6 +695,7 @@ static void print_global_help(void)
     puts("  -V, --version    Show the version");
     puts("  -v, --verbose    Add diagnostics on stderr");
     puts("  -q, --quiet      Suppress status text and non-critical warnings");
+    puts("      --no-progress  Disable interactive progress display");
     puts("      --json       Request JSON output where supported");
     puts("");
     puts("Exif and stats inspect JPEG/ARW metadata; duplicates compares file "
@@ -837,10 +838,26 @@ int photoc_run(int argc, char *argv[])
         command_error(command->name, "--json is not supported\n");
         return PHOTOC_EXIT_USAGE;
     }
+    photoc_progress progress;
+    photoc_progress_init(&progress, options.no_progress ? PHOTOC_PROGRESS_NEVER
+                                                       : PHOTOC_PROGRESS_AUTO,
+                          options.quiet, NULL);
     const photoc_output output = {.level = options.quiet ? PHOTOC_OUTPUT_QUIET
                                            : options.verbose
                                                ? PHOTOC_OUTPUT_VERBOSE
                                                : PHOTOC_OUTPUT_NORMAL,
-                                  .json = options.json};
-    return command->run(&options, &output);
+                                  .json = options.json,
+                                  .progress = &progress};
+    photoc_progress_install_signals();
+    int result = command->run(&options, &output);
+    if (photoc_progress_interrupted()) {
+        if (!progress.interruption_reported) {
+            photoc_progress_clear(&progress);
+            fputs("photoc: interrupted\n", stderr);
+        }
+        result = PHOTOC_EXIT_FAILURE;
+    }
+    photoc_progress_clear(&progress);
+    photoc_progress_restore_signals();
+    return result;
 }

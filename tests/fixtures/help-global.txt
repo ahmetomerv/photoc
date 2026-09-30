@@ -22,6 +22,7 @@ Global options:
   -V, --version    Show the version
   -v, --verbose    Add diagnostics on stderr
   -q, --quiet      Suppress status text and non-critical warnings
+      --no-progress  Disable interactive progress display
       --json       Request JSON output where supported
 
 Exif and stats inspect JPEG/ARW metadata; duplicates compares file bytes.

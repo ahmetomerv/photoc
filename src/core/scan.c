@@ -3,6 +3,7 @@
 #include "photoc/scan.h"
 
 #include "photoc/fs.h"
+#include "photoc/progress.h"
 #include "photoc/thread_pool.h"
 
 #include <errno.h>
@@ -82,6 +83,11 @@ static int flush_batch(scan_context *context)
     /* Workers never call user callbacks or update aggregate counters. Replay
        in traversal order, with partial counts stopping at the last callback. */
     for (size_t i = 0; i < context->count; ++i) {
+        if (photoc_progress_interrupted()) {
+            context->error = EINTR;
+            result = -1;
+            break;
+        }
         scan_item *item = &context->items[i];
         ++context->stats->files_visited;
         if (item->path == NULL) {
@@ -120,6 +126,10 @@ static int flush_batch(scan_context *context)
 static bool scan_entry(const char *path, photoc_fs_type type, void *user_data)
 {
     scan_context *context = user_data;
+    if (photoc_progress_interrupted()) {
+        context->error = EINTR;
+        return false;
+    }
     if (type != PHOTOC_FS_FILE) {
         /* Deliver earlier callbacks before a recursive descent can fail. */
         return type != PHOTOC_FS_DIRECTORY || flush_batch(context) == 0;

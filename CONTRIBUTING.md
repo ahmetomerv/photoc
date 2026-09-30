@@ -284,3 +284,10 @@ python3 tests/test_versioning.py
 
 The normal CI workflow does not publish releases; the separate Release
 workflow grants write permission only to its publish job.
+# Progress
+
+Use the shared `photoc_progress` API for long directory operations. Progress
+renders on stderr only; commands must not print their own spinners. Update it
+from the caller thread at file boundaries. Worker threads may update atomic
+counters, but only the caller thread renders. Clear the active line before
+ordinary stderr diagnostics, and finish progress before writing result output.

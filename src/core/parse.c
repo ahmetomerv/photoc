@@ -129,6 +129,7 @@ static const photoc_flag flags[] = {
     {"--verbose", 0, false},
     {"-q", 0, false},
     {"--quiet", 0, false},
+    {"--no-progress", 0, false},
     {"--json", 0, false},
     {"--recursive", CMD_RECURSIVE, false},
     {"--apply", CMD_APPLY, false},
@@ -279,6 +280,8 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
             options->verbose = true;
         } else if (strcmp(name, "-q") == 0 || strcmp(name, "--quiet") == 0) {
             options->quiet = true;
+        } else if (strcmp(name, "--no-progress") == 0) {
+            options->no_progress = true;
         } else if (strcmp(name, "--json") == 0) {
             options->json = true;
         } else if (strcmp(name, "--recursive") == 0) {

@@ -84,9 +84,12 @@ int main(void)
     snprintf(verbose_error, sizeof(verbose_error),
              "photoc test: verbose: count 4\n%s%s", warning, failure);
     const photoc_output cases[] = {
-        {PHOTOC_OUTPUT_NORMAL, false},  {PHOTOC_OUTPUT_QUIET, false},
-        {PHOTOC_OUTPUT_VERBOSE, false}, {PHOTOC_OUTPUT_NORMAL, true},
-        {PHOTOC_OUTPUT_QUIET, true},    {PHOTOC_OUTPUT_VERBOSE, true}};
+        {.level = PHOTOC_OUTPUT_NORMAL, .json = false},
+        {.level = PHOTOC_OUTPUT_QUIET, .json = false},
+        {.level = PHOTOC_OUTPUT_VERBOSE, .json = false},
+        {.level = PHOTOC_OUTPUT_NORMAL, .json = true},
+        {.level = PHOTOC_OUTPUT_QUIET, .json = true},
+        {.level = PHOTOC_OUTPUT_VERBOSE, .json = true}};
     int failed = check_output(NULL, "status 7\n", normal_error);
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
         const photoc_output *output = &cases[i];

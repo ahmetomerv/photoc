@@ -96,11 +96,24 @@ int photoc_command_duplicates_with_output(const char *directory, bool recursive,
                           "fallback run serially)\n",
                           PHOTOC_DEFAULT_WORKERS);
     photoc_duplicates_result result;
-    if (photoc_duplicates_find(directory, recursive, report_warning, NULL,
-                               &result) != 0) {
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    if (photoc_duplicates_find_progress(directory, recursive, report_warning,
+                                        NULL, &result, progress) != 0) {
+        photoc_progress_fail(progress, "Failed to scan directory");
         return photoc_error_report("duplicates", PHOTOC_ERR_NOTE_NONE,
                                    PHOTOC_ERR_IO, directory,
                                    "unable to read directory", errno);
+    }
+    char message[96];
+    if (result.errors != 0) {
+        snprintf(message, sizeof(message),
+                 "Checked %" PRIu64 " files; %" PRIu64 " could not be read",
+                 result.files_visited, result.errors);
+        photoc_progress_warn(progress, message);
+    } else {
+        snprintf(message, sizeof(message), "Checked %" PRIu64 " files",
+                 result.files_visited);
+        photoc_progress_finish(progress, message);
     }
 
     photoc_output_verbose(output, "duplicates",

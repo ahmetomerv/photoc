@@ -4,6 +4,7 @@
 
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
+#include "photoc/format.h"
 #include "photoc/fs.h"
 #include "photoc/json.h"
 #include "photoc/scan.h"
@@ -21,6 +22,7 @@ typedef struct {
     size_t count;
     size_t capacity;
     int error;
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } query_scan;
 
 static void cleanup_scan(query_scan *scan)
@@ -64,6 +66,7 @@ static bool copy_photo(const Photo *source, Photo *destination)
 static bool collect_match(const Photo *photo, void *user_data)
 {
     query_scan *scan = user_data;
+    photoc_progress_increment(scan->progress);
     if (!photoc_query_matches(scan->query, photo))
         return true;
     if (scan->count == scan->capacity) {
@@ -92,7 +95,9 @@ static bool collect_match(const Photo *photo, void *user_data)
 static void scan_failure(const char *path, photoc_metadata_result result,
                          int system_errno, void *user_data)
 {
-    (void)user_data;
+    query_scan *scan = user_data;
+    photoc_progress_increment(scan->progress);
+    photoc_progress_before_diagnostic(scan->progress);
     /* A skipped JPEG makes the search incomplete and causes exit 1. */
     photoc_error_metadata("query", PHOTOC_ERR_NOTE_NONE, path, result,
                           system_errno);
@@ -214,7 +219,23 @@ int photoc_command_query_with_output(const char *path,
                           json     ? "JSON"
                           : print0 ? "NUL paths"
                                    : "line paths");
-    query_scan scan = {.query = query};
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    query_scan scan = {.query = query,
+                       .progress = type == PHOTOC_FS_DIRECTORY ? progress : NULL};
+    if (type == PHOTOC_FS_DIRECTORY) {
+        size_t total = 0;
+        photoc_progress_set_message(progress, "Discovering photos...");
+        if (photoc_progress_discover(progress, path, recursive,
+                                     PHOTOC_FORMATS_JPEG, &total) != 0) {
+            photoc_progress_fail(progress, "Failed to scan directory");
+            return photoc_error_report("query", PHOTOC_ERR_NOTE_NONE,
+                                       PHOTOC_ERR_IO, path,
+                                       "unable to read directory", errno);
+        }
+        photoc_progress_set_message(progress, "Reading metadata...");
+        if (progress != NULL && progress->enabled)
+            photoc_progress_set_total(progress, total);
+    }
     photoc_scan_stats stats = {0};
     int result;
     if (type == PHOTOC_FS_FILE) {
@@ -233,6 +254,7 @@ int photoc_command_query_with_output(const char *path,
             &scan, &stats);
     }
     if (result != 0) {
+        photoc_progress_fail(progress, "Failed to scan directory");
         int saved_errno = scan.error == 0 ? errno : scan.error;
         cleanup_scan(&scan);
         return photoc_error_report(
@@ -241,6 +263,20 @@ int photoc_command_query_with_output(const char *path,
             scan.error == 0 ? "unable to complete scan"
                             : "unable to retain matches",
             saved_errno);
+    }
+    if (type == PHOTOC_FS_DIRECTORY) {
+        char message[96];
+        if (stats.errors != 0) {
+            snprintf(message, sizeof(message),
+                     "Searched %" PRIu64 " photos; %" PRIu64
+                     " could not be processed",
+                     stats.photos_parsed, stats.errors);
+            photoc_progress_warn(progress, message);
+        } else {
+            snprintf(message, sizeof(message), "Searched %" PRIu64 " photos",
+                     stats.photos_parsed);
+            photoc_progress_finish(progress, message);
+        }
     }
     if (scan.count > 1)
         qsort(scan.matches, scan.count, sizeof(*scan.matches), compare_photos);

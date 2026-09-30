@@ -4,6 +4,7 @@
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/fs.h"
+#include "photoc/format.h"
 #include "photoc/image.h"
 #include "photoc/jpeg_write.h"
 #include "photoc/scan.h"
@@ -44,6 +45,7 @@ typedef struct {
     size_t failed;
     int error;
     const photoc_output *output; /* Borrowed during the scan. */
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } contact_collection;
 
 static const char *filename(const char *path)
@@ -118,6 +120,7 @@ static bool collect_photo(const Photo *photo, void *user_data)
         .has_aperture = photo->has_aperture,
         .has_exposure_time = photo->has_exposure_time,
         .has_focal_length = photo->has_focal_length};
+    photoc_progress_increment(collection->progress);
     return true;
 }
 
@@ -126,6 +129,7 @@ static void scan_warning(const char *path, photoc_metadata_result reason,
 {
     contact_collection *collection = user_data;
     ++collection->failed;
+    photoc_progress_increment(collection->progress);
     photoc_output_metadata_warning(collection->output, "contact", path, reason,
                                    system_errno);
 }
@@ -433,31 +437,40 @@ static int render_page(const contact_collection *collection, size_t first,
     uint32_t height = 0;
     size_t bytes = 0;
     if (!canvas_dimensions(columns, options->thumb_size, count,
-                           options->metadata, &width, &height, &bytes))
+                           options->metadata, &width, &height, &bytes)) {
+        photoc_progress_before_diagnostic(collection->progress);
         return photoc_error_report(
             "contact", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED,
             destination, "sheet dimensions exceed the 64 MiB canvas limit", 0);
+    }
     photoc_image canvas = {.width = width,
                            .height = height,
                            .stride = (size_t)width * 3,
                            .pixel_bytes = bytes};
     canvas.pixels = malloc(bytes);
-    if (canvas.pixels == NULL)
+    if (canvas.pixels == NULL) {
+        photoc_progress_before_diagnostic(collection->progress);
         return photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,
                                    PHOTOC_ERR_INTERNAL, destination,
                                    "cannot allocate sheet canvas", 0);
+    }
     memset(canvas.pixels, 255, bytes);
     uint32_t cell_width = options->thumb_size + 2 * CONTACT_PADDING;
     uint32_t cell_height =
         options->thumb_size + (options->metadata ? 66u : 30u);
     int outcome = PHOTOC_EXIT_SUCCESS;
     for (size_t i = 0; i < count; ++i) {
+        if (photoc_progress_interrupted()) {
+            outcome = PHOTOC_EXIT_FAILURE;
+            break;
+        }
         const contact_photo *photo = &collection->items[first + i];
         photoc_image decoded = {0};
         photoc_image_result image_result =
             photoc_image_decode_jpeg_scaled_bounded(
                 photo->path, 4096, CONTACT_MAX_SOURCE_BYTES, &decoded);
         if (image_result != PHOTOC_IMAGE_OK) {
+            photoc_progress_before_diagnostic(collection->progress);
             outcome = photoc_error_image("contact", PHOTOC_ERR_NOTE_NONE,
                                          photo->path, image_result, errno);
             break;
@@ -489,21 +502,25 @@ static int render_page(const contact_collection *collection, size_t first,
             photoc_bitmap_text(&canvas, text_x, label_y + 36, second_line,
                                options->thumb_size, 2);
         }
+        photoc_progress_update(collection->progress, first + i + 1);
     }
     if (outcome == PHOTOC_EXIT_SUCCESS) {
         photoc_jpeg_buffer jpeg = {0};
         photoc_image_result image_result =
             photoc_image_encode_jpeg(&canvas, options->quality, &jpeg);
-        if (image_result != PHOTOC_IMAGE_OK)
+        if (image_result != PHOTOC_IMAGE_OK) {
+            photoc_progress_before_diagnostic(collection->progress);
             outcome = photoc_error_image("contact", PHOTOC_ERR_NOTE_NONE,
                                          destination, image_result, errno);
-        else {
+        } else {
             photoc_jpeg_edit_result write_result =
                 photoc_jpeg_write_encoded(destination, &jpeg, NULL);
-            if (write_result != PHOTOC_JPEG_EDIT_OK)
+            if (write_result != PHOTOC_JPEG_EDIT_OK) {
+                photoc_progress_before_diagnostic(collection->progress);
                 outcome =
                     photoc_error_jpeg_edit("contact", PHOTOC_ERR_NOTE_NONE,
                                            destination, write_result, errno);
+            }
         }
         photoc_jpeg_buffer_cleanup(&jpeg);
     }
@@ -536,12 +553,26 @@ int photoc_command_contact_with_output(const char *directory,
         return photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,
                                    PHOTOC_ERR_UNSUPPORTED, directory,
                                    "expected a directory", 0);
-    contact_collection collection = {.output = output};
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    contact_collection collection = {.output = output, .progress = progress};
+    size_t total = 0;
+    photoc_progress_set_message(progress, "Discovering photos...");
+    if (photoc_progress_discover(progress, directory, options->recursive,
+                                 PHOTOC_FORMATS_JPEG, &total) != 0) {
+        photoc_progress_fail(progress, "Failed to scan directory");
+        return photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, directory,
+                                   "unable to read directory", errno);
+    }
+    photoc_progress_set_message(progress, "Reading metadata...");
+    if (progress != NULL && progress->enabled)
+        photoc_progress_set_total(progress, total);
     photoc_scan_stats stats = {0};
     int scan_result = photoc_scan_directory_filtered(
         directory, options->recursive, PHOTOC_FORMATS_JPEG, collect_photo,
         scan_warning, &collection, &stats);
     if (scan_result != 0 || collection.failed != 0 || collection.count == 0) {
+        photoc_progress_fail(progress, "Failed to prepare contact sheets");
         int system_errno = scan_result == 1  ? collection.error
                            : scan_result < 0 ? errno
                                              : 0;
@@ -566,12 +597,19 @@ int photoc_command_contact_with_output(const char *directory,
         capacity = 24;
     size_t pages = (collection.count + capacity - 1) / capacity;
     char **paths = NULL;
+    photoc_progress_set_message(progress, "Rendering contact sheets...");
+    if (progress != NULL && progress->enabled)
+        photoc_progress_set_total(progress, collection.count);
+    photoc_progress_before_diagnostic(progress);
     if (prepare_paths(options->output_path, pages, &paths) != 0) {
+        photoc_progress_fail(progress, "Failed to prepare contact sheets");
         cleanup_collection(&collection);
         return PHOTOC_EXIT_FAILURE;
     }
     size_t written = 0;
     for (size_t page = 0; page < pages; ++page) {
+        if (photoc_progress_interrupted())
+            break;
         size_t first = page * capacity;
         size_t count = collection.count - first;
         if (count > capacity)
@@ -585,6 +623,10 @@ int photoc_command_contact_with_output(const char *directory,
         photoc_output_info(output, "Contact sheet: %s (%zu photos)\n",
                            paths[page], count);
     }
+    if (written == pages)
+        photoc_progress_finish(progress, "Created contact sheets");
+    else
+        photoc_progress_fail(progress, "Failed to create contact sheets");
     photoc_output_info(output, "Sheets written: %zu; photos: %zu\n", written,
                        collection.count);
     cleanup_paths(paths, pages);

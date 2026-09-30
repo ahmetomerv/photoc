@@ -40,6 +40,7 @@ typedef struct {
     size_t skipped;
     size_t arw_count;
     const photoc_output *output; /* Borrowed for the synchronous walk. */
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } rename_plan;
 
 typedef struct {
@@ -64,6 +65,10 @@ static bool collect_photo(const char *path, photoc_fs_type type,
                           void *user_data)
 {
     rename_plan *plan = user_data;
+    if (photoc_progress_interrupted()) {
+        plan->error_errno = EINTR;
+        return false;
+    }
     if (type != PHOTOC_FS_FILE ||
         !photoc_format_is_selected(path, PHOTOC_FORMATS_METADATA)) {
         if (type != PHOTOC_FS_DIRECTORY) {
@@ -104,6 +109,7 @@ static bool collect_photo(const char *path, photoc_fs_type type,
     if (photoc_format_from_path(path) == PHOTOC_FORMAT_SONY_ARW)
         ++plan->arw_count;
     plan->entries[plan->count++] = (rename_entry){.source = copy};
+    photoc_progress_update(plan->progress, plan->count);
     return true;
 }
 
@@ -138,6 +144,11 @@ static int destination_path(const char *source, const char *name, char **output)
 static int prepare_entries(rename_plan *plan, const char *format)
 {
     for (size_t i = 0; i < plan->count; ++i) {
+        if (photoc_progress_interrupted()) {
+            errno = EINTR;
+            return -1;
+        }
+        photoc_progress_update(plan->progress, i);
         rename_entry *entry = &plan->entries[i];
         struct stat source_info;
         if (lstat(entry->source, &source_info) != 0) {
@@ -439,6 +450,11 @@ static int apply_plan(rename_plan *plan, const char *root,
                       rename_summary *summary)
 {
     for (size_t i = 0; i < plan->count; ++i) {
+        if (photoc_progress_interrupted()) {
+            photoc_progress_before_diagnostic(plan->progress);
+            rollback_applied(plan, root, summary);
+            return PHOTOC_EXIT_FAILURE;
+        }
         rename_entry *entry = &plan->entries[i];
         if (strcmp(entry->source, entry->destination) == 0) {
             continue;
@@ -447,6 +463,7 @@ static int apply_plan(rename_plan *plan, const char *root,
             photoc_fs_rename_noreplace(entry->source, entry->destination) !=
                 0) {
             int saved_errno = errno;
+            photoc_progress_before_diagnostic(plan->progress);
             photoc_error_reportf("rename", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                  NULL, saved_errno,
                                  "apply failed for '%s' -> '%s'",
@@ -457,6 +474,12 @@ static int apply_plan(rename_plan *plan, const char *root,
         }
         entry->applied = true;
         ++summary->applied;
+        photoc_progress_increment(plan->progress);
+    }
+    if (photoc_progress_interrupted()) {
+        photoc_progress_before_diagnostic(plan->progress);
+        rollback_applied(plan, root, summary);
+        return PHOTOC_EXIT_FAILURE;
     }
     return PHOTOC_EXIT_SUCCESS;
 }
@@ -484,11 +507,15 @@ int photoc_command_rename_with_output(const char *directory, const char *format,
         return PHOTOC_EXIT_USAGE;
     }
 
-    rename_plan plan = {.output = output};
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    rename_plan plan = {.output = output, .progress = progress};
+    photoc_progress_set_message(progress, "Discovering photos...");
+    photoc_progress_start(progress);
     int walk_result =
         recursive ? photoc_fs_walk_recursive(directory, collect_photo, &plan)
                   : photoc_fs_walk(directory, collect_photo, &plan);
     if (walk_result != 0) {
+        photoc_progress_fail(progress, "Failed to scan directory");
         int saved_errno = walk_result == 1 ? plan.error_errno : errno;
         photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
                             saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL
@@ -501,13 +528,22 @@ int photoc_command_rename_with_output(const char *directory, const char *format,
     if (plan.count > 1) {
         qsort(plan.entries, plan.count, sizeof(*plan.entries), compare_source);
     }
+    photoc_progress_set_message(progress, "Reading metadata...");
+    if (progress != NULL && progress->enabled)
+        photoc_progress_set_total(progress, plan.count);
     if (prepare_entries(&plan, format) != 0 ||
         mark_duplicate_destinations(&plan) != 0) {
         int saved_errno = errno;
+        photoc_progress_fail(progress, "Failed to prepare rename plan");
         photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
                             saved_errno == ENOMEM ? PHOTOC_ERR_INTERNAL
                                                   : PHOTOC_ERR_IO,
                             NULL, "unable to prepare plan", saved_errno);
+        free_plan(&plan);
+        return PHOTOC_EXIT_FAILURE;
+    }
+    if (photoc_progress_interrupted()) {
+        photoc_progress_warn(progress, "Interrupted");
         free_plan(&plan);
         return PHOTOC_EXIT_FAILURE;
     }
@@ -531,12 +567,21 @@ int photoc_command_rename_with_output(const char *directory, const char *format,
     int exit_code =
         summary.blocked == 0 ? PHOTOC_EXIT_SUCCESS : PHOTOC_EXIT_FAILURE;
     if (!apply) {
+        photoc_progress_finish(progress, "Prepared rename plan");
         print_plan(&plan, directory, format, true);
     } else if (summary.blocked != 0) {
+        photoc_progress_warn(progress, "Rename preflight blocked");
         print_plan(&plan, directory, format, false);
         fputs("photoc rename: preflight failed; no files changed\n", stderr);
     } else {
+        photoc_progress_set_message(progress, "Renaming...");
+        if (progress != NULL && progress->enabled)
+            photoc_progress_set_total(progress, summary.planned);
         exit_code = apply_plan(&plan, directory, &summary);
+        if (exit_code == PHOTOC_EXIT_SUCCESS)
+            photoc_progress_finish(progress, "Renamed photos");
+        else
+            photoc_progress_fail(progress, "Failed to rename photos");
         if (exit_code == PHOTOC_EXIT_SUCCESS) {
             print_plan(&plan, directory, format, true);
         }

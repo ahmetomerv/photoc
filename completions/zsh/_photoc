@@ -40,6 +40,7 @@ specs=(
     '(-h --help)'{-h,--help}'[Show help]'
     '(-v --verbose -q --quiet)'{-v,--verbose}'[Add diagnostics on stderr]'
     '(-v --verbose -q --quiet)'{-q,--quiet}'[Suppress status and non-critical warnings]'
+    '--no-progress[Disable interactive progress display]'
     '1:command:{_describe command command_descriptions}'
 )
 case $command in

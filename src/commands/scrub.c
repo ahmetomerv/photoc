@@ -25,6 +25,7 @@ typedef struct {
     size_t capacity;
     int error;
     const photoc_output *output; /* Borrowed for the synchronous walk. */
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } scrub_walk;
 
 static bool is_scrubbed_output(const char *path)
@@ -79,6 +80,7 @@ static void report_edit_error(const char *path, photoc_jpeg_edit_result result,
 static void scrub_file(const char *path, bool in_place, int mode,
                        scrub_counts *counts, const photoc_output *output)
 {
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
     if (!photoc_fs_is_jpeg(path)) {
         ++counts->skipped;
         return;
@@ -88,6 +90,7 @@ static void scrub_file(const char *path, bool in_place, int mode,
         char *destination = NULL;
         if (!in_place && scrubbed_path(path, &destination) != 0) {
             ++counts->failed;
+            photoc_progress_before_diagnostic(progress);
             photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
                                 errno == ENOMEM ? PHOTOC_ERR_INTERNAL
                                                 : PHOTOC_ERR_IO,
@@ -129,6 +132,7 @@ static void scrub_file(const char *path, bool in_place, int mode,
             }
         } else {
             ++counts->failed;
+            photoc_progress_before_diagnostic(progress);
             report_edit_error(in_place ? path : destination, result,
                               saved_errno);
         }
@@ -147,6 +151,7 @@ static void scrub_file(const char *path, bool in_place, int mode,
     }
     if (result != PHOTOC_JPEG_EDIT_OK) {
         ++counts->failed;
+        photoc_progress_before_diagnostic(progress);
         report_edit_error(path, result, errno);
         return;
     }
@@ -162,6 +167,7 @@ static void scrub_file(const char *path, bool in_place, int mode,
     char *destination = NULL;
     if (!in_place && scrubbed_path(path, &destination) != 0) {
         ++counts->failed;
+        photoc_progress_before_diagnostic(progress);
         photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
                             errno == ENOMEM ? PHOTOC_ERR_INTERNAL
                                             : PHOTOC_ERR_IO,
@@ -190,6 +196,7 @@ static void scrub_file(const char *path, bool in_place, int mode,
         }
     } else {
         ++counts->failed;
+        photoc_progress_before_diagnostic(progress);
         report_edit_error(in_place ? path : destination, result, saved_errno);
     }
     free(destination);
@@ -199,6 +206,10 @@ static void scrub_file(const char *path, bool in_place, int mode,
 static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
 {
     scrub_walk *walk = user_data;
+    if (photoc_progress_interrupted()) {
+        walk->error = EINTR;
+        return false;
+    }
     if (type == PHOTOC_FS_FILE) {
         if (!photoc_fs_is_jpeg(path) || is_scrubbed_output(path)) {
             ++walk->counts.skipped;
@@ -231,6 +242,7 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
         }
         memcpy(walk->paths[walk->count], path, length + 1);
         ++walk->count;
+        photoc_progress_update(walk->progress, walk->count);
     } else if (type == PHOTOC_FS_OTHER) {
         ++walk->counts.skipped;
     }
@@ -273,13 +285,17 @@ static int command_scrub(const char *path, bool recursive, bool in_place,
     if (type == PHOTOC_FS_FILE) {
         scrub_file(path, in_place, mode, &counts, output);
     } else {
-        scrub_walk walk = {.output = output};
+        photoc_progress *progress = output == NULL ? NULL : output->progress;
+        scrub_walk walk = {.output = output, .progress = progress};
+        photoc_progress_set_message(progress, "Discovering photos...");
+        photoc_progress_start(progress);
         int result = recursive
                          ? photoc_fs_walk_recursive(path, visit_file, &walk)
                          : photoc_fs_walk(path, visit_file, &walk);
         counts = walk.counts;
         discovered = walk.count;
         if (result != 0) {
+            photoc_progress_fail(progress, "Failed to scan directory");
             ++counts.failed;
             photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
                                 walk.error == ENOMEM ? PHOTOC_ERR_INTERNAL
@@ -287,12 +303,33 @@ static int command_scrub(const char *path, bool recursive, bool in_place,
                                 path, "cannot read directory",
                                 walk.error != 0 ? walk.error : errno);
         } else {
+            photoc_progress_set_message(progress, "Scrubbing metadata...");
+            if (progress != NULL && progress->enabled)
+                photoc_progress_set_total(progress, walk.count);
             if (walk.count > 1) {
                 qsort(walk.paths, walk.count, sizeof(*walk.paths),
                       compare_paths);
             }
             for (size_t i = 0; i < walk.count; ++i) {
+                if (photoc_progress_interrupted()) {
+                    ++counts.failed;
+                    break;
+                }
                 scrub_file(walk.paths[i], in_place, mode, &counts, output);
+                photoc_progress_increment(progress);
+            }
+            if (photoc_progress_interrupted() && counts.failed == 0)
+                ++counts.failed;
+            char message[96];
+            if (counts.failed != 0) {
+                snprintf(message, sizeof(message),
+                         "Scrubbed %zu photos; %zu failed", counts.processed,
+                         counts.failed);
+                photoc_progress_warn(progress, message);
+            } else {
+                snprintf(message, sizeof(message), "Scrubbed %zu photos",
+                         counts.processed);
+                photoc_progress_finish(progress, message);
             }
         }
         for (size_t i = 0; i < walk.count; ++i) {

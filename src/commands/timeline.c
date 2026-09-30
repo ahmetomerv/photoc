@@ -1,6 +1,7 @@
 #include "photoc/commands.h"
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
+#include "photoc/format.h"
 #include "photoc/json.h"
 #include "photoc/scan.h"
 #include "photoc/thread_pool.h"
@@ -15,6 +16,7 @@ typedef struct {
     photoc_timeline timeline;
     int error;
     const photoc_output *output; /* Borrowed for synchronous callbacks. */
+    photoc_progress *progress; /* Borrowed; caller thread only. */
 } timeline_context;
 
 static bool collect_photo(const Photo *photo, void *data)
@@ -24,13 +26,15 @@ static bool collect_photo(const Photo *photo, void *data)
         context->error = errno;
         return false;
     }
+    photoc_progress_increment(context->progress);
     return true;
 }
 
 static void metadata_warning(const char *path, photoc_metadata_result reason,
                              int system_errno, void *data)
 {
-    const timeline_context *context = data;
+    timeline_context *context = data;
+    photoc_progress_increment(context->progress);
     photoc_output_metadata_warning(context->output, "timeline", path, reason,
                                    system_errno);
 }
@@ -184,12 +188,27 @@ int photoc_command_timeline_with_output(const char *directory, bool recursive,
                           " minutes; output: %s; worker limit: %u\n",
                           directory, recursive ? "yes" : "no", gap_minutes,
                           json ? "JSON" : "human", PHOTOC_DEFAULT_WORKERS);
-    timeline_context context = {.output = output};
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    timeline_context context = {.output = output, .progress = progress};
     photoc_timeline_init(&context.timeline);
+    size_t total = 0;
+    photoc_progress_set_message(progress, "Discovering photos...");
+    if (photoc_progress_discover(progress, directory, recursive,
+                                 PHOTOC_FORMATS_METADATA, &total) != 0) {
+        photoc_progress_fail(progress, "Failed to scan directory");
+        photoc_timeline_cleanup(&context.timeline);
+        return photoc_error_report("timeline", PHOTOC_ERR_NOTE_NONE,
+                                   PHOTOC_ERR_IO, directory,
+                                   "unable to read directory", errno);
+    }
+    photoc_progress_set_message(progress, "Reading metadata...");
+    if (progress != NULL && progress->enabled)
+        photoc_progress_set_total(progress, total);
     photoc_scan_stats scan = {0};
     int result = photoc_scan_directory(directory, recursive, collect_photo,
                                        metadata_warning, &context, &scan);
     if (result != 0) {
+        photoc_progress_fail(progress, "Failed to scan directory");
         int saved_errno = result == 1 ? context.error : errno;
         photoc_timeline_cleanup(&context.timeline);
         return photoc_error_report(
@@ -200,11 +219,24 @@ int photoc_command_timeline_with_output(const char *directory, bool recursive,
             saved_errno);
     }
     if (photoc_timeline_finish(&context.timeline, gap_minutes) != 0) {
+        photoc_progress_fail(progress, "Failed to build timeline");
         int saved_errno = errno;
         photoc_timeline_cleanup(&context.timeline);
         return photoc_error_report("timeline", PHOTOC_ERR_NOTE_NONE,
                                    PHOTOC_ERR_INTERNAL, directory,
                                    "unable to build timeline", saved_errno);
+    }
+    char message[96];
+    if (scan.errors != 0) {
+        snprintf(message, sizeof(message),
+                 "Analyzed %" PRIu64 " photos; %" PRIu64
+                 " could not be processed",
+                 scan.photos_parsed, scan.errors);
+        photoc_progress_warn(progress, message);
+    } else {
+        snprintf(message, sizeof(message), "Analyzed %" PRIu64 " photos",
+                 scan.photos_parsed);
+        photoc_progress_finish(progress, message);
     }
     photoc_output_verbose(
         output, "timeline",
