@@ -25,7 +25,7 @@ typedef struct {
     size_t skipped;
     int error;
     const photoc_output *output; /* Borrowed during collection. */
-    photoc_progress *progress; /* Borrowed; caller thread only. */
+    photoc_progress *progress;   /* Borrowed; caller thread only. */
 } check_walk;
 
 typedef struct {
@@ -210,7 +210,8 @@ int photoc_command_check_with_output(const char *path, bool recursive,
                           only_errors ? "yes" : "no", json ? "JSON" : "human");
     photoc_progress *progress = output == NULL ? NULL : output->progress;
     check_walk walk = {.output = output,
-                       .progress = type == PHOTOC_FS_DIRECTORY ? progress : NULL};
+                       .progress =
+                           type == PHOTOC_FS_DIRECTORY ? progress : NULL};
     if (type == PHOTOC_FS_DIRECTORY) {
         photoc_progress_set_message(progress, "Discovering photos...");
         photoc_progress_start(progress);
@@ -273,13 +274,11 @@ int photoc_command_check_with_output(const char *path, bool recursive,
     if (directory) {
         char message[96];
         if (summary.errors != 0) {
-            snprintf(message, sizeof(message),
-                     "Checked %zu JPEGs; %zu errors", walk.count,
-                     summary.errors);
+            snprintf(message, sizeof(message), "Checked %zu JPEGs; %zu errors",
+                     walk.count, summary.errors);
             photoc_progress_warn(progress, message);
         } else {
-            snprintf(message, sizeof(message), "Checked %zu JPEGs",
-                     walk.count);
+            snprintf(message, sizeof(message), "Checked %zu JPEGs", walk.count);
             photoc_progress_finish(progress, message);
         }
     }

@@ -96,7 +96,8 @@ fail_mutex:
 int photoc_thread_pool_run(photoc_thread_pool *pool, size_t count,
                            photoc_thread_task_fn task, void *user_data)
 {
-    return photoc_thread_pool_run_poll(pool, count, task, user_data, NULL, NULL);
+    return photoc_thread_pool_run_poll(pool, count, task, user_data, NULL,
+                                       NULL);
 }
 
 int photoc_thread_pool_run_poll(photoc_thread_pool *pool, size_t count,
@@ -148,7 +149,8 @@ int photoc_thread_pool_run_poll(photoc_thread_pool *pool, size_t count,
                         ++deadline.tv_sec;
                         deadline.tv_nsec -= 1000000000L;
                     }
-                    pthread_cond_timedwait(&pool->done, &pool->mutex, &deadline);
+                    pthread_cond_timedwait(&pool->done, &pool->mutex,
+                                           &deadline);
                 }
                 pthread_mutex_unlock(&pool->mutex);
                 poll(poll_data);

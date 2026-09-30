@@ -28,8 +28,8 @@ int main(void)
     assert(photoc_progress_format(buffer, sizeof(buffer), "⠋",
                                   "Discovering photos...", 0, 0, false) > 0);
     assert(strcmp(buffer, "⠋ Discovering photos...") == 0);
-    assert(photoc_progress_format(buffer, sizeof(buffer), "⠸",
-                                  "Analyzing...", 42, 100, true) > 0);
+    assert(photoc_progress_format(buffer, sizeof(buffer), "⠸", "Analyzing...",
+                                  42, 100, true) > 0);
     assert(strcmp(buffer, "⠸ Analyzing... 42 / 100 (42%)") == 0);
     photoc_progress_format(buffer, sizeof(buffer), "⠋", "Work", 0, 100, true);
     assert(strstr(buffer, "(0%)") != NULL);
@@ -39,7 +39,8 @@ int main(void)
     assert(strstr(buffer, "(100%)") != NULL);
     photoc_progress_format(buffer, sizeof(buffer), "⠋", "Work", 0, 0, true);
     assert(strstr(buffer, "(100%)") != NULL);
-    photoc_progress_format(buffer, sizeof(buffer), "⠋", "Work", 1924, 6284, true);
+    photoc_progress_format(buffer, sizeof(buffer), "⠋", "Work", 1924, 6284,
+                           true);
     assert(strstr(buffer, "1,924 / 6,284") != NULL);
     photoc_progress_format_elapsed(buffer, sizeof(buffer), 823);
     assert(strcmp(buffer, "823ms") == 0);
@@ -121,8 +122,8 @@ int main(void)
     photoc_progress_init_test(&progress, file, true, PHOTOC_PROGRESS_NEVER,
                               false, "Work", fake_clock, &now);
     assert(!progress.enabled);
-    photoc_progress_init_test(&progress, file, true, PHOTOC_PROGRESS_AUTO,
-                              true, "Work", fake_clock, &now);
+    photoc_progress_init_test(&progress, file, true, PHOTOC_PROGRESS_AUTO, true,
+                              "Work", fake_clock, &now);
     assert(!progress.enabled);
     fclose(file);
     return 0;

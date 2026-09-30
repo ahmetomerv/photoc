@@ -16,7 +16,7 @@ typedef struct {
     photoc_timeline timeline;
     int error;
     const photoc_output *output; /* Borrowed for synchronous callbacks. */
-    photoc_progress *progress; /* Borrowed; caller thread only. */
+    photoc_progress *progress;   /* Borrowed; caller thread only. */
 } timeline_context;
 
 static bool collect_photo(const Photo *photo, void *data)

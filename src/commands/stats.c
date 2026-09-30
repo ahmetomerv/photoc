@@ -18,7 +18,7 @@ typedef struct {
     photoc_stats_aggregate aggregate;
     int aggregation_errno;
     const photoc_output *output; /* Borrowed during the scan. */
-    photoc_progress *progress; /* Borrowed; caller thread only. */
+    photoc_progress *progress;   /* Borrowed; caller thread only. */
 } stats_context;
 
 static bool collect_photo(const Photo *photo, void *user_data)
@@ -387,9 +387,9 @@ int photoc_command_stats_with_output(const char *directory, bool recursive,
                                  PHOTOC_FORMATS_METADATA, &total) != 0) {
         photoc_progress_fail(context.progress, "Failed to scan directory");
         photoc_stats_cleanup(&context.aggregate);
-        return photoc_error_report("stats", PHOTOC_ERR_NOTE_NONE,
-                                   PHOTOC_ERR_IO, directory,
-                                   "unable to read directory", errno);
+        return photoc_error_report("stats", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
+                                   directory, "unable to read directory",
+                                   errno);
     }
     photoc_progress_set_message(context.progress, "Reading metadata...");
     if (context.progress != NULL && context.progress->enabled)

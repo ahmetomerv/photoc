@@ -45,7 +45,7 @@ typedef struct {
     size_t failed;
     int error;
     const photoc_output *output; /* Borrowed during the scan. */
-    photoc_progress *progress; /* Borrowed; caller thread only. */
+    photoc_progress *progress;   /* Borrowed; caller thread only. */
 } contact_collection;
 
 static const char *filename(const char *path)

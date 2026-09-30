@@ -839,9 +839,10 @@ int photoc_run(int argc, char *argv[])
         return PHOTOC_EXIT_USAGE;
     }
     photoc_progress progress;
-    photoc_progress_init(&progress, options.no_progress ? PHOTOC_PROGRESS_NEVER
-                                                       : PHOTOC_PROGRESS_AUTO,
-                          options.quiet, NULL);
+    photoc_progress_init(&progress,
+                         options.no_progress ? PHOTOC_PROGRESS_NEVER
+                                             : PHOTOC_PROGRESS_AUTO,
+                         options.quiet, NULL);
     const photoc_output output = {.level = options.quiet ? PHOTOC_OUTPUT_QUIET
                                            : options.verbose
                                                ? PHOTOC_OUTPUT_VERBOSE

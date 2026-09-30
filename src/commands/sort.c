@@ -51,7 +51,7 @@ typedef struct {
     size_t skipped;
     size_t arw_count;
     const photoc_output *output; /* Borrowed for the synchronous walk. */
-    photoc_progress *progress; /* Borrowed; caller thread only. */
+    photoc_progress *progress;   /* Borrowed; caller thread only. */
 } sort_plan;
 
 typedef struct {

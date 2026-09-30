@@ -57,7 +57,8 @@ int photoc_duplicates_find_with_workers(const char *directory, bool recursive,
    workers increment an atomic count while hashing. */
 int photoc_duplicates_find_progress(const char *directory, bool recursive,
                                     photoc_duplicates_warning_fn on_warning,
-                                    void *user_data, photoc_duplicates_result *result,
+                                    void *user_data,
+                                    photoc_duplicates_result *result,
                                     photoc_progress *progress);
 
 void photoc_duplicates_cleanup(photoc_duplicates_result *result);

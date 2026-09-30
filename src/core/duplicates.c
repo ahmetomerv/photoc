@@ -165,7 +165,8 @@ static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
         return true;
     }
     ++context->result->files_visited;
-    photoc_progress_update(context->progress, (size_t)context->result->files_visited);
+    photoc_progress_update(context->progress,
+                           (size_t)context->result->files_visited);
     uint64_t size;
     if (photoc_fs_file_size(path, &size) != 0) {
         warn_file(context, path, errno);
@@ -409,9 +410,9 @@ static void hash_poll(void *user_data)
     hash_task_context *tasks = user_data;
     if (photoc_progress_interrupted())
         atomic_store_explicit(&tasks->cancel, true, memory_order_relaxed);
-    photoc_progress_update(tasks->progress,
-                           atomic_load_explicit(&tasks->completed,
-                                                memory_order_relaxed));
+    photoc_progress_update(
+        tasks->progress,
+        atomic_load_explicit(&tasks->completed, memory_order_relaxed));
 }
 
 static void hash_candidates(find_context *context, size_t workers)
@@ -442,13 +443,13 @@ static void hash_candidates(find_context *context, size_t workers)
             if (context->files[i].needs_hash)
                 jobs[next++] = &context->files[i];
         }
-        hash_task_context tasks = {.files = jobs, .progress = context->progress};
+        hash_task_context tasks = {.files = jobs,
+                                   .progress = context->progress};
         atomic_init(&tasks.completed, 0);
         atomic_init(&tasks.cancel, false);
-        if (photoc_thread_pool_run_poll(pool, count, hash_task, &tasks,
-                                        context->progress == NULL ? NULL
-                                                                  : hash_poll,
-                                        &tasks) != 0) {
+        if (photoc_thread_pool_run_poll(
+                pool, count, hash_task, &tasks,
+                context->progress == NULL ? NULL : hash_poll, &tasks) != 0) {
             for (size_t i = 0; i < count && !photoc_progress_interrupted(); ++i)
                 hash_one(jobs[i]);
         }
@@ -579,8 +580,7 @@ static int assemble_groups(find_context *context)
 static int find_with_progress(const char *directory, bool recursive,
                               size_t workers,
                               photoc_duplicates_warning_fn on_warning,
-                              void *user_data,
-                              photoc_duplicates_result *result,
+                              void *user_data, photoc_duplicates_result *result,
                               photoc_progress *progress)
 {
     if (result == NULL || directory == NULL || directory[0] == '\0' ||
@@ -589,9 +589,10 @@ static int find_with_progress(const char *directory, bool recursive,
         return -1;
     }
     *result = (photoc_duplicates_result){0};
-    find_context context = {
-        .result = result, .on_warning = on_warning, .user_data = user_data,
-        .progress = progress};
+    find_context context = {.result = result,
+                            .on_warning = on_warning,
+                            .user_data = user_data,
+                            .progress = progress};
     photoc_progress_set_message(progress, "Discovering files...");
     photoc_progress_start(progress);
     int walk_result =
@@ -599,7 +600,8 @@ static int find_with_progress(const char *directory, bool recursive,
                   : photoc_fs_walk(directory, collect_file, &context);
     int saved_errno = walk_result == 1 ? context.error : errno;
     if (walk_result == 0) {
-        photoc_progress_set_message(progress, "Grouping duplicate candidates...");
+        photoc_progress_set_message(progress,
+                                    "Grouping duplicate candidates...");
         if (context.count > 1) {
             qsort(context.files, context.count, sizeof(*context.files),
                   compare_size);
@@ -637,7 +639,8 @@ int photoc_duplicates_find_with_workers(const char *directory, bool recursive,
 
 int photoc_duplicates_find_progress(const char *directory, bool recursive,
                                     photoc_duplicates_warning_fn on_warning,
-                                    void *user_data, photoc_duplicates_result *result,
+                                    void *user_data,
+                                    photoc_duplicates_result *result,
                                     photoc_progress *progress)
 {
     return find_with_progress(directory, recursive, 0, on_warning, user_data,

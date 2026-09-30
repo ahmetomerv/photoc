@@ -95,9 +95,10 @@ int photoc_progress_format(char *buffer, size_t size, const char *frame,
     char sum[sizeof(size_t) * 4];
     grouped(current, count, sizeof(count));
     grouped(total, sum, sizeof(sum));
-    size_t percentage = total == 0 ? 100 :
-                        current >= total ? 100 :
-                        (size_t)((double)current * 100.0 / (double)total);
+    size_t percentage = total == 0 ? 100
+                        : current >= total
+                            ? 100
+                            : (size_t)((double)current * 100.0 / (double)total);
     return snprintf(buffer, size, "%s %s %s / %s (%zu%%)", frame, message,
                     count, sum, percentage);
 }
@@ -108,8 +109,8 @@ int photoc_progress_format_elapsed(char *buffer, size_t size, uint64_t ms)
         return snprintf(buffer, size, "%" PRIu64 "ms", ms);
     if (ms < 60000)
         return snprintf(buffer, size, "%.1fs", (double)ms / 1000.0);
-    return snprintf(buffer, size, "%" PRIu64 "m %" PRIu64 "s",
-                    ms / 60000, ms / 1000 % 60);
+    return snprintf(buffer, size, "%" PRIu64 "m %" PRIu64 "s", ms / 60000,
+                    ms / 1000 % 60);
 }
 
 void photoc_progress_init_test(photoc_progress *progress, FILE *stream,
@@ -149,18 +150,17 @@ static void render(photoc_progress *progress)
     int saved_errno = errno;
     uint64_t now = progress->clock(progress->clock_data);
     if (now - progress->started_ms < PROGRESS_DELAY_MS ||
-        (progress->visible && now - progress->last_render_ms <
-                                  PROGRESS_RENDER_MS)) {
+        (progress->visible &&
+         now - progress->last_render_ms < PROGRESS_RENDER_MS)) {
         errno = saved_errno;
         return;
     }
     char line[512];
-    photoc_progress_format(line, sizeof(line),
-                           frames[progress->frame % (sizeof(frames) /
-                                                      sizeof(frames[0]))],
-                           progress->message == NULL ? "Working..." : progress->message,
-                           progress->current, progress->total,
-                           progress->has_total);
+    photoc_progress_format(
+        line, sizeof(line),
+        frames[progress->frame % (sizeof(frames) / sizeof(frames[0]))],
+        progress->message == NULL ? "Working..." : progress->message,
+        progress->current, progress->total, progress->has_total);
     fputs(clear_line, progress->stream);
     fputs(line, progress->stream);
     fflush(progress->stream);
@@ -273,7 +273,8 @@ typedef struct {
     size_t count;
 } discover_context;
 
-static bool discover_file(const char *path, photoc_fs_type type, void *user_data)
+static bool discover_file(const char *path, photoc_fs_type type,
+                          void *user_data)
 {
     if (photoc_progress_interrupted()) {
         errno = EINTR;
@@ -304,10 +305,9 @@ int photoc_progress_discover(photoc_progress *progress, const char *directory,
     }
     photoc_progress_start(progress);
     discover_context context = {.progress = progress, .formats = formats};
-    int result = recursive
-                     ? photoc_fs_walk_recursive(directory, discover_file,
-                                                &context)
-                     : photoc_fs_walk(directory, discover_file, &context);
+    int result =
+        recursive ? photoc_fs_walk_recursive(directory, discover_file, &context)
+                  : photoc_fs_walk(directory, discover_file, &context);
     if (result != 0) {
         if (photoc_progress_interrupted())
             errno = EINTR;

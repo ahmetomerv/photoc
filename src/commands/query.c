@@ -221,7 +221,8 @@ int photoc_command_query_with_output(const char *path,
                                    : "line paths");
     photoc_progress *progress = output == NULL ? NULL : output->progress;
     query_scan scan = {.query = query,
-                       .progress = type == PHOTOC_FS_DIRECTORY ? progress : NULL};
+                       .progress =
+                           type == PHOTOC_FS_DIRECTORY ? progress : NULL};
     if (type == PHOTOC_FS_DIRECTORY) {
         size_t total = 0;
         photoc_progress_set_message(progress, "Discovering photos...");

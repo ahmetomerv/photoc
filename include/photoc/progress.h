@@ -14,7 +14,7 @@ typedef enum {
 typedef uint64_t (*photoc_progress_clock_fn)(void *user_data);
 
 typedef struct {
-    FILE *stream; /* Borrowed; stderr in the CLI. */
+    FILE *stream;        /* Borrowed; stderr in the CLI. */
     const char *message; /* Borrowed until changed or finished. */
     photoc_progress_clock_fn clock;
     void *clock_data;
@@ -38,9 +38,11 @@ void photoc_progress_init(photoc_progress *progress, photoc_progress_mode mode,
 void photoc_progress_init_test(photoc_progress *progress, FILE *stream,
                                bool is_tty, photoc_progress_mode mode,
                                bool quiet, const char *message,
-                               photoc_progress_clock_fn clock, void *clock_data);
+                               photoc_progress_clock_fn clock,
+                               void *clock_data);
 void photoc_progress_start(photoc_progress *progress);
-void photoc_progress_set_message(photoc_progress *progress, const char *message);
+void photoc_progress_set_message(photoc_progress *progress,
+                                 const char *message);
 void photoc_progress_set_total(photoc_progress *progress, size_t total);
 void photoc_progress_update(photoc_progress *progress, size_t current);
 void photoc_progress_increment(photoc_progress *progress);

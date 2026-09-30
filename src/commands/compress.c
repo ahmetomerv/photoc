@@ -24,7 +24,7 @@ typedef struct {
     const char *output_dir;
     const char *input_dir;
     const photoc_output *output; /* Borrowed for the synchronous walk. */
-    photoc_progress *progress; /* Borrowed; caller thread only. */
+    photoc_progress *progress;   /* Borrowed; caller thread only. */
 } compress_walk;
 
 typedef struct {
@@ -405,9 +405,8 @@ int photoc_command_compress_with_output(const char *path,
         photoc_quality_choice choice = {0};
         photoc_output_verbose(output, "compress", "input: '%s'; output: '%s'\n",
                               path, destination);
-        int result =
-            compress_file(path, destination, options, &before, &after, &choice,
-                          NULL);
+        int result = compress_file(path, destination, options, &before, &after,
+                                   &choice, NULL);
         if (result == 0) {
             photoc_output_info(output, "Output: %s\nQuality: %d\n", destination,
                                choice.quality);
@@ -454,8 +453,10 @@ int photoc_command_compress_with_output(const char *path,
     }
 
     photoc_progress *progress = output == NULL ? NULL : output->progress;
-    compress_walk walk = {.output_dir = output_dir, .input_dir = path,
-                          .output = output, .progress = progress};
+    compress_walk walk = {.output_dir = output_dir,
+                          .input_dir = path,
+                          .output = output,
+                          .progress = progress};
     photoc_progress_set_message(progress, "Discovering photos...");
     photoc_progress_start(progress);
     int walk_result = recursive

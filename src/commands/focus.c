@@ -27,7 +27,7 @@ typedef struct {
     size_t skipped;
     int error;
     const photoc_output *output; /* Borrowed during traversal. */
-    photoc_progress *progress; /* Borrowed; caller thread only. */
+    photoc_progress *progress;   /* Borrowed; caller thread only. */
 } focus_walk;
 
 typedef struct {
@@ -278,7 +278,8 @@ int photoc_command_focus_with_output(const char *path, bool recursive,
                           only_blurry ? "yes" : "no", json ? "JSON" : "human");
     photoc_progress *progress = output == NULL ? NULL : output->progress;
     focus_walk walk = {.output = output,
-                       .progress = type == PHOTOC_FS_DIRECTORY ? progress : NULL};
+                       .progress =
+                           type == PHOTOC_FS_DIRECTORY ? progress : NULL};
     if (type == PHOTOC_FS_DIRECTORY) {
         size_t total = 0;
         photoc_progress_set_message(progress, "Discovering photos...");

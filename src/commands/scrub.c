@@ -25,7 +25,7 @@ typedef struct {
     size_t capacity;
     int error;
     const photoc_output *output; /* Borrowed for the synchronous walk. */
-    photoc_progress *progress; /* Borrowed; caller thread only. */
+    photoc_progress *progress;   /* Borrowed; caller thread only. */
 } scrub_walk;
 
 static bool is_scrubbed_output(const char *path)
