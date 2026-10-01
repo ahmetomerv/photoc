@@ -1,66 +1,56 @@
-# photoc 0.3.0
+# photoc 0.4.0
 
-This release adds JPEG integrity and metadata search, Sony ARW metadata support,
-shooting timelines, expanded statistics, privacy metadata removal, and JPEG
-contact sheets. Existing `scrub --gps` behavior remains available.
+This release makes long-running photo operations easier to follow in an
+interactive terminal. It adds a shared progress display and the global
+`--no-progress` option. Existing command results, JSON output, and file-safety
+behavior are unchanged.
 
-## Changes since 0.2.0
+## Changes since 0.3.0
 
-- `check` audits JPEG marker structure, decodes every scanline, and reports
-  EXIF and decoder warnings. It is read only and supports human or JSON output.
-- `query` searches JPEG metadata with camera, exposure, capture-date, and GPS
-  filters. It emits paths, NUL-separated paths, or JSON for scripts.
-- `exif`, `stats`, `timeline`, `rename`, and `sort` now read common metadata from
-  Sony ARW files. RAW pixels are never developed or rewritten. Other RAW
-  formats remain unsupported.
-- `stats` adds file-size, exposure, dimension, calendar, and session summaries.
-  Existing JSON fields remain; new fields are additive.
-- `timeline` groups JPEG and ARW photos by recorded date and capture-time
-  session, with configurable gaps and JSON output.
-- `scrub --privacy` selectively removes supported EXIF identifiers and GPS,
-  standard XMP location and personal fields, and supported IPTC location
-  fields. `scrub --all-metadata` removes descriptive metadata while retaining
-  ICC profiles and EXIF orientation. The three scrub modes are exclusive.
-- `contact` generates paged JPEG contact sheets with filenames and optional
-  exposure lines. Thumbnails keep aspect ratio and apply EXIF orientation.
-  The built-in text font needs no platform GUI or extra font package.
+- Directory scans show a spinner during discovery. When the number of photos
+  or files is known, processing shows a count and percentage. Duplicate
+  detection also distinguishes discovery, candidate grouping, and hashing.
+- Progress is available in directory operations for `stats`, `duplicates`,
+  `focus`, `compress`, `scrub`, `rename`, `sort`, `query`, `check`, `timeline`,
+  and `contact`. Rename and sort show progress during planning and `--apply`.
+  Single-file `exif` remains immediate and does not show progress.
+- Progress is written to stderr; requested results and JSON stay on stdout.
+  Animation starts only when stderr is a terminal and the operation lasts at
+  least about 200 ms. Redirected stderr, `--quiet`, and `--no-progress` disable
+  the display. JSON alone does not disable it.
+- Progress redraws are throttled, completion can show elapsed time, and
+  interruption leaves the terminal line clean. Worker threads report counts
+  to the caller thread, which alone renders progress.
+- The README now uses a banner image, and the installer no longer prints a
+  fish-specific PATH suggestion.
 
-See the [command guides](https://github.com/ahmetomerv/photoc/tree/v0.3.0/docs)
-for exact options, output contracts, and limits.
+There are no intentional command removals, JSON schema changes, or new runtime
+dependencies. The global `--no-progress` option works before or after the
+command. See the [command guides](https://github.com/ahmetomerv/photoc/tree/v0.4.0/docs)
+for exact options and output contracts.
 
 ## File safety and limits
 
-`check`, `query`, `stats`, and `timeline` do not modify photos. `rename` and
-`sort` still preview changes unless `--apply` is supplied. `scrub` writes new
-copies by default; `--in-place` atomically replaces originals without making
-a backup. Contact sheets never overwrite an existing output. If a later page
-fails, earlier completed sheets remain. Directory scrub operations are also
-not transactional across photos.
+Read-only commands remain read only. `rename` and `sort` still preview changes
+unless `--apply` is supplied; progress does not change their preflight or
+rollback behavior. `scrub` writes new copies by default, while `--in-place`
+atomically replaces originals without a backup. Directory scrub operations
+are not transactional across photos. Contact sheets do not overwrite an
+existing output. See the command guides for the existing metadata, JPEG,
+privacy, and color-management limits.
 
-Privacy mode does **not** parse or guarantee sanitization of MakerNotes.
-Sensitive fields may remain in MakerNotes, unsupported proprietary markers,
-filenames, sidecars, or visible image content. Unsupported or malformed XMP
-layouts can cause scrub to fail rather than publish a partial edit. Review
-outputs before sharing. `--all-metadata` retains ICC and orientation, but
-contact sheets copy neither source metadata nor ICC and do not perform color
-profile conversion. They are for review, not color-managed proofs.
-
-`check` reports detected readability problems; an OK result is not a backup or
-a full metadata/security audit. Contact scans are limited to 1,000 JPEGs,
-64 MiB per source file, 24 tiles per page, and a 64 MiB RGB canvas. Large
-shoots are paged with `-001`, `-002`, and subsequent filename suffixes.
-
-The CLI remains in the `0.x` series; review each release's notes when
-upgrading. There are no intentional removals of existing commands or flags
-in this release.
+The progress display advances at file or work-unit boundaries. A single
+long-running synchronous file operation may leave its current spinner frame
+visible until that operation returns. Progress is informational and does not
+guarantee that every file can be processed.
 
 ## Upgrading
 
 Installed copies do not update automatically. Follow the
-[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.3.0/docs/installation.md#upgrading)
+[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.4.0/docs/installation.md#upgrading)
 to replace an owned release installation. Source installations should be
 rebuilt and reinstalled from the new tag. Verify with `photoc --version`,
-which should print `photoc 0.3.0`.
+which should print `photoc 0.4.0`.
 
 ## Downloads and requirements
 
@@ -84,5 +74,5 @@ platform's archive and executable. Verify downloaded files with
 `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
 `sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that directory.
 
-See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.3.0/docs/installation.md)
+See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.4.0/docs/installation.md)
 for the checksum-verified release installer and safe uninstall flow.
