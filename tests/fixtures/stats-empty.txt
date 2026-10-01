@@ -2,7 +2,7 @@ Photo statistics
   Directory: @DIRECTORY@
   Scan: flat
   Total photos: 0
-  Total storage used: 0 bytes
+  Total storage used: 0 B
   Average file size: Unavailable
   Earliest capture: Unavailable
   Latest capture: Unavailable

@@ -53,9 +53,11 @@ photoc stats ./photos --json | jq '.distributions.shutter_speeds_seconds'
 
 ## Output and interpretation
 
-The terminal report includes total parsed photos, total storage in bytes,
+The terminal report includes total parsed photos, human-readable total storage,
 average/median file size, earliest/latest capture times, most-used values, scan
 counters, and distributions.
+Sizes use decimal B, KB, MB, GB, TB, PB, or EB with one decimal place above B.
+JSON size fields remain exact numeric byte values.
 
 Distribution rows are ordered by descending frequency. Camera-model ties use
 case-sensitive lexical order; numeric ties use ascending numeric value. The
@@ -75,8 +77,8 @@ is applied.
 
 ## Added statistics and definitions
 
-The original human report and four distribution sections remain unchanged;
-new sections are appended. JSON keeps every existing field name, meaning,
+The four distribution sections retain their structure; additional statistics
+follow them. JSON keeps every existing field name, meaning,
 and type, and adds fields below. `--by` is not added: the command emits a
 single complete report; JSON consumers can select views with `jq`. Clients
 should allow additional fields when consuming future reports.

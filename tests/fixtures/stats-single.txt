@@ -2,8 +2,8 @@ Photo statistics
   Directory: @DIRECTORY@
   Scan: flat
   Total photos: 1
-  Total storage used: @TOTAL_SIZE@ bytes
-  Average file size: @TOTAL_SIZE@.0 bytes
+  Total storage used: @TOTAL_SIZE@
+  Average file size: @TOTAL_SIZE@
   Earliest capture: 2026:09:27 12:34:56
   Latest capture: 2026:09:27 12:34:56
   Most-used camera: Model Z (1)

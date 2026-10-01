@@ -1,6 +1,7 @@
 if(NOT DEFINED PHOTOC OR NOT DEFINED FIXTURE_DIR OR NOT DEFINED CASE)
     message(FATAL_ERROR "PHOTOC, FIXTURE_DIR, and CASE are required")
 endif()
+include("${CMAKE_CURRENT_LIST_DIR}/format_size.cmake")
 
 set(root "${CMAKE_CURRENT_BINARY_DIR}/compress-target-${CASE}")
 file(REMOVE_RECURSE "${root}")
@@ -133,7 +134,8 @@ if(expect_output)
         message(FATAL_ERROR "Expected output: ${output}")
     endif()
     file(SIZE "${output}" actual_size)
-    if(NOT stdout MATCHES "Compressed size: ${actual_size} bytes" OR
+    format_size("${actual_size}" actual_display)
+    if(NOT stdout MATCHES "Compressed size: ${actual_display}" OR
        NOT stdout MATCHES "Quality: ([0-9]+)")
         message(FATAL_ERROR "Missing achieved size or quality: ${stdout}")
     endif()

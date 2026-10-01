@@ -61,7 +61,7 @@ An illustrative session in the human report:
 09:12:00 - 09:47:00
   34 photos
   Duration: 2100 seconds
-  Total file size: 102000000 bytes
+  Total file size: 102.0 MB
   Most-used focal length: 9 mm
   Most-used aperture: f/5.6
   ISO range: 100 - 400

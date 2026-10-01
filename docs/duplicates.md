@@ -51,6 +51,8 @@ photoc duplicates ./photos --json | jq '.groups[].paths'
 The terminal report lists each group, its file size, and all member paths,
 then shows group count, duplicate-file count, potential storage savings, and
 files scanned/hashed/skipped. No groups produces `No duplicates found.`
+Displayed sizes use decimal B, KB, MB, GB, TB, PB, or EB; JSON retains
+exact numeric byte values.
 
 - **Duplicate files** counts every member of groups with at least two paths,
   including the copy that could be retained. A group of three counts as three.

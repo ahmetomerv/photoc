@@ -4,6 +4,7 @@
 #include "photoc/format.h"
 #include "photoc/json.h"
 #include "photoc/scan.h"
+#include "photoc/size.h"
 #include "photoc/thread_pool.h"
 #include "photoc/timeline.h"
 
@@ -144,10 +145,12 @@ static void write_human(const char *directory, uint32_t gap,
         if (i == 0 ||
             strcmp(session->date, timeline->sessions[i - 1].date) != 0)
             printf("%s\n\n", session->date);
+        char size[PHOTOC_SIZE_TEXT_CAPACITY];
+        photoc_size_format((double)stats->total_file_size, size);
         printf("%s - %s\n  %" PRIu64 " photos\n  Duration: %" PRIu64
-               " seconds\n  Total file size: %" PRIu64 " bytes\n",
+               " seconds\n  Total file size: %s\n",
                session->start + 11, session->end + 11, stats->total_photos,
-               session->duration_seconds, stats->total_file_size);
+               session->duration_seconds, size);
         if (stats->focal_lengths.count != 0)
             printf("  Most-used focal length: %s mm\n",
                    stats->focal_lengths.items[0].value);

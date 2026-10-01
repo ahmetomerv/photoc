@@ -1,6 +1,7 @@
 if(NOT DEFINED PHOTOC OR NOT DEFINED FIXTURE_DIR OR NOT DEFINED CASE)
     message(FATAL_ERROR "PHOTOC, FIXTURE_DIR, and CASE are required")
 endif()
+include("${CMAKE_CURRENT_LIST_DIR}/format_size.cmake")
 
 set(root "${CMAKE_CURRENT_BINARY_DIR}/compress-cli-${CASE}")
 file(REMOVE_RECURSE "${root}")
@@ -170,11 +171,20 @@ if(expect_output)
     endif()
     file(SIZE "${output}" compressed_size)
     math(EXPR saved "${original_size} - ${compressed_size}")
+    format_size("${original_size}" original_display)
+    format_size("${compressed_size}" compressed_display)
+    if(saved LESS 0)
+        math(EXPR saved_abs "0 - ${saved}")
+        format_size("${saved_abs}" saved_display)
+        set(saved_display "-${saved_display}")
+    else()
+        format_size("${saved}" saved_display)
+    endif()
     if(NOT stdout MATCHES "Output: ${output}" OR
        NOT stdout MATCHES "Quality: ${expected_quality}" OR
-       NOT stdout MATCHES "Original size: ${original_size} bytes" OR
-       NOT stdout MATCHES "Compressed size: ${compressed_size} bytes" OR
-       NOT stdout MATCHES "Bytes saved: ${saved} bytes" OR
+       NOT stdout MATCHES "Original size: ${original_display}" OR
+       NOT stdout MATCHES "Compressed size: ${compressed_display}" OR
+       NOT stdout MATCHES "Bytes saved: ${saved_display}" OR
        NOT stdout MATCHES "Percentage saved: -?[0-9]+\\.[0-9][0-9]%")
         message(FATAL_ERROR "Incorrect compression report: ${stdout}")
     endif()

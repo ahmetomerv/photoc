@@ -101,6 +101,7 @@ add_library(photoc_core STATIC
     src/core/query.c
     src/core/quality_search.c
     src/core/scan.c
+    src/core/size.c
     src/core/session.c
     src/core/sharpness.c
     src/core/stats.c
@@ -455,6 +456,10 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_output)
     target_link_libraries(test_output PRIVATE photoc_core)
     add_test(NAME output_policy COMMAND test_output)
+    add_executable(test_size tests/test_size.c)
+    photoc_configure_c_target(test_size)
+    target_link_libraries(test_size PRIVATE photoc_core)
+    add_test(NAME size_format COMMAND test_size)
     add_executable(test_progress tests/test_progress.c)
     photoc_configure_c_target(test_progress)
     target_link_libraries(test_progress PRIVATE photoc_core)
@@ -668,7 +673,7 @@ if(BUILD_TESTING)
         )
     endforeach()
 
-    foreach(case IN ITEMS with_exif with_gps no_exif invalid unsupported missing
+    foreach(case IN ITEMS with_exif with_gps no_exif large_size invalid unsupported missing
                           directory no_argument extra_argument unknown_option)
         add_test(
             NAME "exif_${case}"

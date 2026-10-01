@@ -1,7 +1,7 @@
 File
   Name: with_exif.jpg
   Path: @FILE_PATH@
-  Size: @FILE_SIZE@ bytes
+  Size: @FILE_SIZE@
 
 Image
   Dimensions: 3 x 2 pixels

@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 if(NOT DEFINED PHOTOC OR NOT DEFINED FIXTURE_DIR OR NOT DEFINED CASE)
     message(FATAL_ERROR "PHOTOC, FIXTURE_DIR, and CASE are required")
 endif()
+include("${CMAKE_CURRENT_LIST_DIR}/format_size.cmake")
 
 set(root "${CMAKE_CURRENT_BINARY_DIR}/compress-directory-${CASE}")
 file(REMOVE_RECURSE "${root}")
@@ -107,13 +108,22 @@ foreach(name IN LISTS names)
     endif()
 endforeach()
 math(EXPR savings "${expected_before} - ${expected_after}")
+format_size("${expected_before}" before_display)
+format_size("${expected_after}" after_display)
+if(savings LESS 0)
+    math(EXPR savings_abs "0 - ${savings}")
+    format_size("${savings_abs}" savings_display)
+    set(savings_display "-${savings_display}")
+else()
+    format_size("${savings}" savings_display)
+endif()
 foreach(line IN ITEMS
         "Files processed: ${expected_processed}"
         "Files skipped: ${expected_skipped}"
         "Files failed: ${expected_failed}"
-        "Bytes before: ${expected_before}"
-        "Bytes after: ${expected_after}"
-        "Total savings: ${savings} bytes")
+        "Bytes before: ${before_display}"
+        "Bytes after: ${after_display}"
+        "Total savings: ${savings_display}")
     string(FIND "${stdout}" "${line}" found)
     if(found EQUAL -1)
         message(FATAL_ERROR "Missing summary '${line}'\n${stdout}")
@@ -138,8 +148,8 @@ if(CASE STREQUAL "output_dir" OR CASE STREQUAL "output_dir_external")
     if(NOT repeat_exit EQUAL 0 OR NOT repeat_stderr STREQUAL "" OR
        NOT repeat_stdout MATCHES "Files processed: 0" OR
        NOT repeat_stdout MATCHES "Files skipped: 4" OR
-       NOT repeat_stdout MATCHES "Bytes before: 0" OR
-       NOT repeat_stdout MATCHES "Bytes after: 0")
+       NOT repeat_stdout MATCHES "Bytes before: 0 B" OR
+       NOT repeat_stdout MATCHES "Bytes after: 0 B")
         message(FATAL_ERROR "Repeat run should skip existing outputs: ${repeat_stdout}\n${repeat_stderr}")
     endif()
 endif()

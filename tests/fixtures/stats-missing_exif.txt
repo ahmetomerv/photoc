@@ -2,8 +2,8 @@ Photo statistics
   Directory: @DIRECTORY@
   Scan: flat
   Total photos: 1
-  Total storage used: @TOTAL_SIZE@ bytes
-  Average file size: @TOTAL_SIZE@.0 bytes
+  Total storage used: @TOTAL_SIZE@
+  Average file size: @TOTAL_SIZE@
   Earliest capture: Unavailable
   Latest capture: Unavailable
   Most-used camera: Unavailable

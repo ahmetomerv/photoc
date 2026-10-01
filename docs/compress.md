@@ -75,6 +75,8 @@ For a single file with an output directory, only its filename is carried over.
 Single-file output shows the destination, chosen quality, original and output
 sizes, bytes saved, and percentage saved. Target mode also shows the target
 size and whether it was met. Savings can be negative.
+Displayed sizes use decimal B, KB, MB, GB, TB, PB, or EB, with one decimal
+place above B.
 
 Directory output lists processed files and existing-output skips in source-path
 order, then reports processed, skipped, and failed counts, bytes before/after,

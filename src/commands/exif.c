@@ -5,6 +5,7 @@
 #include "photoc/fs.h"
 #include "photoc/json.h"
 #include "photoc/photo.h"
+#include "photoc/size.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -20,10 +21,12 @@ static const char *available(const char *value)
 
 static void print_human(const Photo *photo, const char *name)
 {
+    char size[PHOTOC_SIZE_TEXT_CAPACITY];
+    photoc_size_format((double)photo->file_size, size);
     puts("File");
     printf("  Name: %s\n", name);
     printf("  Path: %s\n", photo->path);
-    printf("  Size: %" PRIu64 " bytes\n", photo->file_size);
+    printf("  Size: %s\n", size);
     puts("");
 
     puts("Image");

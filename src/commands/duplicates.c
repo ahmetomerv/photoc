@@ -4,6 +4,7 @@
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
 #include "photoc/json.h"
+#include "photoc/size.h"
 #include "photoc/thread_pool.h"
 
 #include <errno.h>
@@ -32,16 +33,19 @@ static void print_human(const char *directory, bool recursive,
     }
     for (size_t i = 0; i < result->group_count; ++i) {
         const photoc_duplicate_group *group = &result->groups[i];
-        printf("\nGroup %zu (%" PRIu64 " bytes each, %zu files)\n", i + 1,
-               group->file_size, group->count);
+        char size[PHOTOC_SIZE_TEXT_CAPACITY];
+        photoc_size_format((double)group->file_size, size);
+        printf("\nGroup %zu (%s each, %zu files)\n", i + 1, size,
+               group->count);
         for (size_t j = 0; j < group->count; ++j) {
             printf("  %s\n", group->paths[j]);
         }
     }
     printf("\nTotal duplicate groups: %zu\n", result->group_count);
     printf("Total duplicate files: %" PRIu64 "\n", result->duplicate_files);
-    printf("Potential storage savings: %" PRIu64 " bytes\n",
-           result->potential_savings);
+    char savings[PHOTOC_SIZE_TEXT_CAPACITY];
+    photoc_size_format((double)result->potential_savings, savings);
+    printf("Potential storage savings: %s\n", savings);
     photoc_output_info(output,
                        "Files scanned: %" PRIu64 ", hashed: %" PRIu64
                        ", skipped: %" PRIu64 "\n",

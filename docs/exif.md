@@ -52,6 +52,8 @@ The path in output is the supplied path, not an automatically resolved
 absolute path. Dimensions are stored width and height, without applying
 EXIF orientation. ARW dimensions may include sensor margins; preview dimensions
 are never substituted.
+The human-readable file size uses decimal B, KB, MB, GB, TB, PB, or EB;
+`--json` keeps the exact numeric `size_bytes` value.
 
 ## Edge cases
 

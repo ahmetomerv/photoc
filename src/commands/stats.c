@@ -8,6 +8,7 @@
 #include "photoc/stats.h"
 #include "photoc/thread_pool.h"
 #include "photoc/session.h"
+#include "photoc/size.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -278,11 +279,13 @@ static void print_human(const char *directory, bool recursive,
     photoc_output_info(output, "  Scan: %s\n",
                        recursive ? "recursive" : "flat");
     printf("  Total photos: %" PRIu64 "\n", aggregate->total_photos);
-    printf("  Total storage used: %" PRIu64 " bytes\n",
-           aggregate->total_file_size);
+    char size[PHOTOC_SIZE_TEXT_CAPACITY];
+    photoc_size_format((double)aggregate->total_file_size, size);
+    printf("  Total storage used: %s\n", size);
     double average;
     if (photoc_stats_average_file_size(aggregate, &average)) {
-        printf("  Average file size: %.1f bytes\n", average);
+        photoc_size_format(average, size);
+        printf("  Average file size: %s\n", size);
     } else {
         puts("  Average file size: Unavailable");
     }
@@ -324,8 +327,10 @@ static void print_human(const char *directory, bool recursive,
                  aggregate->total_photos);
     puts("\nAdditional statistics");
     double median;
-    if (photoc_stats_median_file_size(aggregate, &median))
-        printf("  Median file size: %.1f bytes\n", median);
+    if (photoc_stats_median_file_size(aggregate, &median)) {
+        photoc_size_format(median, size);
+        printf("  Median file size: %s\n", size);
+    }
     else
         puts("  Median file size: Unavailable");
     printf("  Shooting sessions (gap > %u minutes): %" PRIu64 "\n",
