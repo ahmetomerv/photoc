@@ -35,8 +35,7 @@ static void print_human(const char *directory, bool recursive,
         const photoc_duplicate_group *group = &result->groups[i];
         char size[PHOTOC_SIZE_TEXT_CAPACITY];
         photoc_size_format((double)group->file_size, size);
-        printf("\nGroup %zu (%s each, %zu files)\n", i + 1, size,
-               group->count);
+        printf("\nGroup %zu (%s each, %zu files)\n", i + 1, size, group->count);
         for (size_t j = 0; j < group->count; ++j) {
             printf("  %s\n", group->paths[j]);
         }

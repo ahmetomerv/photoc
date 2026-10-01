@@ -330,8 +330,7 @@ static void print_human(const char *directory, bool recursive,
     if (photoc_stats_median_file_size(aggregate, &median)) {
         photoc_size_format(median, size);
         printf("  Median file size: %s\n", size);
-    }
-    else
+    } else
         puts("  Median file size: Unavailable");
     printf("  Shooting sessions (gap > %u minutes): %" PRIu64 "\n",
            PHOTOC_SESSION_DEFAULT_GAP_MINUTES, aggregate->session_count);

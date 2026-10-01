@@ -518,8 +518,7 @@ int photoc_command_compress_with_output(const char *path,
                 after_total += after;
                 photoc_size_format((double)after, size);
                 photoc_output_info(
-                    output,
-                    "Compressed: %s -> %s (quality %d, %s)\n",
+                    output, "Compressed: %s -> %s (quality %d, %s)\n",
                     walk.paths[i], destination, choice.quality, size);
                 if (!choice.target_met) {
                     ++targets_not_met;
