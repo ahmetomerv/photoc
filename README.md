@@ -20,41 +20,7 @@ photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
 files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported
 yet. See [File-type support](#file-type-support).
 
-```console
-$ photoc timeline ./shoot
-Shooting timeline: ./shoot
-Session gap: 60 minutes; recorded EXIF times (timezone unspecified)
-
-2026-09-27
-
-10:00:00 - 10:30:00
-  2 photos
-  Duration: 1800 seconds
-  Total file size: 1104 bytes
-  Most-used focal length: 35 mm
-  Most-used aperture: f/4
-  ISO range: 100 - 100
-  Camera models:
-    Model S: 2
-
-12:00:00 - 12:34:56
-  3 photos
-  Duration: 2096 seconds
-  Total file size: 1772 bytes
-  Most-used focal length: 50 mm
-  Most-used aperture: f/2.8
-  ISO range: 100 - 200
-  Camera models:
-    Model Z: 2
-    Model S: 1
-
-Photos included: 5
-Dates: 1
-Sessions: 2
-...
-```
-
-*Output from the small test images in [`tests/fixtures`](tests/fixtures/README.md).*
+![photoc exif showing camera, exposure, and capture date for a Sony RX100 VII photo](.github/assets/demo.gif)
 
 ## Your originals are safe by default
 
