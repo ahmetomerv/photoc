@@ -1,6 +1,6 @@
 # photoc query
 
-[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
+[Command overview](../README.md#commands) · [Output verbosity](scripting.md#output-verbosity)
 
 Search JPEG metadata without changing photographs. By default, stdout contains
 only matching paths, one per line, sorted in bytewise path order. No filters

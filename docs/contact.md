@@ -1,6 +1,6 @@
 # photoc contact
 
-[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
+[Command overview](../README.md#commands) · [Output verbosity](scripting.md#output-verbosity)
 
 Generate JPEG contact sheets from a directory of JPEG photographs. Originals
 are read only. The command needs an explicit output path ending in `.jpg` or

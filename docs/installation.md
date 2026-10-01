@@ -1,12 +1,32 @@
 # Installing photoc
 
+[Project README](../README.md) · [Command guides](README.md)
+
+- [GitHub releases](#github-releases): prebuilt executable, no compiler needed.
+- [Build from source](#build-from-source): any macOS or Linux system with the libraries.
+- [Add photoc to your PATH](#add-photoc-to-your-path)
+- [Install locations and the manual](#install-locations-and-the-manual)
+- [Upgrading](#upgrading)
+- [Uninstalling a tracked release installation](#uninstalling-a-tracked-release-installation)
+- [Uninstalling a source or manual installation](#uninstalling-a-source-or-manual-installation)
+
 ## GitHub releases
 
 The [version-tag workflow](releasing.md) publishes binaries and archives once
 all three builds pass. If a release or platform asset is not available,
-[build from source](../README.md#build-from-source). The installer
+[build from source](#build-from-source). The installer
 reports missing releases or assets as errors; it does not fall back to an
 unverified download or build.
+
+Install the runtime libraries first:
+
+```sh
+# macOS (Homebrew)
+brew install libexif jpeg-turbo libxml2
+
+# Ubuntu / Debian
+sudo apt install libexif12 libturbojpeg libjpeg8 libxml2
+```
 
 Download the installer, then run it:
 
@@ -24,10 +44,13 @@ the release installer yet.
 Select a release tag or another user-writable location:
 
 ```sh
-sh scripts/install.sh --version v0.4.0
+sh scripts/install.sh --version vX.Y.Z
 sh scripts/install.sh --install-dir "$HOME/bin"
 sh scripts/install.sh --help
 ```
+
+Replace `vX.Y.Z` with a tag from the
+[releases page](https://github.com/ahmetomerv/photoc/releases).
 
 The tag must match a published release. Latest-release resolution is pinned to
 one tag before downloading its assets. The install directory must be absolute
@@ -62,12 +85,88 @@ and cannot contain `:` because that separates entries in `PATH`.
   [completion instructions](../completions/README.md).
 
 If the destination is absent from `PATH`, the installer prints the exact setup
-line for bash/zsh. For the default location:
+line for bash/zsh. See [Add photoc to your PATH](#add-photoc-to-your-path).
+
+## Build from source
+
+1. Install the build tools and libraries for your system.
+
+   **macOS (Homebrew):** if needed, run `xcode-select --install` to install
+   Apple's command-line tools, then run:
+
+   ```sh
+   brew install cmake pkgconf libexif jpeg-turbo libxml2
+   ```
+
+   **Ubuntu / Debian:**
+
+   ```sh
+   sudo apt install build-essential git cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev libxml2-dev
+   ```
+
+   On other Linux distributions, install the equivalent packages.
+
+2. Download the source and enter the project directory:
+
+   ```sh
+   git clone https://github.com/ahmetomerv/photoc.git
+   cd photoc
+   ```
+
+3. Configure, build, and test photoc:
+
+   ```sh
+   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
+   ctest --test-dir build --output-on-failure
+   ./build/photoc --version
+   ```
+
+4. Run `./build/photoc` directly, or install it for your user:
+
+   ```sh
+   cmake --install build --prefix "$HOME/.local"
+   ```
+
+   This installs the executable, man page, and license notices under
+   `$HOME/.local`. Keep the dependency libraries installed so photoc can run.
+
+If you built from source and prefer to skip installation, replace `photoc` in
+the documentation examples with `./build/photoc` while working from the
+repository root.
+
+## Add photoc to your PATH
+
+If your shell cannot find `photoc`, add its directory to `PATH`. For the
+default `$HOME/.local/bin` location with **bash or zsh**, run this line now and
+add it to your shell startup file (`~/.bashrc` or `~/.zshrc`) for future
+sessions:
 
 ```sh
-# bash/zsh: add to ~/.bashrc or ~/.zshrc, then open a new shell
 export PATH="$HOME/.local/bin:$PATH"
 ```
+
+Use your chosen directory instead if you installed somewhere else. Check which
+copy your shell runs with `command -v photoc`.
+
+## Install locations and the manual
+
+A source installation puts files in these locations under your install prefix:
+
+- Executable: `bin/photoc`
+- Man page: `share/man/man1/photoc.1`
+- License notices: `share/doc/photoc`
+
+To change these locations, configure `CMAKE_INSTALL_BINDIR`,
+`CMAKE_INSTALL_MANDIR`, or `CMAKE_INSTALL_DOCDIR` when building.
+
+Read the [man page](../man/photoc.1) with `man photoc`. If your shell cannot
+find the installed manual, use `man -M "$HOME/.local/share/man" photoc`. From a
+checkout, use `man ./man/photoc.1`. The release installer does not install the
+man page.
+
+Shell completions for zsh, bash, and fish are installed separately; see the
+[completion instructions](../completions/README.md).
 
 ## Upgrading
 
@@ -101,16 +200,29 @@ an installation without a receipt, follow the
 before proceeding. If a tracked release's executable was modified, review that
 change before removing anything; the receipt no longer verifies it.
 
-You can select a version by adding `--version v0.4.0` to the install command.
+You can select a version by adding `--version vX.Y.Z` to the install command.
 To return to an earlier release, uninstall the current tracked copy and install
 that earlier tag. Keep any backup you need before uninstalling: the upgrade
 steps remove the old executable before downloading the new one. A failed
 download or a missing runtime library leaves photoc uninstalled until you
 successfully install a release again. Photos and shell configuration are kept.
 
-Source installations use a different update process: rebuild, test, and run
-`cmake --install` with your original prefix. See
-[Updating after local changes](../README.md#updating-after-local-changes).
+Source installations use a different update process. From your checkout,
+fetch the new release, then rebuild, test, and reinstall with your original
+prefix:
+
+```sh
+git fetch --tags
+git checkout vX.Y.Z
+cmake --build build
+ctest --test-dir build --output-on-failure
+cmake --install build --prefix "$HOME/.local"
+```
+
+If you change CMake options or dependencies, rerun the configure command from
+[Build from source](#build-from-source) first. See
+[Updating after local changes](../CONTRIBUTING.md#updating-after-local-changes)
+if you are building your own edits.
 
 ## Uninstalling a tracked release installation
 
@@ -187,7 +299,8 @@ For a source installation:
    its paths match the installation you want to remove. If it is missing,
    review your original install prefix and CMake layout instead.
 
-3. For the README's `cmake --install build --prefix "$HOME/.local"` example,
+3. For the `cmake --install build --prefix "$HOME/.local"` example in
+   [Build from source](#build-from-source),
    confirm the executable is `$HOME/.local/bin/photoc`, then remove it:
 
    ```sh

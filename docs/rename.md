@@ -1,6 +1,6 @@
 # photoc rename
 
-[Command overview](../README.md#commands) · [Output verbosity](../README.md#output-verbosity)
+[Command overview](../README.md#commands) · [Output verbosity](scripting.md#output-verbosity)
 
 ## Purpose
 

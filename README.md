@@ -1,318 +1,159 @@
-
-<img src="assets/banner.png" alt="photoc banner">
+<img src="assets/banner.png" alt="photoc: command-line tools for photographers">
 
 [![Version](https://img.shields.io/github/v/release/ahmetomerv/photoc?label=version)](https://github.com/ahmetomerv/photoc/releases/latest)
 [![Tests / CI](https://img.shields.io/github/actions/workflow/status/ahmetomerv/photoc/ci.yml?branch=main&event=push&label=tests%20%2F%20CI)](https://github.com/ahmetomerv/photoc/actions/workflows/ci.yml)
 [![Release / CD](https://img.shields.io/github/actions/workflow/status/ahmetomerv/photoc/release.yml?event=push&label=release%20%2F%20CD)](https://github.com/ahmetomerv/photoc/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/github/license/ahmetomerv/photoc)](LICENSE)
+![Platforms: macOS | Linux](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)
 
 # photoc
 
 **Command-line tools for photographers.**
 
-`photoc` helps you manage photos on your computer from the terminal. Read photo
-metadata, summarize a shoot, find exact duplicates, rename and organize photos,
-make compressed copies or contact sheets, or remove EXIF GPS tags. You can also use it in shell
-scripts to repeat these tasks.
+`photoc` helps you review, organize, and prepare photos from the terminal.
+Summarize a shoot, read metadata, find blurry shots and exact duplicates,
+rename and sort photos into folders, make contact sheets and smaller copies,
+or remove GPS location before sharing. Every command works in shell scripts,
+and most can print JSON.
 
-## Installation
+photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
+files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported
+yet. See [File-type support](#file-type-support).
 
-### GitHub releases
+```console
+$ photoc timeline ./shoot
+Shooting timeline: ./shoot
+Session gap: 60 minutes; recorded EXIF times (timezone unspecified)
 
-Use this option to install a prebuilt executable without a compiler or `sudo`.
-The installer supports **macOS arm64**, **macOS x86_64**, and **Linux x86_64**.
-Current release builds require macOS 15 or later, or glibc-based Linux with
-glibc 2.35 or later. Check the release notes for any additional requirements.
+2026-09-27
 
-1. Install the libraries needed to run photoc:
+10:00:00 - 10:30:00
+  2 photos
+  Duration: 1800 seconds
+  Total file size: 1104 bytes
+  Most-used focal length: 35 mm
+  Most-used aperture: f/4
+  ISO range: 100 - 100
+  Camera models:
+    Model S: 2
 
-   ```sh
-   # macOS (Homebrew)
-   brew install libexif jpeg-turbo libxml2
+12:00:00 - 12:34:56
+  3 photos
+  Duration: 2096 seconds
+  Total file size: 1772 bytes
+  Most-used focal length: 50 mm
+  Most-used aperture: f/2.8
+  ISO range: 100 - 200
+  Camera models:
+    Model Z: 2
+    Model S: 1
 
-   # Ubuntu / Debian
-   sudo apt install libexif12 libturbojpeg libjpeg8 libxml2
-   ```
-
-2. Download and run the installer:
-
-   ```sh
-   curl -fsSL https://raw.githubusercontent.com/ahmetomerv/photoc/main/scripts/install.sh \
-     -o install-photoc.sh
-   sh install-photoc.sh
-   ```
-
-   It checks the download's SHA-256 checksum and installs the latest release
-   to `$HOME/.local/bin/photoc`. It requires `curl`, standard Unix utilities,
-   and either `sha256sum` or `shasum`.
-
-3. Follow [Add photoc to your PATH](#add-photoc-to-your-path), then check the
-   installation:
-
-   ```sh
-   photoc --version
-   ```
-
-To choose a published version and a different install directory:
-
-```sh
-sh install-photoc.sh --version v0.4.0 --install-dir "$HOME/bin"
+Photos included: 5
+Dates: 1
+Sessions: 2
+...
 ```
 
-The chosen tag must exist as a published release. If you already have a checkout
-of this repository, use `sh scripts/install.sh` instead of downloading the script;
-the same options work with it.
+*Output from the small test images in [`tests/fixtures`](tests/fixtures/README.md).*
 
-The installer refuses to replace an existing file or symlink. To upgrade a
-release installation, [uninstall the old copy](#uninstall) before installing the
-new one. It installs the executable and an ownership receipt; use the source
-installation for the man page and the separate [completion setup](#shell-completions)
-for shell completions.
+## Your originals are safe by default
 
-Find available versions on the [GitHub releases page](https://github.com/ahmetomerv/photoc/releases).
-If there is no release for your platform, [build from source](#build-from-source).
-See [installation details](docs/installation.md) for supported release files,
-requirements, and upgrade behavior.
+> photoc never changes your original files unless you ask it to with `--apply`
+> (`rename`, `sort`) or `--in-place` (`scrub`). It never overwrites existing
+> files.
 
-### Build from source
+Read-only commands only read. Commands that create files write new copies next
+to your originals or in a folder you choose. See [File safety](#file-safety)
+for details.
 
-Run these steps in your terminal:
+## Why photoc?
 
-1. Install the build tools and libraries for your system.
+- **Built around photography workflows.** Shooting sessions, exposure
+  statistics, sharpness ranking, and date-based folders are first-class
+  commands, not recipes you assemble yourself.
+- **Preview first.** Renames and moves are planned and checked as a whole
+  before anything changes, and photoc tries to undo earlier steps if one
+  fails.
+- **Script-friendly.** Results go to stdout, messages go to stderr, exit codes
+  are stable, and JSON output keeps the same fields in every mode.
+- **Small and local.** A C program with a few common libraries. No account,
+  no cloud, no catalog database.
 
-   **macOS (Homebrew):** if needed, run `xcode-select --install` to install
-   Apple's command-line tools, then run:
-
-   ```sh
-   brew install cmake pkgconf libexif jpeg-turbo libxml2
-   ```
-
-   **Ubuntu / Debian:**
-
-   ```sh
-   sudo apt install build-essential git cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev libxml2-dev
-   ```
-
-   On other Linux distributions, install the equivalent packages.
-
-2. Download the source and enter the project directory:
-
-   ```sh
-   git clone https://github.com/ahmetomerv/photoc.git
-   cd photoc
-   ```
-
-3. Configure, build, and test photoc:
-
-   ```sh
-   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-   cmake --build build
-   ctest --test-dir build --output-on-failure
-   ./build/photoc --version
-   ```
-
-4. Run `./build/photoc` directly, or install it for your user:
-
-   ```sh
-   cmake --install build --prefix "$HOME/.local"
-   ```
-
-   This installs the executable, man page, and license notices under
-   `$HOME/.local`. Keep the dependency libraries installed so photoc can run.
-
-#### Uninstall a source installation
-
-`cmake --install` does not create the ownership receipt used by
-`scripts/uninstall.sh`. That script handles release installations made by
-`install.sh`; for a source installation, it reports
-`no regular ownership receipt` and removes nothing.
-
-1. Check which executable your shell uses and review the installed file list
-   from the build directory you used:
-
-   ```sh
-   command -v photoc
-   cat build/install_manifest.txt
-   ```
-
-2. If you installed with the `$HOME/.local` prefix above and the executable
-   is `$HOME/.local/bin/photoc`, remove that installed copy:
-
-   ```sh
-   rm "$HOME/.local/bin/photoc"
-   ```
-
-   Use the actual installed path if you chose a different prefix or layout.
-   Check that it still belongs to your source installation before removing it.
-
-This removes only the installed executable. For a full uninstall, review and
-remove the installed man page and license files listed in the manifest too.
-Your source code and `build/` directory remain available. If you only ran
-`./build/photoc` without installing it, there is no installed copy to remove.
-See [source uninstall details](docs/installation.md#uninstalling-a-source-or-manual-installation)
-for custom paths and remaining files.
-
-### Add photoc to your PATH
-
-The examples below use `photoc` directly. If your shell cannot find it, add
-`$HOME/.local/bin` to `PATH`.
-
-For **bash or zsh**, run this line now and add it to your shell startup file
-(`~/.bashrc` or `~/.zshrc`) for future sessions:
-
-```sh
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-Use your chosen directory instead if you installed somewhere else. If you
-built from source and prefer to skip installation, replace `photoc` in the
-examples with `./build/photoc` while working from the repository root.
-
-### Read the manual
-
-A source installation puts files in these locations under your install prefix:
-
-- Executable: `bin/photoc`
-- Man page: `share/man/man1/photoc.1`
-- License notices: `share/doc/photoc`
-
-To change these locations, configure `CMAKE_INSTALL_BINDIR`,
-`CMAKE_INSTALL_MANDIR`, or `CMAKE_INSTALL_DOCDIR` when building.
-
-Read the [man page](man/photoc.1) with `man photoc`. If your shell cannot find
-the installed manual, use `man -M "$HOME/.local/share/man" photoc`. From a
-checkout, use `man ./man/photoc.1`.
-
-### Update a release installation
-
-Installed copies do not update automatically. To install the latest release:
-
-1. Check your version with `photoc --version` and read the
-   [release notes](https://github.com/ahmetomerv/photoc/releases).
-2. Follow the [uninstall steps](#uninstall), including the preview.
-3. Run the installer again using the [GitHub release steps](#github-releases).
-4. Run `photoc --version` to check the result.
-
-Use the same install directory as before. To select a particular release,
-pass `--version v0.4.0` to the installer. See the
-[upgrade guide](docs/installation.md#upgrading) for copyable commands and how
-to return to an earlier version.
-
-### Updating after local changes
-
-After editing the source:
-
-1. Rebuild and test from the repository root:
-
-   ```sh
-   cmake --build build --parallel 2
-   ctest --test-dir build --output-on-failure
-   ```
-
-   This updates `./build/photoc`, which you can run immediately.
-
-2. If you installed from source, update the installed copy after the tests pass:
-
-   ```sh
-   cmake --install build --prefix "$HOME/.local"
-   ```
-
-   Use the same prefix as before. With this prefix, the updated executable is
-   `$HOME/.local/bin/photoc`.
-
-3. Check which copy your shell runs:
-
-   ```sh
-   command -v photoc
-   ```
-
-If you change CMake options or dependencies, rerun the configure command from
-[Build from source](#build-from-source), including your chosen options, before
-rebuilding.
-
-### Shell completions
-
-Optional scripts for **zsh, bash, and fish** let you press Tab to complete
-commands, supported options, common option values, and paths. Follow the
-[completion installation steps](completions/README.md) for your shell.
-They use built-in shell features and need no extra runtime dependency.
-
-### Uninstall
-
-For a release installed with the installer:
-
-1. Download the uninstaller, or use `scripts/uninstall.sh` from a checkout:
-
-   ```sh
-   curl -fsSL https://raw.githubusercontent.com/ahmetomerv/photoc/main/scripts/uninstall.sh \
-     -o uninstall-photoc.sh
-   ```
-
-2. Preview what will be removed:
-
-   ```sh
-   sh uninstall-photoc.sh
-   ```
-
-3. After checking the preview, remove the installed copy:
-
-   ```sh
-   sh uninstall-photoc.sh --apply
-   ```
-
-If you use the checkout script, the equivalent commands are
-`sh scripts/uninstall.sh` and `sh scripts/uninstall.sh --apply`.
-For a custom location, pass `--install-dir "$HOME/bin"` to both the preview
-and removal commands, using the directory you originally chose.
-
-The script checks the installer's ownership receipt. It removes only the
-unchanged executable and that receipt. It leaves configuration, shell setup,
-completions, man pages, and unrelated files in place.
-
-Source and manual installations without a receipt cannot be removed by this
-script. Follow [Uninstall a source installation](#uninstall-a-source-installation)
-or the [source/manual uninstall guide](docs/installation.md#uninstalling-a-source-or-manual-installation)
-instead.
+photoc is **not** a RAW developer, an image editor, a photo catalog, or a
+replacement for deep metadata editors such as
+[ExifTool](https://exiftool.org/). Windows is not supported yet.
 
 ## Quick start
 
-Start with these read-only commands. Replace `photo.jpg` and `./photos` with
-your own file and directory paths.
+Install the runtime libraries, then run the release installer
+([other options](#installation)):
 
-1. See the available commands: `photoc --help`
-2. Read one photo's metadata: `photoc exif photo.jpg`
-3. Summarize a folder and its subfolders: `photoc stats ./photos --recursive`
-4. Review an outing chronologically: `photoc timeline ./photos`
+```sh
+# macOS
+brew install libexif jpeg-turbo libxml2
+# Ubuntu / Debian
+sudo apt install libexif12 libturbojpeg libjpeg8 libxml2
 
-For help with a specific command, run `photoc <command> --help`, such as
-`photoc compress --help`.
+curl -fsSL https://raw.githubusercontent.com/ahmetomerv/photoc/main/scripts/install.sh \
+  -o install-photoc.sh
+sh install-photoc.sh
+photoc --version
+```
 
-Directory scans look only inside the chosen folder by default. Add
-`--recursive` to include subfolders. Scans do not follow symlinks.
-Quote paths containing spaces, such as `photoc exif "Summer trip/photo.jpg"`.
-Put options before `--` when a path begins with `-`, for example
-`photoc exif -- -photo.jpg`.
+If `photoc` is not found, [add it to your PATH](docs/installation.md#add-photoc-to-your-path).
+
+Then try these read-only commands on your own photos:
+
+```sh
+photoc --help                         # list commands
+photoc exif photo.jpg                 # one photo's metadata
+photoc stats ./photos --recursive     # summarize a folder and its subfolders
+photoc timeline ./photos              # review a shoot by session
+```
+
+For help with a specific command, run `photoc <command> --help` or `man photoc`.
+
+Directory scans look only inside the chosen folder unless you add
+`--recursive`, and they do not follow symlinks. Quote paths containing
+spaces, such as `photoc exif "Summer trip/photo.jpg"`. Put options before
+`--` when a path begins with `-`, for example `photoc exif -- -photo.jpg`.
 
 ## Commands
 
-| Command | Purpose | Default behavior |
-| --- | --- | --- |
-| [`query`](docs/query.md) | Search JPEG metadata using combined filters | Read only; paths, NUL paths, or JSON |
-| [`check`](docs/check.md) | Audit JPEG structural readability and report warnings/errors | Read only; JSON supported |
-| [`compress`](docs/compress.md) | Compress JPEGs at a chosen quality or target file size | Write new copies |
-| [`contact`](docs/contact.md) | Make paged JPEG contact sheets with filenames and optional exposure data | Write new sheets |
-| [`exif`](docs/exif.md) | Inspect dimensions, camera, exposure, capture time, and GPS | Read only; JSON supported |
-| [`duplicates`](docs/duplicates.md) | Find files with identical bytes using SHA-256 and show potential space savings | Read only; JSON supported |
-| [`stats`](docs/stats.md) | Summarize storage, capture dates, cameras, and exposure settings | Read only; JSON supported |
-| [`timeline`](docs/timeline.md) | Summarize shooting dates and sessions chronologically | Read only; JSON supported |
-| [`rename`](docs/rename.md) | Rename JPEG/ARW photos using metadata templates | Preview; `--apply` to rename |
-| [`sort`](docs/sort.md) | Organize JPEG/ARW photos by capture date or session | Preview; `--apply` to move |
-| [`focus`](docs/focus.md) | Compare JPEG sharpness scores | Read only; lowest scores first; JSON supported |
-| [`scrub`](docs/scrub.md) | Remove GPS, private fields, or descriptive metadata from JPEGs | Write new copies |
+Each command name links to its guide with options, examples, limits, and a
+JSON schema where supported. All guides are listed in the
+[documentation index](docs/README.md).
 
-Each command link includes usage, options, examples, special cases, safety
-notes, and a JSON schema when the command supports JSON.
-The v0.4.0 release adds interactive progress for longer-running commands.
-Use `--no-progress` to disable it in scripts or by preference.
+**Inspect** (read-only):
+
+| Command | Purpose |
+| --- | --- |
+| [`exif`](docs/exif.md) | Show dimensions, camera, exposure, capture time, and GPS for one photo |
+| [`stats`](docs/stats.md) | Summarize storage, capture dates, cameras, lenses, and exposure settings |
+| [`timeline`](docs/timeline.md) | Group a shoot by date and session |
+| [`query`](docs/query.md) | Find photos matching metadata filters such as ISO, aperture, camera, or date |
+| [`duplicates`](docs/duplicates.md) | Find byte-identical files and show potential space savings |
+| [`focus`](docs/focus.md) | Rank JPEGs by sharpness score, lowest first, to help culling |
+| [`check`](docs/check.md) | Audit JPEGs for structural and decoding problems |
+
+**Organize** (preview by default; add `--apply` to change files):
+
+| Command | Purpose |
+| --- | --- |
+| [`rename`](docs/rename.md) | Rename photos using metadata templates such as `{date}_{camera}_{sequence}.{ext}` |
+| [`sort`](docs/sort.md) | Move photos into `YYYY/MM/DD/` or `session-001/` folders |
+
+**Make copies** (originals unchanged by default):
+
+| Command | Purpose |
+| --- | --- |
+| [`compress`](docs/compress.md) | Write smaller JPEG copies at a chosen quality or target file size |
+| [`contact`](docs/contact.md) | Make paged JPEG contact sheets with filenames and optional exposure data |
+| [`scrub`](docs/scrub.md) | Write copies without GPS, private fields, or descriptive metadata |
+
+`--json` works with `exif`, `stats`, `timeline`, `query`, `duplicates`,
+`focus`, and `check`. Longer directory operations show progress on stderr; use
+`--no-progress` to turn it off.
 
 ### File-type support
 
@@ -322,340 +163,224 @@ Use `--no-progress` to disable it in scripts or by preference.
 | `query`, `check`, `compress`, `contact`, `focus`, `scrub` | Supported | Unsupported/skipped | Unsupported/skipped |
 | `duplicates` | Exact bytes | Exact bytes | Exact bytes |
 
-ARW support is **metadata only**: no RAW development, pixel decoding, compression,
-or GPS rewriting. Missing fields remain unavailable. See
-[Sony ARW metadata support](docs/raw.md) for fields, safety limits, and fixtures.
+ARW support is **metadata only**: no RAW development, pixel decoding,
+compression, or GPS rewriting. Files are matched by extension (`.jpg`,
+`.jpeg`, `.arw`, case-insensitive). See
+[Sony ARW metadata support](docs/raw.md) for fields and limits. Want your
+camera supported? See [Contributing](#contributing).
 
-## Examples
+## Workflows
 
-### Inspect Sony RAW metadata
+These recipes combine commands the way you might use them after a shoot.
+Commands that change files are shown in two steps: preview, then apply.
+
+### After a shoot: review, rename, and sort
 
 ```sh
-photoc exif DSC00001.ARW --json
-photoc stats ./photos --recursive
-photoc rename ./photos --format '{date}_{camera}_{sequence}.{ext}'
-photoc sort ./photos --by date
+# See how the day breaks into sessions. Adjust --gap to match how you shoot.
+photoc timeline ./shoot --gap 45m
+
+# Preview new names, then apply the same command.
+photoc rename ./shoot --format '{date}_{camera}_{sequence}.{ext}'
+photoc rename ./shoot --format '{date}_{camera}_{sequence}.{ext}' --apply
+
+# Preview session folders, then apply.
+photoc sort ./shoot --by session --gap 45m
+photoc sort ./shoot --by session --gap 45m --apply
 ```
 
-`exif`, `stats`, `timeline`, `rename`, and `sort` discover `.jpg`, `.jpeg`, and
-`.arw` case-insensitively.
-Rename and sort still preview by default; review the plan before adding
-`--apply`. `{ext}` keeps the source extension and its case.
+If any photo lacks the metadata a plan needs, such as a capture date, the
+whole plan is blocked and nothing changes. The preview lists the blocked files.
 
-### Search photo metadata
+### Culling: find blurry shots and duplicates
+
+```sh
+# Lowest sharpness scores first; show only those below the threshold.
+photoc focus ./shoot --recursive --threshold 100 --only-blurry
+
+# Byte-identical copies, for example from importing a card twice.
+photoc duplicates ./shoot --recursive
+```
+
+Sharpness scores are a review aid, not a verdict: subject detail, noise, and
+intentional blur all affect them. photoc never deletes files; you decide what
+to remove.
+
+### Before sharing: smaller copies without location
+
+```sh
+# Write compressed copies into ./share, keeping the originals.
+photoc compress ./selects --recursive --target 2MB --output-dir ./share
+
+# Remove location and identifying metadata from those copies.
+photoc scrub ./share --privacy --recursive --in-place
+
+# Confirm no copy still has GPS (prints nothing when clean).
+photoc query ./share --recursive --has-gps
+```
+
+`compress` keeps EXIF, including GPS, by default, so scrub after compressing.
+`--in-place` is used here only because `./share` contains copies; it replaces
+files without a backup. `--privacy` can leave data in opaque MakerNotes; see
+the [scrub limits](docs/scrub.md).
+
+### Find specific shots
 
 ```sh
 photoc query ./photos --recursive --iso ">800" --aperture "<=4"
 photoc query ./photos --camera "DSC-RX100M7A"
 photoc query ./photos --after 2026-01-01 --before 2026-12-31
-photoc query ./photos --recursive --has-gps --print0 |
-  xargs -0 sh -c 'for path do photoc exif -- "$path" || exit; done' sh
-photoc query ./photos --recursive --json | jq '.summary'
 ```
 
-All filters are ANDed. Camera/make matching is exact and case-sensitive; date
-bounds include the named days. Missing queried fields do not match. Default
-stdout contains only sorted paths; use `--print0` for arbitrary filenames or
-`--json` for metadata and scan counts. See [query details](docs/query.md).
+Filters are combined with AND, and date bounds include the named days. See
+[query details](docs/query.md) for matching rules and NUL-separated output.
 
-### Check photographs for reading problems
+### More examples
 
 ```sh
-photoc check photo.jpg
+# Contact sheet with exposure data, sorted by capture time.
+photoc contact ./shoot --output sheet.jpg --metadata --sort date
+
+# Check a folder for corrupt or truncated JPEGs.
 photoc check ./photos --recursive --only-errors
-photoc check ./photos --recursive --json > check.json
+
+# Save statistics as JSON for your own scripts.
+photoc stats ./photos --recursive --json > stats.json
 ```
-
-The command parses JPEG structure and decodes the pixels without changing files.
-Warnings, including malformed EXIF or decoder recovery, return **0**; errors
-or incomplete checks return **1**. `--only-errors` hides warning and OK rows;
-summary counts cover every checked file. See [check details](docs/check.md)
-for reason codes and limits. Successful decoding is not proof of visual quality
-or complete metadata validity.
-
-### Compress JPEG copies
-
-Choose a quality level or a target file size. These are separate modes:
-do not combine `--quality` and `--target`. The default quality is **80**.
-
-```sh
-# Use a quality level of 75.
-photoc compress photo.jpg --quality 75
-
-# Try to fit within 2 MB, without going below quality 30.
-photoc compress photo.jpg --target 2MB --min-quality 30
-
-# Compress a folder and its subfolders into a separate output folder.
-photoc compress ./photos --recursive --output-dir ./compressed
-```
-
-The original stays unchanged. Copies use names such as `photo.compressed.jpg`.
-Read the [compression safety notes](#file-safety) before choosing quality or
-sharing the copies.
-
-### Read metadata and inspect a collection
-
-```sh
-photoc exif photo.jpg
-photoc duplicates ./photos --recursive
-photoc stats ./photos --recursive
-```
-
-These commands do not change files. `duplicates` finds exact file matches.
-`stats` reports camera/lens usage, exposure settings (including shutter speed
-and explicit 35mm-equivalent focal length), orientation, resolution/megapixels,
-calendar activity, sessions, and average/median file size. Missing fields are
-excluded from each statistic and counted as unavailable. Session grouping uses
-the existing 60-minute gap rule. See [statistics definitions](docs/stats.md).
-Counts sort from most common to least common, with a fixed order for ties. Scans may continue after an individual file fails, so check
-warnings and the scan summary if you need a complete result.
-
-### Review a shooting timeline
-
-```sh
-photoc timeline ~/Pictures/Prague
-photoc timeline ./photos --recursive --gap 30m
-photoc timeline ./photos --json | jq '.summary'
-```
-
-The read-only report groups photos by recorded capture date, then by session.
-A gap greater than **60 minutes** starts a new session by default; exact gaps
-stay together. Midnight always starts a new date and session. Each session
-reports start/end, duration, photo count, bytes, focal length, aperture, ISO
-range, and camera models where available. Missing/invalid capture times are
-skipped and counted. EXIF clock values are used as recorded; no timezone is
-inferred. See [timeline details](docs/timeline.md).
-
-### Rename photos
-
-First, preview the new filenames:
-
-```sh
-photoc rename ./photos --format "{date}_{camera}_{sequence}.{ext}"
-```
-
-After reviewing the preview, repeat the same command with `--apply`:
-
-```sh
-photoc rename ./photos --format "{date}_{camera}_{sequence}.{ext}" --apply
-```
-
-Templates support `{date}`, `{datetime}`, `{camera}`, `{make}`, `{iso}`,
-`{aperture}`, `{focal}`, `{sequence}`, `{original}`, and `{ext}`.
-
-- Characters that are unsafe in filenames are replaced with underscores.
-- Sequence numbers start at `0001`, ordered by source path.
-- `{ext}` keeps the original extension's uppercase or lowercase spelling.
-- If a photo lacks metadata needed by the template, its rename is blocked.
-
-See [rename details](docs/rename.md) for placeholder values and more examples.
-
-### Sort photos into folders
-
-Preview folders based on capture date or sessions:
-
-```sh
-photoc sort ./photos --by date --recursive
-photoc sort ./photos --by session --gap 30m
-```
-
-After reviewing a preview, repeat that command with `--apply`. For example:
-
-```sh
-photoc sort ./photos --by date --recursive --apply
-```
-
-- Date sorting uses folders such as `YYYY/MM/DD/`.
-- Session sorting uses `session-001/`, `session-002/`, and so on. A new session
-  starts when the time between consecutive photos exceeds the chosen gap.
-- The default session gap is **60 minutes**. Use `--gap 30m` for 30 minutes
-  or `--gap 2h` for two hours.
-- Photos without a valid capture date are reported and blocked.
-
-### Compare sharpness
-
-```sh
-photoc focus photo.jpg
-photoc focus ./photos --recursive --threshold 100 --only-blurry
-```
-
-Results show the lowest sharpness scores first. The second command shows only
-photos scoring below 100. Scores help you choose photos to review; they are
-not a final judgment of blur. Subject detail and noise can affect the result.
-See [focus details](docs/focus.md) for the scoring limits.
-
-### Make a contact sheet
-
-```sh
-photoc contact ./photos --output sheet.jpg
-photoc contact ./photos --output sheet.jpg --metadata --sort date
-```
-
-Each tile shows an aspect-preserving thumbnail and filename. `--metadata` adds
-available ISO, aperture, shutter, and focal length. Larger shoots create
-`sheet-001.jpg`, `sheet-002.jpg`, and so on. Existing sheets are never
-overwritten. See [contact options and limits](docs/contact.md).
-
-### Remove JPEG metadata
-
-```sh
-photoc scrub photo.jpg --gps
-photoc scrub photo.jpg --privacy
-photoc scrub photo.jpg --all-metadata
-photoc scrub ./photos --gps --recursive
-```
-
-Each command creates a copy such as `photo.scrubbed.jpg` when matching metadata
-is found. `--gps` retains its original EXIF-only behavior. `--privacy` selectively
-removes supported EXIF, standard XMP, and IPTC fields; `--all-metadata` removes
-descriptive EXIF/XMP/IPTC and comments while retaining ICC and orientation.
-Choose exactly one mode. [See the exact scope and limits](docs/scrub.md).
 
 ## File safety
 
-- **Check:** reads JPEGs without changing file contents or metadata. A warning
-  can mean the decoder recovered missing data; an OK result is not a backup
-  or visual-quality guarantee. See [audit limits](docs/check.md#safety-performance-and-limits).
-- **Rename and sort:** preview first, then add `--apply` to the same command.
-  photoc checks the whole plan before changing files. If any entry is blocked,
-  no changes are applied. Existing destination files are never overwritten.
-  If a rename or move fails, photoc tries to undo earlier changes. Another
-  process changing files at the same time can prevent a full recovery.
-  Keep backups of important collections.
-- **Compress:** originals stay unchanged; outputs are named
-  `photo.compressed.jpg`. Existing outputs are skipped in directory mode and
-  rejected in single-file mode. Compression loses image detail and can produce
-  a larger file. EXIF (including orientation and GPS), ICC color profiles, and
-  standard/Extended XMP marker payloads are preserved byte for byte by default.
-  Incomplete or inconsistent ICC chunk sets fail without creating that copy.
-  Other original APP markers are not copied; see
-  [metadata support and limits](docs/compress.md#metadata-preservation).
-  If the target size cannot be reached, photoc
-  still writes a copy at the minimum quality and returns exit status **1**.
-  `2MB` means 2,000,000 bytes; `2MiB` means 2,097,152 bytes.
-- **Scrub:** originals stay unchanged by default, and existing copy destinations
-  are rejected. JPEG image data is copied without recompression. `--gps` removes
-  EXIF GPS only. `--privacy` removes supported location and identifier fields but
-  may leave information in opaque MakerNotes or unknown marker formats; it
-  refuses Extended or malformed XMP rather than publishing a partial scrub.
-  `--all-metadata` keeps ICC color profiles and an EXIF orientation tag when
-  needed. Unusual MakerNotes may change under selective libexif rewriting.
-- **Explicit in-place scrub:** `photoc scrub photo.jpg --gps --in-place`
-  replaces the original after checking a temporary copy. It replaces the file
-  in one step (an atomic replacement). **It creates no backup.** Unsafe sources,
-  including symlinks, hard links, and files that changed during processing, are
-  refused. POSIX permission bits and group ownership are kept; access control
-  lists (ACLs) and extended attributes are not copied.
+| Command | Changes originals? | Output | Existing files |
+| --- | --- | --- | --- |
+| Inspect commands | Never | Report on stdout | Not touched |
+| `rename`, `sort` | Only with `--apply` | Renames or moves in place | Never overwritten; whole plan checked first |
+| `compress` | Never | `photo.compressed.jpg` copies | Skipped (directory) or rejected (single file) |
+| `contact` | Never | `sheet.jpg`, `sheet-001.jpg`, … | Never overwritten |
+| `scrub` | Only with `--in-place` | `photo.scrubbed.jpg` copies | Rejected |
 
-## JSON output
+Important details:
 
-Add `--json` to `query`, `check`, `exif`, `stats`, `timeline`, `duplicates`, or
-`focus` to get output for scripts and other tools. You can also save it to a file:
+- **Rename and sort** check the whole plan before changing anything. If a
+  rename or move fails, photoc tries to undo earlier changes, but another
+  process changing files at the same time can prevent full recovery. Keep
+  backups of important collections.
+- **Compress** loses image detail and can produce a larger file. EXIF
+  (including orientation and GPS), ICC color profiles, and XMP are preserved;
+  other APP markers are not copied. If a `--target` size cannot be reached,
+  photoc still writes a copy at the minimum quality and exits with status
+  **1**. `2MB` means 2,000,000 bytes; `2MiB` means 2,097,152 bytes. See
+  [metadata preservation](docs/compress.md#metadata-preservation).
+- **Scrub** copies JPEG image data without recompression. `--gps` removes EXIF
+  GPS only; `--privacy` removes supported location and identifier fields;
+  `--all-metadata` removes descriptive metadata but keeps ICC profiles and
+  orientation. Information in opaque MakerNotes or unknown formats may remain.
+- **`scrub --in-place` creates no backup.** It verifies a temporary copy, then
+  replaces the original in one atomic step. Symlinks, hard links, and files
+  that change during processing are refused. Permission bits and group
+  ownership are kept; ACLs and extended attributes are not copied.
+- **Check** reads without changing anything. An OK result is not a backup or a
+  visual-quality guarantee. See [audit limits](docs/check.md#safety-performance-and-limits).
+
+## Scripting
+
+Results go to stdout; status text, warnings, errors, and progress go to stderr.
+`--json` output contains only JSON, and missing values are `null`.
 
 ```sh
-photoc exif photo.jpg --json
-photoc stats ./photos --recursive --json > stats.json
-photoc duplicates ./photos --recursive --json > duplicates.json
-photoc focus ./photos --recursive --json > focus.json
-
-# Optional: use jq to select exposure metadata.
 photoc exif photo.jpg --json | jq '.exposure'
+photoc timeline ./photos --json | jq '.summary'
+photoc query ./photos --recursive --has-gps --print0 | xargs -0 ls -l
 ```
 
-Example exposure object:
-
-```json
-{
-  "iso": 200,
-  "aperture": 2.8,
-  "exposure_time_seconds": 0.008,
-  "focal_length_mm": 50
-}
-```
-
-Missing values are `null`. Fields such as `has_gps` use `true` or `false`, and
-numbers stay numeric. In JSON mode, stdout contains only JSON; diagnostics,
-warnings, and errors use stderr. Quiet mode suppresses non-critical warnings.
-`jq` is optional and is not required to run photoc.
-
-## Exit codes and output
-
-Normal output goes to stdout. Errors and warnings go to stderr.
-
-| Code | Meaning |
+| Exit code | Meaning |
 | --- | --- |
 | `0` | Success |
 | `1` | A processing or filesystem operation failed, or a compression target was not met |
 | `2` | Invalid command usage |
-| `3` | The command is not implemented |
 
-`stats` and `timeline` can return success even when individual files produce
-warnings. Their reports count those errors (`stats` JSON `scan.errors`,
-`timeline` JSON `summary.metadata_errors`). When completeness matters, use normal output or inspect `--json`, including in quiet
-mode. `query` returns **1** when a JPEG load fails, while still listing successful
-directory matches; no matches returns **0**.
+Global options work before or after the command: `-q`/`--quiet` keeps results
+but hides status text and non-critical warnings, `-v`/`--verbose` adds
+diagnostics on stderr, and `--no-progress` disables the progress display.
 
-## Progress output
+The [scripting guide](docs/scripting.md) covers JSON details, per-command exit
+code rules, progress, and exactly what quiet and verbose modes show.
 
-Longer-running directory commands display progress when stderr is connected
-to a terminal. Discovery uses a spinner; processing shows a count and
-percentage when the total is known. Progress is written only to stderr, so
-stdout remains safe for scripts and JSON:
+## Installation
 
-```sh
-photoc stats ./photos --recursive --json > stats.json
-```
+The [Quick start](#quick-start) installs the latest prebuilt release for
+**macOS arm64**, **macOS x86_64**, or **Linux x86_64** into
+`$HOME/.local/bin`, without a compiler or `sudo`. Release builds require macOS
+15 or later, or glibc-based Linux with glibc 2.35 or later. The installer
+verifies the download's SHA-256 checksum and never replaces an existing file.
 
-Use `--no-progress` to disable it. Progress is also disabled when stderr is
-redirected or `--quiet` is used. Fast operations finish before the spinner's
-200 ms display delay and produce no progress line.
+- **Choose a version or directory:**
+  `sh install-photoc.sh --version vX.Y.Z --install-dir "$HOME/bin"`
+- **Build from source** on other systems, or to get the man page: see
+  [Build from source](docs/installation.md#build-from-source).
+- **Shell completions** for zsh, bash, and fish:
+  see the [completion setup](completions/README.md).
+- **Upgrade:** installed copies do not update automatically. Uninstall the old
+  release, then install the new one; see [Upgrading](docs/installation.md#upgrading).
+- **Uninstall:** download the uninstaller, preview, then apply:
 
-## Output verbosity
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/ahmetomerv/photoc/main/scripts/uninstall.sh \
+    -o uninstall-photoc.sh
+  sh uninstall-photoc.sh          # preview
+  sh uninstall-photoc.sh --apply  # remove
+  ```
 
-Global flags work before or after the command:
+  This removes only an unchanged release installation. For source
+  installations, see [uninstalling a source installation](docs/installation.md#uninstalling-a-source-or-manual-installation).
 
-| Mode | Behavior |
-| --- | --- |
-| Default | Show the existing results, operation summaries, and warnings. |
-| `-q`, `--quiet` | Keep requested results; suppress status text, operation summaries, and non-critical warnings. Errors explaining a non-zero exit remain on stderr. |
-| `-v`, `--verbose` | Keep normal output and add diagnostics on stderr: operating mode, recursion, discovery/skip/failure counts, and relevant paths. Statistics, timeline, and duplicate scans also report the worker limit; small workloads or worker startup failures can run serially. |
-| `--no-progress` | Disable interactive progress display. |
+The [installation guide](docs/installation.md) has full details on
+requirements, install locations, the man page, and upgrade behavior.
 
-Quiet mode keeps EXIF fields, statistics and distributions, duplicate groups
-and savings, focus scores, query paths, check rows/counts, timeline sessions
-and skipped/error counts, and rename/sort mappings. It hides scan status and rename/sort summaries. Successful `compress`
-and `scrub` operations have no stdout in quiet mode; their file operations and
-exit codes stay the same.
-Warnings that explain failures, including partial duplicate/focus results or
-blocked rename/sort plans, remain visible.
+## Troubleshooting
 
-With `--json`, stdout remains JSON only, with the same fields in every mode.
-Verbose diagnostics use stderr. Quiet JSON still includes scan/error counters.
-Help and version output remain available in every mode. Combining quiet and
-verbose is a usage error (exit **2**), regardless of option order.
+**`photoc: command not found`.** The install directory is not on your
+`PATH`. See [Add photoc to your PATH](docs/installation.md#add-photoc-to-your-path),
+or run it with its full path, such as `~/.local/bin/photoc`.
 
-```sh
-# Keep the requested duplicate report, suppress scan status.
-photoc duplicates ./photos --quiet
+**`error while loading shared libraries: libturbojpeg.so.0` (Linux) or
+`dyld: Library not loaded` (macOS).** A runtime library is missing. Install
+the packages listed in the [Quick start](#quick-start). The libraries are not
+bundled with photoc.
 
-# Save JSON and diagnostics separately.
-photoc --verbose stats ./photos --recursive --json > stats.json 2> diagnostics.log
+**macOS says the binary "cannot be opened" or "cannot be verified".** Release
+binaries are not signed or notarized. The installer downloads with `curl`,
+which does not trigger this. If you downloaded a binary in a browser, remove
+the quarantine flag after verifying its checksum:
+`xattr -d com.apple.quarantine ./photoc-darwin-arm64`.
 
-# Remove GPS in new copies, showing only failures.
-photoc scrub ./photos --gps --quiet
-```
+**My photos are skipped or reported as unsupported.** photoc reads JPEG files
+and Sony ARW metadata only, matched by file extension. See
+[File-type support](#file-type-support).
+
+**Rename or sort says the plan is blocked.** At least one photo is missing
+metadata the plan needs, such as a capture date or a field used in your
+template. The preview names each blocked file. Move those files elsewhere or
+choose a template that does not need the missing field.
+
+**A scan succeeded but some files had warnings.** `stats` and `timeline`
+continue past individual file errors and count them in the summary. See
+[exit codes](docs/scripting.md#exit-codes).
+
+For anything else, [open an issue](https://github.com/ahmetomerv/photoc/issues/new/choose)
+with the command you ran, `photoc --version`, your OS, and the full error
+output.
 
 ## Contributing
 
-Bug reports, clearer documentation, and focused code changes are welcome.
+Bug reports, documentation fixes, and focused code changes are welcome. You can
+also help without writing C: photographers can
+[share sample files from other cameras](CONTRIBUTING.md#ways-to-contribute-without-writing-c)
+so support for more formats can be tested.
 
-- [CONTRIBUTING.md](CONTRIBUTING.md): how to run tests, sanitizers, and static analysis.
-- [AGENTS.md](AGENTS.md): repository conventions.
-- [benchmarks/README.md](benchmarks/README.md): repeatable performance checks.
-- [include/photoc](include/photoc): shared C APIs and rules for owning and freeing memory.
-- [First-release audit](docs/release-audit.md): verification results, remaining limits,
-  and checks required before release.
-- [Release guide](docs/releasing.md): how to bump a version, publish it, and verify downloads.
+- [CONTRIBUTING.md](CONTRIBUTING.md): building, testing, sanitizers, static
+  analysis, and project references for maintainers.
+- [Documentation index](docs/README.md): every command guide and reference page.
+- [Release notes](docs/release-notes.md): what changed in each version.
 
 Please follow the [code of conduct](CODE_OF_CONDUCT.md). For file corruption,
 unsafe overwrites, or suspected vulnerabilities, follow the private reporting

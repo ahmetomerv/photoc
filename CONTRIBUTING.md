@@ -88,6 +88,63 @@ Report suspected vulnerabilities or data-safety defects through
    benchmarks are documented in [`benchmarks/README.md`](benchmarks/README.md).
 8. Describe what changed and how it was tested in your pull request.
 
+## Ways to contribute without writing C
+
+- **Report bugs and confusing behavior** with the bug report template. Include
+  the command, your OS, `photoc --version`, and the full stderr output.
+- **Improve documentation.** Unclear wording, missing examples, and broken
+  links are all welcome fixes.
+- **Share sample files from other cameras.** Support for a new camera or RAW
+  format depends on real metadata layouts. Open a feature request naming the
+  camera model and file type, and describe a small sample you can share. Only
+  share files you own and are happy to publish, and remove GPS or other
+  private details first (for JPEGs, `photoc scrub --privacy` can help).
+  Test fixtures are small generated files rather than camera photographs, so
+  samples guide the fixture generators instead of being committed as-is; see
+  [`tests/fixtures/README.md`](tests/fixtures/README.md).
+
+## Updating after local changes
+
+After editing the source:
+
+1. Rebuild and test from the repository root:
+
+   ```sh
+   cmake --build build --parallel 2
+   ctest --test-dir build --output-on-failure
+   ```
+
+   This updates `./build/photoc`, which you can run immediately.
+
+2. If you installed from source, update the installed copy after the tests pass:
+
+   ```sh
+   cmake --install build --prefix "$HOME/.local"
+   ```
+
+   Use the same prefix as before. With this prefix, the updated executable is
+   `$HOME/.local/bin/photoc`.
+
+3. Check which copy your shell runs:
+
+   ```sh
+   command -v photoc
+   ```
+
+If you change CMake options or dependencies, rerun the configure command from
+[Build from source](docs/installation.md#build-from-source), including your
+chosen options, before rebuilding.
+
+## Project references
+
+- [AGENTS.md](AGENTS.md): repository conventions.
+- [include/photoc](include/photoc): shared C APIs and rules for owning and freeing memory.
+- [benchmarks/README.md](benchmarks/README.md): repeatable performance checks.
+- [First-release audit](docs/release-audit.md): verification results, remaining
+  limits, and checks required before release.
+- [Release guide](docs/releasing.md): how to bump a version, publish it, and
+  verify downloads.
+
 ## Metadata formats
 
 `include/photoc/format.h` separates extension discovery from backend validation.

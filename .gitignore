@@ -7,6 +7,8 @@
 /out/
 /dist/
 /benchmarks/data/
+/install-photoc.sh
+/uninstall-photoc.sh
 *.o
 *.obj
 *.dSYM/
