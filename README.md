@@ -20,7 +20,7 @@ photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
 files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported
 yet. See [File-type support](#file-type-support).
 
-![photoc exif showing camera, exposure, and capture date for a Sony RX100 VII photo](.github/assets/demo.gif)
+![photoc query finding low-light shots and wide-angle f/5.6 shots in a folder of photos](.github/assets/demo.gif)
 
 ## Your originals are safe by default
 
