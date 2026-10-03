@@ -20,15 +20,13 @@ photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
 files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported
 yet. See [File-type support](#file-type-support).
 
-![photoc query finding low-light shots and wide-angle f/5.6 shots in a folder of photos](.github/assets/demo.gif)
-
 ## Table of contents
 
-- [Your originals are safe by default](#your-originals-are-safe-by-default) · [Why photoc?](#why-photoc) · [Quick start](#quick-start)
-- [Commands](#commands) · [Workflows](#workflows) · [File safety](#file-safety) · [Scripting](#scripting)
-- [Installation](#installation) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+- [Quick start](#quick-start) · [Commands](#commands) · [Workflows](#workflows)
+- [File safety](#file-safety) · [Scripting](#scripting) · [Installation](#installation)
+- [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
 
-## Your originals are safe by default
+![photoc query finding low-light shots and wide-angle f/5.6 shots in a folder of photos](.github/assets/demo.gif)
 
 > photoc never changes your original files unless you ask it to with `--apply`
 > (`rename`, `sort`) or `--in-place` (`scrub`). It never overwrites existing
@@ -37,19 +35,6 @@ yet. See [File-type support](#file-type-support).
 Read-only commands only read. Commands that create files write new copies next
 to your originals or in a folder you choose. See [File safety](#file-safety)
 for details.
-
-## Why photoc?
-
-- **Built around photography workflows.** Shooting sessions, exposure
-  statistics, sharpness ranking, and date-based folders are first-class
-  commands, not recipes you assemble yourself.
-- **Preview first.** Renames and moves are planned and checked as a whole
-  before anything changes, and photoc tries to undo earlier steps if one
-  fails.
-- **Script-friendly.** Results go to stdout, messages go to stderr, exit codes
-  are stable, and JSON output keeps the same fields in every mode.
-- **Small and local.** A C program with a few common libraries. No account,
-  no cloud, no catalog database.
 
 photoc is **not** a RAW developer, an image editor, a photo catalog, or a
 replacement for deep metadata editors such as
