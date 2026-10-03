@@ -327,34 +327,58 @@ Source and manual installations have their own
 
 ## Troubleshooting
 
-**`photoc: command not found`.** Check that your install directory is on
-`PATH`. For the shell installer, see
+<details>
+<summary><code>photoc: command not found</code></summary>
+
+Check that your install directory is on `PATH`. For the shell installer, see
 [Add photoc to your PATH](docs/installation.md#add-photoc-to-your-path).
 
-**`error while loading shared libraries: libturbojpeg.so.0` (Linux) or
-`dyld: Library not loaded` (macOS).** A runtime library is missing from a
-shell or manual installation. Install the packages listed under
-[Shell installer](#shell-installer). The prebuilt executable does not bundle
-these libraries.
+</details>
 
-**macOS says the binary "cannot be opened" or "cannot be verified".** Release
-binaries are not signed or notarized. The installer downloads with `curl`,
-which does not trigger this. If you downloaded a binary in a browser, remove
-the quarantine flag after verifying its checksum:
+<details>
+<summary><code>error while loading shared libraries: libturbojpeg.so.0</code> (Linux) or <code>dyld: Library not loaded</code> (macOS)</summary>
+
+A runtime library is missing from a shell or manual installation. Install the
+packages listed under [Shell installer](#shell-installer). The prebuilt
+executable does not bundle these libraries.
+
+</details>
+
+<details>
+<summary>macOS says the binary "cannot be opened" or "cannot be verified"</summary>
+
+Release binaries are not signed or notarized. The installer downloads with
+`curl`, which does not trigger this. If you downloaded a binary in a browser,
+remove the quarantine flag after verifying its checksum:
 `xattr -d com.apple.quarantine ./photoc-darwin-arm64`.
 
-**My photos are skipped or reported as unsupported.** photoc reads JPEG files
-and Sony ARW metadata only, matched by file extension. See
-[File-type support](#file-type-support).
+</details>
 
-**Rename or sort says the plan is blocked.** At least one photo is missing
-metadata the plan needs, such as a capture date or a field used in your
-template. The preview names each blocked file. Move those files elsewhere or
-choose a template that does not need the missing field.
+<details>
+<summary>My photos are skipped or reported as unsupported</summary>
 
-**A scan succeeded but some files had warnings.** `stats` and `timeline`
-continue past individual file errors and count them in the summary. See
-[exit codes](docs/scripting.md#exit-codes).
+photoc reads JPEG files and Sony ARW metadata only, matched by file extension.
+See [File-type support](#file-type-support).
+
+</details>
+
+<details>
+<summary>Rename or sort says the plan is blocked</summary>
+
+At least one photo is missing metadata the plan needs, such as a capture date
+or a field used in your template. The preview names each blocked file. Move
+those files elsewhere or choose a template that does not need the missing
+field.
+
+</details>
+
+<details>
+<summary>A scan succeeded but some files had warnings</summary>
+
+`stats` and `timeline` continue past individual file errors and count them in
+the summary. See [exit codes](docs/scripting.md#exit-codes).
+
+</details>
 
 For anything else, [open an issue](https://github.com/ahmetomerv/photoc/issues/new/choose)
 with the command you ran, `photoc --version`, your OS, and the full error
