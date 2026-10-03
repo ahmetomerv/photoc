@@ -1,0 +1,30 @@
+name: Retry Homebrew tap notification
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable photoc tag, for example v0.5.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      PHOTOC_SOURCE_GITHUB_TOKEN: ${{ github.token }}
+      PHOTOC_TAP_DISPATCH_TOKEN: ${{ secrets.PHOTOC_TAP_DISPATCH_TOKEN }}
+    steps:
+      - name: Checkout photoc
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify published release and notify tap
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python3 scripts/notify-homebrew-tap.py --tag "$RELEASE_TAG"

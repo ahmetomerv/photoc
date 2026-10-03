@@ -94,10 +94,17 @@ license texts against the dependency versions used by the release builds.
    badge reads published GitHub releases and will update after publication;
    cached badges may take a little time to refresh.
 
+7. Confirm the post-publication `Request Homebrew tap PR` job succeeded, then
+   review and merge the tap PR using the
+   [Homebrew automation guide](homebrew-automation.md). The tap's formula needs
+   the new tagged source URL and its SHA-256 before `brew upgrade photoc` can
+   offer this release. Use the [manual checklist](homebrew-releases.md) if the
+   automation needs repair.
+
 Use this same process for every future release. Never move a published tag or
 replace published assets; fixes need a new version. Publishing makes the
-default installer select the new release. Existing installations update only
-when users follow the [upgrade steps](installation.md#upgrading).
+default release installer select the new release. Existing release-installer
+copies update only when users follow the [upgrade steps](installation.md#upgrading).
 
 | Target | Native runner | Binary baseline |
 | --- | --- | --- |

@@ -45,4 +45,6 @@ notes, and a JSON schema when the command supports JSON. Run
 ## Maintainers
 
 - [Release guide](releasing.md): bump a version, publish it, and verify downloads.
+- [Homebrew automation](homebrew-automation.md): configure and review release-triggered tap PRs.
+- [Homebrew release checklist](homebrew-releases.md): update and test the tap after each release.
 - [First-release audit](release-audit.md): verification results and remaining limits.
