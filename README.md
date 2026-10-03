@@ -51,22 +51,16 @@ replacement for deep metadata editors such as
 
 ## Quick start
 
-Install the runtime libraries, then run the release installer
-([other options](#installation)):
+Install photoc from its Homebrew tap (macOS or Linux with Homebrew):
 
 ```sh
-# macOS
-brew install libexif jpeg-turbo libxml2
-# Ubuntu / Debian
-sudo apt install libexif12 libturbojpeg libjpeg8 libxml2
-
-curl -fsSL https://raw.githubusercontent.com/ahmetomerv/photoc/main/scripts/install.sh \
-  -o install-photoc.sh
-sh install-photoc.sh
+brew install ahmetomerv/photoc/photoc
 photoc --version
 ```
 
-If `photoc` is not found, [add it to your PATH](docs/installation.md#add-photoc-to-your-path).
+The qualified name adds the tap automatically; Homebrew installs the required
+libraries. For a prebuilt executable instead, use the
+[shell installer](#shell-installer).
 
 Then try these read-only commands on your own photos:
 
@@ -273,20 +267,57 @@ code rules, progress, and exactly what quiet and verbose modes show.
 
 ## Installation
 
-The [Quick start](#quick-start) installs the latest prebuilt release for
-**macOS arm64**, **macOS x86_64**, or **Linux x86_64** into
-`$HOME/.local/bin`, without a compiler or `sudo`. Release builds require macOS
-15 or later, or glibc-based Linux with glibc 2.35 or later. The installer
-verifies the download's SHA-256 checksum and never replaces an existing file.
+### Homebrew (recommended)
+
+The [Quick start](#quick-start) uses the project's Homebrew tap. It builds
+photoc from source and manages its dependencies. After a new version is
+published to the tap, update an existing Homebrew installation with:
+
+```sh
+brew update
+brew upgrade photoc
+photoc --version
+```
+
+`brew update` refreshes the tap; `brew upgrade photoc` installs the newer
+version. The tap formula is updated after each photoc release through a
+reviewed pull request. See the [installation guide](docs/installation.md#homebrew-recommended)
+for details.
+
+### Shell installer
+
+The shell installer downloads a checksum-verified prebuilt release for
+**macOS arm64**, **macOS x86_64**, or **Linux x86_64** to `$HOME/.local/bin`.
+Install the runtime libraries for your system first:
+
+```sh
+# macOS
+brew install libexif jpeg-turbo libxml2
+```
+
+```sh
+# Ubuntu / Debian
+sudo apt install libexif12 libturbojpeg libjpeg8 libxml2
+```
+
+Then download and run the installer:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ahmetomerv/photoc/main/scripts/install.sh \
+  -o install-photoc.sh
+sh install-photoc.sh
+photoc --version
+```
+
+Release binaries require macOS 15 or later, or glibc-based Linux with glibc
+2.35 or later. The installer verifies the download's SHA-256 checksum and
+never replaces an existing file. If `photoc` is not found, see
+[Add photoc to your PATH](docs/installation.md#add-photoc-to-your-path).
 
 - **Choose a version or directory:**
   `sh install-photoc.sh --version vX.Y.Z --install-dir "$HOME/bin"`
-- **Build from source** on other systems, or to get the man page: see
-  [Build from source](docs/installation.md#build-from-source).
-- **Shell completions** for zsh, bash, and fish:
-  see the [completion setup](completions/README.md).
-- **Upgrade:** installed copies do not update automatically. Uninstall the old
-  release, then install the new one; see [Upgrading](docs/installation.md#upgrading).
+- **Upgrade:** preview and remove the tracked shell installation, then run
+  the installer again; see [Upgrading](docs/installation.md#upgrading).
 - **Uninstall:** download the uninstaller, preview, then apply:
 
   ```sh
@@ -296,22 +327,24 @@ verifies the download's SHA-256 checksum and never replaces an existing file.
   sh uninstall-photoc.sh --apply  # remove
   ```
 
-  This removes only an unchanged release installation. For source
-  installations, see [uninstalling a source installation](docs/installation.md#uninstalling-a-source-or-manual-installation).
+  This removes only an unchanged shell-installer installation.
 
-The [installation guide](docs/installation.md) has full details on
-requirements, install locations, the man page, and upgrade behavior.
+The [installation guide](docs/installation.md) also covers source builds,
+shell completions, install locations, the man page, and upgrade behavior.
+Source and manual installations have their own
+[uninstall instructions](docs/installation.md#uninstalling-a-source-or-manual-installation).
 
 ## Troubleshooting
 
-**`photoc: command not found`.** The install directory is not on your
-`PATH`. See [Add photoc to your PATH](docs/installation.md#add-photoc-to-your-path),
-or run it with its full path, such as `~/.local/bin/photoc`.
+**`photoc: command not found`.** Check that your install directory is on
+`PATH`. For the shell installer, see
+[Add photoc to your PATH](docs/installation.md#add-photoc-to-your-path).
 
 **`error while loading shared libraries: libturbojpeg.so.0` (Linux) or
-`dyld: Library not loaded` (macOS).** A runtime library is missing. Install
-the packages listed in the [Quick start](#quick-start). The libraries are not
-bundled with photoc.
+`dyld: Library not loaded` (macOS).** A runtime library is missing from a
+shell or manual installation. Install the packages listed under
+[Shell installer](#shell-installer). The prebuilt executable does not bundle
+these libraries.
 
 **macOS says the binary "cannot be opened" or "cannot be verified".** Release
 binaries are not signed or notarized. The installer downloads with `curl`,

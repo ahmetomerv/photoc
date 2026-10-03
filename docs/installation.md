@@ -2,13 +2,43 @@
 
 [Project README](../README.md) · [Command guides](README.md)
 
-- [GitHub releases](#github-releases): prebuilt executable, no compiler needed.
+- [Homebrew](#homebrew-recommended): preferred install and upgrade path.
+- [GitHub releases](#github-releases): shell installer for a prebuilt executable.
 - [Build from source](#build-from-source): any macOS or Linux system with the libraries.
 - [Add photoc to your PATH](#add-photoc-to-your-path)
 - [Install locations and the manual](#install-locations-and-the-manual)
 - [Upgrading](#upgrading)
 - [Uninstalling a tracked release installation](#uninstalling-a-tracked-release-installation)
 - [Uninstalling a source or manual installation](#uninstalling-a-source-or-manual-installation)
+
+## Homebrew (recommended)
+
+On macOS or Linux with Homebrew, install photoc from its tap:
+
+```sh
+brew install ahmetomerv/photoc/photoc
+photoc --version
+```
+
+The fully qualified name adds the tap automatically and trusts this formula.
+Homebrew builds photoc from the tagged source archive and installs its library
+dependencies. The tap's formula is updated through a reviewed pull request
+after each photoc release; [release-to-tap automation](homebrew-automation.md)
+explains that process.
+
+To install a newer version after its tap PR has been merged:
+
+```sh
+brew update
+brew upgrade photoc
+photoc --version
+```
+
+`brew update` refreshes the tap definition; `brew upgrade photoc` upgrades
+the installed package. `brew update photoc` is not an upgrade command. For a
+Homebrew installation, use `brew uninstall photoc` to remove it. If an older
+shell or manual copy appears first on `PATH`, run `type -a photoc` to find it
+and follow that installation method's uninstall instructions below.
 
 ## GitHub releases
 
@@ -17,6 +47,9 @@ all three builds pass. If a release or platform asset is not available,
 [build from source](#build-from-source). The installer
 reports missing releases or assets as errors; it does not fall back to an
 unverified download or build.
+
+This shell installer is an alternative for macOS or Linux systems that use
+the published prebuilt executable rather than the Homebrew formula.
 
 Install the runtime libraries first:
 
@@ -173,6 +206,11 @@ Shell completions for zsh, bash, and fish are installed separately; see the
 Installed copies do not update automatically. Read the
 [release notes](https://github.com/ahmetomerv/photoc/releases) and check your
 current version with `photoc --version` before upgrading.
+
+For Homebrew installations, use `brew update` followed by
+`brew upgrade photoc` as shown [above](#homebrew-recommended). Wait until the
+tap PR for the new version has been merged. The commands below apply to the
+shell installer, which does not overwrite an existing executable.
 
 From a checkout, run:
 
