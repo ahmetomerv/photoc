@@ -174,3 +174,23 @@ jobs:
           printf '\n\n## Licenses\n\n' >> "$notes"
           cat LICENSE THIRD_PARTY_NOTICES.md licenses/libexif/COPYING >> "$notes"
           gh release edit "$RELEASE_TAG" --notes-file "$notes" --draft=false
+
+  notify_homebrew_tap:
+    name: Request Homebrew tap PR
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      PHOTOC_SOURCE_GITHUB_TOKEN: ${{ github.token }}
+      PHOTOC_TAP_DISPATCH_TOKEN: ${{ secrets.PHOTOC_TAP_DISPATCH_TOKEN }}
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify published release and notify tap
+        run: python3 scripts/notify-homebrew-tap.py --tag "$RELEASE_TAG"
