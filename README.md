@@ -22,6 +22,12 @@ yet. See [File-type support](#file-type-support).
 
 ![photoc query finding low-light shots and wide-angle f/5.6 shots in a folder of photos](.github/assets/demo.gif)
 
+## Table of contents
+
+- [Your originals are safe by default](#your-originals-are-safe-by-default) · [Why photoc?](#why-photoc) · [Quick start](#quick-start)
+- [Commands](#commands) · [Workflows](#workflows) · [File safety](#file-safety) · [Scripting](#scripting)
+- [Installation](#installation) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+
 ## Your originals are safe by default
 
 > photoc never changes your original files unless you ask it to with `--apply`
