@@ -62,6 +62,16 @@ photoc stats ./photos --recursive     # summarize a folder and its subfolders
 photoc timeline ./photos              # review a shoot by session
 ```
 
+For example, `photoc rename ./shoot --format '{date}_{camera}_{sequence}.{ext}'`
+previews these three sample JPEGs without changing any files:
+
+```text
+session_1000.jpg -> 2026-09-27_Model S_0001.jpg
+session_1030.jpg -> 2026-09-27_Model S_0002.jpg
+session_1200.jpg -> 2026-09-27_Model S_0003.jpg
+Summary: 3 JPEG, 3 planned, 0 unchanged, 0 blocked, 0 applied, 0 rolled back
+```
+
 For help with a specific command, run `photoc <command> --help` or `man photoc`.
 
 Directory scans look only inside the chosen folder unless you add
@@ -271,8 +281,10 @@ photoc --version
 ```
 
 `brew update` refreshes the tap; `brew upgrade photoc` installs the newer
-version. The tap formula is updated after each photoc release through a
-reviewed pull request. See the [installation guide](docs/installation.md#homebrew-recommended)
+version. The version badge at the top tracks GitHub releases; Homebrew offers
+that version after the update pull request for the
+[tap formula](https://github.com/ahmetomerv/homebrew-photoc/blob/main/Formula/photoc.rb)
+is merged. See the [installation guide](docs/installation.md#homebrew-recommended)
 for details.
 
 ### Shell installer
@@ -332,6 +344,19 @@ Source and manual installations have their own
 
 Check that your install directory is on `PATH`. For the shell installer, see
 [Add photoc to your PATH](docs/installation.md#add-photoc-to-your-path).
+
+</details>
+
+<details>
+<summary>Which photoc installation am I running?</summary>
+
+Run `type -a photoc` to list matching commands and `command -v photoc` to see
+which one your shell selects. A Homebrew installation normally resolves to
+`$(brew --prefix)/bin/photoc`. If an older shell-installed copy also appears
+at `~/.local/bin/photoc`, follow the
+[tracked uninstall steps](docs/installation.md#uninstalling-a-tracked-release-installation).
+The same path appearing twice in `type -a` usually means its directory occurs
+twice in `PATH`.
 
 </details>
 
