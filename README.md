@@ -6,6 +6,10 @@
 [![License: MIT](https://img.shields.io/github/license/ahmetomerv/photoc)](LICENSE)
 ![Platforms: macOS | Linux](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)
 
+- [Quick start](#quick-start) · [Commands](#commands) · [Workflows](#workflows)
+- [File safety](#file-safety) · [Scripting](#scripting) · [Installation](#installation)
+- [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+
 # photoc
 
 **Command-line tools for photographers.**
@@ -19,12 +23,6 @@ and most can print JSON.
 photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
 files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported
 yet. See [File-type support](#file-type-support).
-
-## Table of contents
-
-- [Quick start](#quick-start) · [Commands](#commands) · [Workflows](#workflows)
-- [File safety](#file-safety) · [Scripting](#scripting) · [Installation](#installation)
-- [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
 
 ![photoc query finding low-light shots and wide-angle f/5.6 shots in a folder of photos](.github/assets/demo.gif)
 
