@@ -6,9 +6,9 @@
 [![License: MIT](https://img.shields.io/github/license/ahmetomerv/photoc)](LICENSE)
 ![Platforms: macOS | Linux](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)
 
-- [Quick start](#quick-start) · [Commands](#commands) · [Workflows](#workflows)
-- [File safety](#file-safety) · [Scripting](#scripting) · [Installation](#installation)
-- [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+<p align="center">
+  <a href="#quick-start">Quick start</a> · <a href="#commands">Commands</a> · <a href="#workflows">Workflows</a> · <a href="#file-safety">File safety</a> · <a href="#scripting">Scripting</a> · <a href="#installation">Installation</a> · <a href="#troubleshooting">Troubleshooting</a> · <a href="#contributing">Contributing</a> · <a href="#license">License</a>
+</p>
 
 # photoc
 
