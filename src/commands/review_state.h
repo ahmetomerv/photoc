@@ -26,7 +26,8 @@ typedef struct {
 /* out must be zero-initialized or cleaned up. root and state_path are borrowed;
    NULL state_path selects <canonical root>/.photoc-review.json. A missing state
    is valid and creates no file. Existing malformed/unrelated/symlink files are
-   refused. On failure out is unchanged. Returns 0 or -1 with errno set. */
+   refused. On failure out is cleaned and reusable. Returns 0 or -1 with
+   errno set. */
 int review_state_open(review_state *out, const char *root,
                       const char *state_path);
 

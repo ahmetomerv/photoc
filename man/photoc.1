@@ -1,4 +1,4 @@
-.TH PHOTOC 1 "September 29, 2026" "photoc" "User Commands"
+.TH PHOTOC 1 "October 6, 2026" "photoc" "User Commands"
 .SH NAME
 photoc \- Command-line tools for photographers
 .SH SYNOPSIS
@@ -19,7 +19,8 @@ photoc \- Command-line tools for photographers
 is a command-line toolkit for photographers working with local files and
 repeatable shell workflows.
 It inspects metadata, summarizes collections, finds exact duplicates,
-renames and organizes photos, compresses copies, makes contact sheets, and removes EXIF GPS tags.
+renames and organizes photos, compresses copies, makes contact sheets, interactively
+reviews JPEGs, and removes EXIF GPS tags.
 Normal output goes to standard output; diagnostics go to standard error.
 .PP
 macOS and Linux are the initial supported platforms.
@@ -28,7 +29,7 @@ recognize JPEG
 (.jpg/.jpeg) and Sony ARW (.arw), ignoring extension case.
 ARW support reads common TIFF/EXIF metadata only, without developing or
 validating RAW pixels. Other RAW formats are unsupported.
-Query, check, compress, contact, focus, and scrub remain JPEG-only; directory scans
+Query, check, compress, contact, focus, review, and scrub remain JPEG-only; directory scans
 skip ARW for those commands and single-file ARW input fails.
 The
 .B duplicates
@@ -49,6 +50,67 @@ Option values must be separate arguments; combined short flags and
 .B \-\-option=value
 syntax are not supported.
 .SH COMMANDS
+.SS review
+.B photoc review
+.I directory
+.RB [ \-\-recursive ]
+.RI [ "\-\-sort name|date" ]
+.RI [ "\-\-show all|unmarked|picked|rejected" ]
+.RI [ "\-\-images auto|iterm|none" ]
+.RI [ "\-\-state file" ]
+.PP
+Interactively mark regular .jpg/.jpeg files as picked, rejected, or unmarked.
+Exactly one directory is required; a single file and
+.B \-\-json
+are rejected. Both standard input and standard output must be terminals.
+The default scan is flat; recursive scans do not follow symlinks. The discovered
+list stays fixed for the session. JPEGs are never edited, moved, or deleted.
+.TP
+.B \-\-sort name|date
+Name (default) sorts by case-sensitive bytewise basename, then relative path.
+Date sorts valid EXIF capture times oldest first, with relative path ties;
+missing or invalid dates come last. No filesystem-date fallback is used.
+.TP
+.B \-\-show all|unmarked|picked|rejected
+Filter navigation, default all. Counts always cover the full discovered
+collection. A mark that removes the current photo from the filter selects the
+next match, or the previous match when it was last. An empty filter remains
+usable for quitting.
+.TP
+.B \-\-images auto|iterm|none
+Auto (default) uses iTerm2 inline images only in a directly detected iTerm2
+session and otherwise shows text only. It excludes tmux and screen. iTerm
+forces the image backend; none always uses text only. The original JPEG is
+streamed to the terminal without writing another image. iTerm2 controls
+display orientation. All modes show filename, status, metadata, sharpness,
+counts, and controls.
+.TP
+.B \-\-state file
+Use a different review-state JSON file; its parent must already exist. The
+default is
+.IR directory /.photoc-review.json.
+The state stores schema version 1, the canonical absolute root, and picked
+or rejected relative paths. Non-UTF-8 path bytes use hex fields. The first
+actual mark change creates the file. Restarting restores marks and starts at
+the first photo in the requested order/filter; cursor position is not saved.
+Entries absent from the current discovery remain in the state file.
+Malformed, unrelated, wrong-root, and unsupported-version state files are
+refused. Updates use a checked, synced same-directory temporary file and
+atomic rename. A failed save leaves the previous state and displayed mark
+unchanged and returns status 1.
+.PP
+Right arrow, l, or Space moves forward; left arrow or h moves backward.
+p picks, x rejects, u clears a mark, i toggles metadata detail, ? toggles
+help, and q quits. Ctrl+C interrupts cleanly. Each changed mark is saved
+before advancing. Sharpness is computed on first display and cached for the
+session; it never marks automatically. Files that disappear or become
+unreadable show as unavailable while navigation continues. Filename and
+metadata control bytes are escaped before display. Terminal settings and
+the alternate screen are restored on controlled exits and handled signals.
+Quiet suppresses the post-exit informational summary, while the interactive
+UI and errors remain visible. Verbose diagnostics stay out of the active UI.
+No progress spinner is shown. See
+.IR docs/review.md .
 .SS query
 .B photoc query
 .I file|directory
@@ -681,6 +743,11 @@ Verbose diagnostics, warnings, and errors use standard error; quiet suppresses
 non-critical warnings. No JSON error envelope is emitted.
 Other implemented commands reject this option with status 2.
 .SH SAFETY
+.B review
+changes only its separate JSON state file; it never modifies JPEG bytes,
+metadata, filenames, or locations. It does not delete picked or rejected
+photos. A state-save failure keeps the last persisted marks.
+.PP
 .B rename
 and
 .B sort
@@ -701,6 +768,13 @@ Directory operations can retain earlier successful outputs after later failures.
 is explicit replacement with no backup or directory-wide rollback.
 Keep backups and avoid concurrent changes when modifying important collections.
 .SH EXAMPLES
+Cull a JPEG directory, then resume with unmarked photos:
+.PP
+.nf
+photoc review ./shoot \-\-images none
+photoc review ./shoot \-\-sort date \-\-show unmarked
+.fi
+.PP
 Inspect JPEG/ARW metadata and save a machine-readable report:
 .PP
 .nf
@@ -767,6 +841,11 @@ photoc exif \-\- \-photo.jpg
 .SH FILES
 .B photoc
 does not currently read a configuration file or maintain a photo database.
+.TP
+.I .photoc-review.json
+Default review-state file under the canonical review root. Stores version,
+root identity, and only picked/rejected relative paths. Override with
+.BR review " " \-\-state .
 .TP
 .I *.compressed.jpg, *.compressed.jpeg
 New compression outputs, with original extension casing retained.

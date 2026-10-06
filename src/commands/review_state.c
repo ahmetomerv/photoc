@@ -113,7 +113,7 @@ static char *parse_string(json_cursor *cursor)
         return NULL;
     }
     size_t capacity = closing - start + 1;
-    char *result = malloc(capacity);
+    char *result = calloc(capacity, 1);
     if (result == NULL)
         return NULL;
     size_t used = 0;
@@ -144,6 +144,8 @@ static char *parse_string(json_cursor *cursor)
         case 'u': {
             unsigned int unit;
             if (unicode_unit(cursor, &unit) != 0)
+                goto invalid;
+            if (unit == 0)
                 goto invalid;
             if (unit >= 0xd800 && unit <= 0xdbff) {
                 if (cursor->length - cursor->position < 2 ||
@@ -182,7 +184,7 @@ static char *decode_hex(const char *value)
     char *result = malloc(length / 2 + 1);
     if (result == NULL)
         return NULL;
-    for (size_t i = 0; i < length; i += 2) {
+    for (size_t i = 0; i + 1 < length; i += 2) {
         int high = hex_digit((unsigned char)value[i]);
         int low = hex_digit((unsigned char)value[i + 1]);
         if (high < 0 || low < 0 || (high == 0 && low == 0)) {
@@ -529,59 +531,52 @@ int review_state_open(review_state *out, const char *root,
         errno = EINVAL;
         return -1;
     }
-    review_state candidate = {.directory_fd = -1};
-    candidate.root = realpath(root, NULL);
-    if (candidate.root == NULL)
-        return -1;
+    /* The caller supplies a zero-initialized or cleaned state. Populate it
+       directly so every failure path releases exactly the owned fields. */
+    out->directory_fd = -1;
+    out->root = realpath(root, NULL);
+    if (out->root == NULL)
+        goto fail;
     struct stat root_info;
-    if (stat(candidate.root, &root_info) != 0) {
-        int saved_errno = errno;
-        review_state_cleanup(&candidate);
-        errno = saved_errno;
-        return -1;
-    }
+    if (stat(out->root, &root_info) != 0)
+        goto fail;
     if (!S_ISDIR(root_info.st_mode)) {
-        review_state_cleanup(&candidate);
         errno = ENOTDIR;
-        return -1;
+        goto fail;
     }
     char *default_path = NULL;
     if (state_path == NULL) {
-        if (photoc_fs_join(candidate.root, ".photoc-review.json",
-                           &default_path) != 0) {
-            review_state_cleanup(&candidate);
-            return -1;
-        }
+        if (photoc_fs_join(out->root, ".photoc-review.json",
+                           &default_path) != 0)
+            goto fail;
         state_path = default_path;
     }
-    int result = split_state_path(state_path, &candidate.directory,
-                                  &candidate.filename);
+    int result = split_state_path(state_path, &out->directory,
+                                  &out->filename);
     free(default_path);
-    if (result != 0) {
-        review_state_cleanup(&candidate);
-        return -1;
+    if (result != 0)
+        goto fail;
+    out->directory_fd = open(out->directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+    if (out->directory_fd < 0)
+        goto fail;
+    if (read_state_file(out->directory_fd, out->filename,
+                        &out->snapshot, &out->snapshot_length,
+                        &out->exists) != 0)
+        goto fail;
+    if (out->exists) {
+        if (parse_state(out->snapshot, out->snapshot_length,
+                        out->root, &out->entries,
+                        &out->count) != 0)
+            goto fail;
     }
-    candidate.directory_fd = open(candidate.directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
-    if (candidate.directory_fd < 0) {
-        review_state_cleanup(&candidate);
-        return -1;
-    }
-    if (read_state_file(candidate.directory_fd, candidate.filename,
-                        &candidate.snapshot, &candidate.snapshot_length,
-                        &candidate.exists) != 0) {
-        review_state_cleanup(&candidate);
-        return -1;
-    }
-    if (candidate.exists &&
-        parse_state(candidate.snapshot, candidate.snapshot_length,
-                    candidate.root, &candidate.entries, &candidate.count) != 0) {
+    return 0;
+fail:
+    {
         int saved_errno = errno;
-        review_state_cleanup(&candidate);
+        review_state_cleanup(out);
         errno = saved_errno;
         return -1;
     }
-    *out = candidate;
-    return 0;
 }
 
 static const review_state_entry *find_entry(const review_state *state,

@@ -24,7 +24,7 @@ function lacks
 end
 
 query 'photoc '
-for name in query check compress contact exif duplicates stats timeline rename sort focus scrub
+for name in query check compress contact exif duplicates stats timeline rename sort focus scrub review
     has $name
 end
 query 'photoc --ver'
@@ -38,16 +38,33 @@ for name in query check exif duplicates stats timeline focus
     has --json
     lacks --version
 end
-for name in compress contact rename sort scrub
+for name in compress contact rename sort scrub review
     query "photoc $name --"
     lacks --json
 end
-for name in query check compress contact duplicates stats timeline rename sort focus scrub
+for name in query check compress contact duplicates stats timeline rename sort focus scrub review
     query "photoc $name --rec"
     has --recursive
 end
 query 'photoc rename --'
 has --format; has --apply; lacks --gps
+query 'photoc review --'
+for flag in --recursive --sort --show --images --state
+    has $flag
+end
+lacks --json; lacks --apply
+query 'photoc review ./ --sort '
+has name; has date
+query 'photoc review ./ --show '
+for value in all unmarked picked rejected
+    has $value
+end
+query 'photoc review ./ --images '
+for value in auto iterm none
+    has $value
+end
+query 'photoc review Photo'
+has 'Photo album/'; lacks 'Photo image.JPG'
 query 'photoc scrub --'
 has --gps; has --in-place; lacks --apply
 query 'photoc focus --'

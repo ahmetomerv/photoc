@@ -13,7 +13,7 @@
     if (!(condition)) { \
         fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__, \
                 #condition, errno); \
-        return 1; \
+        exit(1); \
     } \
 } while (0)
 

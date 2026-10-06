@@ -55,7 +55,7 @@ lacks() {
 }
 
 query 'photoc '
-for name in query check compress contact exif duplicates stats timeline rename sort focus scrub; do has "$name"; done
+for name in query check compress contact exif duplicates stats timeline rename sort focus scrub review; do has "$name"; done
 query 'photoc --ver'
 has --version
 query 'photoc stats --no-'
@@ -66,16 +66,27 @@ for name in query check exif duplicates stats timeline focus; do
     query "photoc $name --"
     has --json; lacks --version
 done
-for name in compress contact rename sort scrub; do
+for name in compress contact rename sort scrub review; do
     query "photoc $name --"
     lacks --json
 done
-for name in query check compress contact duplicates stats timeline rename sort focus scrub; do
+for name in query check compress contact duplicates stats timeline rename sort focus scrub review; do
     query "photoc $name --rec"
     has --recursive
 done
 query 'photoc rename --'
 has --format; has --apply; lacks --gps
+query 'photoc review --'
+for flag in --recursive --sort --show --images --state; do has "$flag"; done
+lacks --json; lacks --apply
+query 'photoc review ./ --sort '
+has name; has date
+query 'photoc review ./ --show '
+for value in all unmarked picked rejected; do has "$value"; done
+query 'photoc review ./ --images '
+for value in auto iterm none; do has "$value"; done
+query 'photoc review Photo'
+has 'Photo\ album'; lacks 'Photo\ image.JPG'
 query 'photoc scrub --'
 has --gps; has --in-place; lacks --apply
 query 'photoc focus --'

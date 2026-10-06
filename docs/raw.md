@@ -19,6 +19,7 @@ decoding, recompressing, or rewriting RAW image data.
 | `compress` | JPEG recompression | Unsupported/skipped | Unsupported/skipped |
 | `contact` | JPEG contact sheets | Unsupported/skipped | Unsupported/skipped |
 | `focus` | JPEG sharpness | Unsupported/skipped | Unsupported/skipped |
+| `review` | Interactive JPEG marking | Unsupported/skipped | Unsupported/skipped |
 | `scrub` | GPS, privacy, or descriptive metadata removal | Unsupported/skipped | Unsupported/skipped |
 | `duplicates` | Exact file bytes | Exact file bytes | Exact file bytes |
 
@@ -26,6 +27,8 @@ Extensions `.jpg`, `.jpeg`, and `.arw` are matched case-insensitively for
 metadata-capable discovery. JPEG-only commands keep explicit JPEG discovery;
 sharing the metadata scanner does not enable other formats. Directory scans
 skip unsupported extensions and symlinks. Unsupported single-file inputs fail.
+`review` accepts a directory only and keeps its marks in a separate JSON state
+file; it never changes JPEG or ARW bytes. See [Review](review.md).
 
 ```sh
 photoc exif DSC00001.ARW

@@ -29,4 +29,5 @@ Global options:
 Exif and stats inspect JPEG/ARW metadata; duplicates compares file bytes.
 Rename and sort preview by default; compress, scrub, and contact write JPEGs.
 Focus scores JPEG sharpness as a review aid, not a blur verdict.
+Review saves marks separately and never changes JPEG files.
 Run 'photoc <command> --help' for usage and examples.

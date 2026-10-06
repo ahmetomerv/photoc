@@ -17,8 +17,8 @@
 `photoc` helps you review, organize, and prepare photos from the terminal.
 Summarize a shoot, read metadata, find blurry shots and exact duplicates,
 rename and sort photos into folders, make contact sheets and smaller copies,
-or remove GPS location before sharing. Every command works in shell scripts,
-and most can print JSON.
+or remove GPS location before sharing. Most commands work in shell scripts;
+`review` requires a terminal. Several inspection commands can print JSON.
 
 photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
 files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported
@@ -26,9 +26,9 @@ yet. See [File-type support](#file-type-support).
 
 ![photoc query finding low-light shots and wide-angle f/5.6 shots in a folder of photos](.github/assets/demo.gif)
 
-> photoc never changes your original files unless you ask it to with `--apply`
-> (`rename`, `sort`) or `--in-place` (`scrub`). It never overwrites existing
-> files.
+> photoc never changes your original photo files unless you ask it to with
+> `--apply` (`rename`, `sort`) or `--in-place` (`scrub`). It never overwrites
+> unrelated output files.
 
 Read-only commands only read. Commands that create files write new copies next
 to your originals or in a folder you choose. See [File safety](#file-safety)
@@ -51,10 +51,12 @@ The qualified name adds the tap automatically; Homebrew installs the required
 libraries. For a prebuilt executable instead, use the
 [shell installer](#shell-installer).
 
-Then try these read-only commands on your own photos:
+Then try these commands on your own photos (`review` saves marks in a separate
+state file; the others shown here only read):
 
 ```sh
 photoc --help                         # list commands
+photoc review ./photos                # interactively mark JPEGs to keep or reject
 photoc exif photo.jpg                 # one photo's metadata
 photoc stats ./photos --recursive     # summarize a folder and its subfolders
 photoc timeline ./photos              # review a shoot by session
@@ -82,6 +84,12 @@ spaces, such as `photoc exif "Summer trip/photo.jpg"`. Put options before
 Each command name links to its guide with options, examples, limits, and a
 JSON schema where supported. All guides are listed in the
 [documentation index](docs/README.md).
+
+**Review** (interactive; photo files unchanged):
+
+| Command | Purpose |
+| --- | --- |
+| [`review`](docs/review.md) | Browse JPEGs, inspect metadata and sharpness, and save picked/rejected marks |
 
 **Inspect** (read-only):
 
@@ -118,6 +126,7 @@ JSON schema where supported. All guides are listed in the
 
 | Command | JPEG | Sony ARW | Other RAW files |
 | --- | --- | --- | --- |
+| `review` | Interactive culling; JPEGs unchanged | Unsupported/skipped | Unsupported/skipped |
 | `exif`, `stats`, `timeline`, `rename`, `sort` | Metadata | Common TIFF/EXIF metadata | Unsupported/skipped |
 | `query`, `check`, `compress`, `contact`, `focus`, `scrub` | Supported | Unsupported/skipped | Unsupported/skipped |
 | `duplicates` | Exact bytes | Exact bytes | Exact bytes |
@@ -154,6 +163,9 @@ whole plan is blocked and nothing changes. The preview lists the blocked files.
 ### Culling: find blurry shots and duplicates
 
 ```sh
+# Browse the shoot and save picked/rejected marks in .photoc-review.json.
+photoc review ./shoot
+
 # Lowest sharpness scores first; show only those below the threshold.
 photoc focus ./shoot --recursive --threshold 100 --only-blurry
 
@@ -211,6 +223,7 @@ photoc stats ./photos --recursive --json > stats.json
 
 | Command | Changes originals? | Output | Existing files |
 | --- | --- | --- | --- |
+| `review` | Never | Review-state JSON, default `./shoot/.photoc-review.json` | Refuses unrelated state files; atomically replaces its own valid state |
 | Inspect commands | Never | Report on stdout | Not touched |
 | `rename`, `sort` | Only with `--apply` | Renames or moves in place | Never overwritten; whole plan checked first |
 | `compress` | Never | `photo.compressed.jpg` copies | Skipped (directory) or rejected (single file) |
@@ -219,6 +232,9 @@ photoc stats ./photos --recursive --json > stats.json
 
 Important details:
 
+- **Review** saves only picked/rejected marks in a versioned state file. It
+  never changes JPEG data, filenames, or locations; quitting without a mark
+  creates no state file. See [interactive review](docs/review.md).
 - **Rename and sort** check the whole plan before changing anything. If a
   rename or move fails, photoc tries to undo earlier changes, but another
   process changing files at the same time can prevent full recovery. Keep

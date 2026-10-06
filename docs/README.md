@@ -7,6 +7,12 @@ notes, and a JSON schema when the command supports JSON. Run
 `photoc <command> --help` for a short summary, or `man photoc` for the
 [manual page](../man/photoc.1).
 
+## Review (interactive)
+
+| Guide | Purpose |
+| --- | --- |
+| [`review`](review.md) | Cull JPEGs interactively and save picked/rejected marks without changing photos |
+
 ## Inspect (read-only)
 
 | Guide | Purpose |

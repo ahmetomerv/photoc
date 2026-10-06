@@ -41,8 +41,8 @@ review_base64_result review_base64_encode(FILE *source, FILE *destination)
     char output[4096];
     size_t pending = 0;
     size_t produced = 0;
-    size_t count;
-    while ((count = fread(input, 1, sizeof(input), source)) != 0) {
+    for (;;) {
+        size_t count = fread(input, 1, sizeof(input), source);
         for (size_t i = 0; i < count; ++i) {
             triplet[pending++] = input[i];
             if (pending == 3) {
@@ -56,9 +56,12 @@ review_base64_result review_base64_encode(FILE *source, FILE *destination)
                 }
             }
         }
+        if (count < sizeof(input)) {
+            if (ferror(source))
+                return REVIEW_BASE64_READ_ERROR;
+            break;
+        }
     }
-    if (ferror(source))
-        return REVIEW_BASE64_READ_ERROR;
     if (pending != 0) {
         for (size_t i = pending; i < 3; ++i)
             triplet[i] = 0;

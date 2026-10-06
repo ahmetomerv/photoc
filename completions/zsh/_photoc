@@ -16,6 +16,7 @@ command_descriptions=(
     'sort:Preview or apply photo sorting'
     'focus:Compare JPEG sharpness scores'
     'scrub:Remove EXIF GPS tags'
+    'review:Interactively mark JPEGs for review'
 )
 
 for ((index = 2; index < CURRENT; ++index)); do
@@ -27,7 +28,7 @@ for ((index = 2; index < CURRENT; ++index)); do
     if ((! ended)); then
         case $word in
             --) ended=1; continue ;;
-            --quality|--target|--min-quality|--output-dir|--output|--columns|--thumb-size|--sort|--by|--gap|--format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before)
+            --quality|--target|--min-quality|--output-dir|--output|--columns|--thumb-size|--sort|--show|--images|--state|--by|--gap|--format|--threshold|--camera|--make|--iso|--aperture|--focal|--after|--before)
                 pending=1; continue ;;
             -*) continue ;;
         esac
@@ -87,6 +88,15 @@ case $command in
             '--quality[JPEG quality (default 85)]:quality:(60 70 75 80 85 90 95 100)'
             '--metadata[Show exposure metadata beneath each thumbnail]'
             '--sort[Sort photos by filename or capture time]:sort:(name date)'
+            '2:directory:_files -/'
+        ) ;;
+    review)
+        specs+=(
+            '--recursive[Include nested directories]'
+            '--sort[Sort by filename or valid capture time]:sort:(name date)'
+            '--show[Filter navigation by mark]:filter:(all unmarked picked rejected)'
+            '--images[Inline image mode]:mode:(auto iterm none)'
+            '--state[Review state JSON path]:state file:_files'
             '2:directory:_files -/'
         ) ;;
     exif)

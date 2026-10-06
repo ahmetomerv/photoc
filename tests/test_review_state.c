@@ -21,7 +21,7 @@
     if (!(condition)) { \
         fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__, \
                 #condition, errno); \
-        return false; \
+        exit(1); \
     } \
 } while (0)
 
@@ -63,8 +63,9 @@ static char *read_file(const char *path)
         fclose(stream);
         return NULL;
     }
-    if (fread(result, 1, (size_t)length, stream) != (size_t)length ||
-        fclose(stream) != 0) {
+    bool read_ok = fread(result, 1, (size_t)length, stream) == (size_t)length;
+    int close_result = fclose(stream);
+    if (!read_ok || close_result != 0) {
         free(result);
         return NULL;
     }
@@ -171,6 +172,7 @@ static bool test_rejections(const char *root)
         "{\"path\":\"a.jpg\",\"status\":\"rejected\"}]}",
         "[{\"path\":\"bad\\q.jpg\",\"status\":\"picked\"}]}",
         "[{\"path\":\"bad\\uD800.jpg\",\"status\":\"picked\"}]}",
+        "[{\"path\":\"bad\\u0000.jpg\",\"status\":\"picked\"}]}",
         "[{\"path_bytes_hex\":\"6100\",\"status\":\"picked\"}]}",
         "[{\"path_bytes_hex\":\"61\",\"status\":\"picked\"}]}",
         "[{\"path\":\"a.jpg\",\"status\":\"picked\"}",

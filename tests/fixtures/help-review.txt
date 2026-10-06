@@ -13,11 +13,12 @@ Example:
 
 Options:
   --recursive          Include nested directories
-  --sort name|date     Sort by filename (default) or capture timestamp
-  --show all|unmarked|picked|rejected Filter navigation (default: all)
+  --sort name|date     Sort by filename (default) or valid capture time
+  --show all|unmarked|picked|rejected Filter navigation; counts cover all photos
   --images auto|iterm|none Inline images in iTerm (default: auto)
   --state <file>       Review state file (default: <directory>/.photoc-review.json)
 
+Requires one directory; reviews regular .jpg/.jpeg files only.
 Requires a terminal on stdin and stdout; --json is not supported.
 Auto uses images in direct iTerm sessions; iterm forces the backend.
 Keys: left/h previous, right/l/space next, p pick, x reject, u unmark,

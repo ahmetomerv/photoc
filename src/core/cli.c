@@ -200,13 +200,14 @@ static const char *const review_examples[] = {
 
 static const photoc_help_option review_options[] = {
     {"--recursive", "Include nested directories"},
-    {"--sort name|date", "Sort by filename (default) or capture timestamp"},
-    {"--show all|unmarked|picked|rejected", "Filter navigation (default: all)"},
+    {"--sort name|date", "Sort by filename (default) or valid capture time"},
+    {"--show all|unmarked|picked|rejected", "Filter navigation; counts cover all photos"},
     {"--images auto|iterm|none", "Inline images in iTerm (default: auto)"},
     {"--state <file>", "Review state file (default: <directory>/.photoc-review.json)"},
     {NULL, NULL}};
 
 static const char *const review_notes[] = {
+    "Requires one directory; reviews regular .jpg/.jpeg files only.",
     "Requires a terminal on stdin and stdout; --json is not supported.",
     "Auto uses images in direct iTerm sessions; iterm forces the backend.",
     "Keys: left/h previous, right/l/space next, p pick, x reject, u unmark,",
@@ -773,6 +774,7 @@ static void print_global_help(void)
     puts("Rename and sort preview by default; compress, scrub, and contact "
          "write JPEGs.");
     puts("Focus scores JPEG sharpness as a review aid, not a blur verdict.");
+    puts("Review saves marks separately and never changes JPEG files.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
 
