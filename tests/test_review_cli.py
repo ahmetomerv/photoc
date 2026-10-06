@@ -45,11 +45,19 @@ class Session:
         if wanted not in self.output[self.cursor:]:
             raise AssertionError(f"Missing {wanted!r}; output={self.output!r}; "
                                  f"exit={self.process.poll()}")
-        self.cursor = len(self.output)
+        self.cursor = self.output.find(wanted, self.cursor) + len(wanted)
         return self.output
 
     def send(self, keys):
         os.write(self.master, keys)
+
+    def latest_screen(self):
+        return self.output.rsplit(b"\x1b[H\x1b[2J", 1)[-1]
+
+    def wait_screen(self):
+        self.read_until(b"\x1b[H\x1b[2J")
+        self.read_until(b"q quit")
+        return self.latest_screen()
 
     def finish(self, keys=b"q", expected=0):
         if self.process.poll() is None:
@@ -278,6 +286,107 @@ class ReviewTests(unittest.TestCase):
         output, error = session.finish(keys=b"", expected=1)
         self.assertIn("interrupted", error.lower())
         self.assertNotIn("Traceback", output)
+
+    def test_compact_and_detailed_metadata_and_missing_fields(self):
+        self.photo("a.jpg", "with_exif.jpg")
+        self.photo("b.jpg", "no_exif.jpg")
+        session = self.run_session()
+        compact = session.wait_screen()
+        self.assertIn(b"Fixture Camera Co. Model Z", compact)
+        self.assertIn(b"3 x 2", compact)
+        self.assertIn(b"1/125s", compact)
+        self.assertIn(b"f/2.8", compact)
+        self.assertIn(b"ISO 200", compact)
+        self.assertIn(b"50mm", compact)
+        self.assertIn(b"2026:09:27 12:34:56", compact)
+        self.assertNotIn(b"Details", compact)
+        session.send(b"i")
+        detailed = session.wait_screen()
+        self.assertIn(b"Details", detailed)
+        self.assertIn(b"Camera: Fixture Camera Co. Model Z", detailed)
+        self.assertIn(b"Dimensions: 3 x 2", detailed)
+        self.assertIn(b"Exposure: 1/125s", detailed)
+        session.send(b"i")
+        self.assertNotIn(b"Details", session.wait_screen())
+        session.send(b"l")
+        missing = session.wait_screen()
+        self.assertIn(b"b.jpg", missing)
+        self.assertIn(b"3 x 2", missing)
+        self.assertNotIn(b"Camera:", missing)
+        self.assertNotIn(b"ISO", missing)
+        self.assertNotIn(b"Captured:", missing)
+        session.finish()
+
+    def test_sharpness_success_and_failure_are_cached(self):
+        first = self.photo("a.jpg", "flat.jpg")
+        second = self.photo("b.jpg", "invalid.jpg")
+        self.photo("c.jpg", "sharp.jpg")
+        session = self.run_session()
+        self.assertIn(b"Sharpness: 0.000", session.wait_screen())
+        session.send(b"l")
+        self.assertIn(b"Sharpness: unavailable", session.wait_screen())
+        shutil.copyfile(FIXTURES / "sharp.jpg", second)
+        session.send(b"l")
+        self.assertIn(b"c.jpg", session.wait_screen())
+        shutil.copyfile(FIXTURES / "sharp.jpg", first)
+        session.send(b"h")
+        self.assertIn(b"Sharpness: unavailable", session.wait_screen())
+        session.send(b"h")
+        self.assertIn(b"Sharpness: 0.000", session.wait_screen())
+        session.finish()
+        self.assertFalse((self.root / ".photoc-review.json").exists())
+
+    def test_disappearing_and_unreadable_photo_keeps_navigation_and_state(self):
+        self.photo("a.jpg", "flat.jpg")
+        target = self.photo("b.jpg", "sharp.jpg")
+        session = self.run_session()
+        self.assertIn(b"a.jpg", session.wait_screen())
+        target.unlink()
+        session.send(b"l")
+        self.assertIn(b"Photo unavailable", session.wait_screen())
+        session.send(b"p")
+        self.assertIn(b"PICKED", session.wait_screen())
+        session.send(b"h")
+        self.assertIn(b"a.jpg", session.wait_screen())
+        target.write_bytes(b"not a JPEG")
+        session.send(b"l")
+        unreadable = session.wait_screen()
+        self.assertIn(b"Photo unavailable", unreadable)
+        self.assertIn(b"Sharpness: unavailable", unreadable)
+        session.finish()
+        state = json.loads((self.root / ".photoc-review.json").read_text())
+        self.assertEqual(state["items"], [{"path": "b.jpg", "status": "picked"}])
+
+    def test_missing_photo_caches_sharpness_failure(self):
+        self.photo("a.jpg", "flat.jpg")
+        target = self.photo("b.jpg", "sharp.jpg")
+        session = self.run_session()
+        session.wait_screen()
+        target.unlink()
+        session.send(b"l")
+        self.assertIn(b"Photo unavailable", session.wait_screen())
+        session.send(b"h")
+        session.wait_screen()
+        shutil.copyfile(FIXTURES / "sharp.jpg", target)
+        session.send(b"l")
+        self.assertIn(b"Sharpness: unavailable", session.wait_screen())
+        session.finish()
+
+    def test_filename_and_metadata_control_bytes_are_escaped(self):
+        original = (FIXTURES / "with_exif.jpg").read_bytes()
+        bad_make = b"evil\x1b[31m\tname\n".ljust(18, b"X")
+        self.assertEqual(len(bad_make), 18)
+        data = original.replace(b"Fixture Camera Co.", bad_make)
+        self.assertNotEqual(data, original)
+        path = self.root / "bad\tname\nevil\x1b[31m.jpg"
+        path.write_bytes(data)
+        session = self.run_session()
+        screen = session.wait_screen()
+        self.assertIn(b"bad\\x09name\\x0Aevil\\x1B[31m.jpg", screen)
+        self.assertIn(b"evil\\x1B[31m\\x09name\\x0A", screen)
+        self.assertNotIn(b"bad\tname\n", screen)
+        self.assertNotIn(b"evil\x1b[31m", screen)
+        session.finish()
 
 
 if __name__ == "__main__":

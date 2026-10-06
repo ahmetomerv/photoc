@@ -2,6 +2,7 @@
 
 #include "photoc/commands.h"
 
+#include "review_display.h"
 #include "review_model.h"
 #include "review_state.h"
 #include "review_terminal.h"
@@ -11,7 +12,6 @@
 #include "photoc/fs.h"
 #include "photoc/photo.h"
 #include "photoc/progress.h"
-#include "photoc/sharpness.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -24,8 +24,7 @@ typedef struct {
     review_model model;
     review_state state;
     review_terminal terminal;
-    unsigned char *score_state; /* 0 unknown, 1 available, 2 unavailable. */
-    double *scores; /* Indexed by model.items; owned. */
+    review_score_cache *scores; /* Indexed by model.items; owned. */
     bool details;
     bool help;
     bool save_failed;
@@ -64,111 +63,6 @@ static const char *show_name(review_show show)
     return "matching";
 }
 
-static void print_camera(const Photo *photo)
-{
-    if (photo->camera_make != NULL) {
-        review_terminal_print_safe(stdout, photo->camera_make);
-        if (photo->camera_model != NULL)
-            fputc(' ', stdout);
-    }
-    if (photo->camera_model != NULL)
-        review_terminal_print_safe(stdout, photo->camera_model);
-}
-
-static bool has_camera(const Photo *photo)
-{
-    return photo->camera_make != NULL || photo->camera_model != NULL;
-}
-
-static void print_exposure(const Photo *photo)
-{
-    if (photo->has_exposure_time && photo->exposure_time > 0.0) {
-        if (photo->exposure_time < 1.0)
-            fprintf(stdout, "1/%.0fs", 1.0 / photo->exposure_time);
-        else
-            fprintf(stdout, "%.2fs", photo->exposure_time);
-    }
-}
-
-static void print_metadata(const char *path, bool details)
-{
-    Photo photo = {0};
-    photoc_metadata_result result = photo_load_metadata(path, &photo);
-    if (result != PHOTOC_METADATA_OK) {
-        fputs("Metadata unavailable\n", stdout);
-        return;
-    }
-    bool available = has_camera(&photo) || photo.has_width || photo.has_height ||
-                     photo.capture_timestamp != NULL || photo.has_iso ||
-                     photo.has_aperture || photo.has_exposure_time ||
-                     photo.has_focal_length;
-    if (!available) {
-        fputs("Metadata unavailable\n", stdout);
-        photo_cleanup(&photo);
-        return;
-    }
-    if (details)
-        fputs("Details\n", stdout);
-    if (has_camera(&photo)) {
-        if (details)
-            fputs("Camera: ", stdout);
-        print_camera(&photo);
-        fputc('\n', stdout);
-    }
-    if (photo.has_width && photo.has_height)
-        fprintf(stdout, details ? "Dimensions: %u x %u\n" : "%u x %u\n",
-                photo.width, photo.height);
-    if (photo.has_exposure_time || photo.has_aperture || photo.has_iso ||
-        photo.has_focal_length) {
-        if (details)
-            fputs("Exposure: ", stdout);
-        bool separator = false;
-        if (photo.has_exposure_time) {
-            print_exposure(&photo);
-            separator = true;
-        }
-        if (photo.has_aperture) {
-            fprintf(stdout, "%sf/%.1f", separator ? "  " : "", photo.aperture);
-            separator = true;
-        }
-        if (photo.has_iso) {
-            fprintf(stdout, "%sISO %u", separator ? "  " : "", photo.iso);
-            separator = true;
-        }
-        if (photo.has_focal_length)
-            fprintf(stdout, "%s%.0fmm", separator ? "  " : "",
-                    photo.focal_length);
-        fputc('\n', stdout);
-    }
-    if (photo.capture_timestamp != NULL) {
-        if (details)
-            fputs("Captured: ", stdout);
-        review_terminal_print_safe(stdout, photo.capture_timestamp);
-        fputc('\n', stdout);
-    }
-    if (details && photo.lens_model != NULL) {
-        fputs("Lens: ", stdout);
-        review_terminal_print_safe(stdout, photo.lens_model);
-        fputc('\n', stdout);
-    }
-    photo_cleanup(&photo);
-}
-
-static void print_sharpness(review_session *session, size_t index,
-                            const char *path)
-{
-    if (session->score_state[index] == 0) {
-        session->score_state[index] =
-            photoc_sharpness_score_jpeg(path,
-                PHOTOC_SHARPNESS_DEFAULT_MAX_DIMENSION,
-                &session->scores[index]) == PHOTOC_IMAGE_OK ? 1 : 2;
-    }
-    if (session->score_state[index] == 1)
-        fprintf(stdout, "Sharpness: %.3f\n", session->scores[index]);
-    else
-        fputs("Sharpness: unavailable\n", stdout);
-}
-
 static int render(review_session *session)
 {
     if (fputs("\033[H\033[2Jphotoc review\n\n", stdout) == EOF)
@@ -186,14 +80,36 @@ static int render(review_session *session)
                   "  p: pick             x: reject       u: unmark\n"
                   "  i: details          ?: help         q: quit\n", stdout);
         } else {
+            size_t index = session->model.visible[session->model.cursor];
+            review_score_cache *score = &session->scores[index];
             photoc_fs_type type;
             if (photoc_fs_get_type(item->path, &type) != 0 ||
                 type != PHOTOC_FS_FILE) {
+                review_score_fail(score, PHOTOC_IMAGE_IO_ERROR);
                 fputs("Photo unavailable\n", stdout);
+                fputs("Sharpness: unavailable\n", stdout);
             } else {
-                print_metadata(item->path, session->details);
-                size_t index = session->model.visible[session->model.cursor];
-                print_sharpness(session, index, item->path);
+                Photo photo = {0};
+                photoc_metadata_result metadata =
+                    photo_load_metadata(item->path, &photo);
+                if (metadata == PHOTOC_METADATA_IO_ERROR ||
+                    metadata == PHOTOC_METADATA_INVALID_JPEG) {
+                    review_score_fail(score,
+                        metadata == PHOTOC_METADATA_IO_ERROR ?
+                        PHOTOC_IMAGE_IO_ERROR : PHOTOC_IMAGE_INVALID_JPEG);
+                    fputs("Photo unavailable\n", stdout);
+                    fputs("Sharpness: unavailable\n", stdout);
+                } else {
+                    if (metadata == PHOTOC_METADATA_OK) {
+                        review_display_metadata(stdout, &photo,
+                                                session->details);
+                        photo_cleanup(&photo);
+                    } else {
+                        fputs("Metadata unavailable\n", stdout);
+                    }
+                    review_score_get(score, item->path);
+                    review_display_sharpness(stdout, score);
+                }
             }
         }
     }
@@ -357,9 +273,8 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
         result = PHOTOC_EXIT_SUCCESS;
         goto cleanup;
     }
-    session.score_state = calloc(session.model.count, sizeof(*session.score_state));
     session.scores = calloc(session.model.count, sizeof(*session.scores));
-    if (session.score_state == NULL || session.scores == NULL) {
+    if (session.scores == NULL) {
         photoc_error_report("review", PHOTOC_ERR_NOTE_NONE,
                             PHOTOC_ERR_INTERNAL, NULL,
                             "unable to allocate review cache", ENOMEM);
@@ -392,7 +307,6 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
                        session.model.rejected, session.model.unmarked);
     result = PHOTOC_EXIT_SUCCESS;
 cleanup:
-    free(session.score_state);
     free(session.scores);
     review_state_cleanup(&session.state);
     review_model_cleanup(&session.model);
