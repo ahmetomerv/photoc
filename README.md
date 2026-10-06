@@ -14,33 +14,13 @@
 
 **Command-line tools for photographers.**
 
-`photoc` helps you review, organize, and prepare photos from the terminal.
-Summarize a shoot, read metadata, find blurry shots and exact duplicates,
-rename and sort photos into folders, make contact sheets and smaller copies,
-or remove GPS location before sharing. Most commands work in shell scripts;
-`review` requires a terminal. By default, inline photo previews appear only
-in a detected direct iTerm2 session; other terminals get a text-only review
-screen. Several inspection commands can print JSON.
-Large JPEGs may use temporary in-memory previews for faster review; the
-original photos stay unchanged. See the [review guide](docs/review.md).
-
-photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
-files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported
-yet. See [File-type support](#file-type-support).
+`photoc` helps you review, organize, and prepare photos from the terminal: summarize a shoot, read metadata, find blurry shots and exact duplicates, rename and sort into folders, make contact sheets and smaller copies, or remove GPS before sharing. Most commands work in shell scripts; `review` needs a terminal. By default, inline previews appear only in a detected direct iTerm2 session; other terminals stay text-only. Inspection commands can print JSON. Large JPEGs may use temporary in-memory previews, which do not change the originals ([review guide](docs/review.md)).
 
 ![photoc query finding low-light shots and wide-angle f/5.6 shots in a folder of photos](.github/assets/demo.gif)
 
-> photoc never changes your original photo files unless you ask it to with
-> `--apply` (`rename`, `sort`) or `--in-place` (`scrub`). It never overwrites
-> unrelated output files.
+photoc reads **JPEG** files and metadata from **Sony ARW** RAW files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported yet ([File-type support](#file-type-support)). It does not develop RAW files, edit images, catalog a library, or replace a metadata editor such as [ExifTool](https://exiftool.org/). Windows is not supported yet.
 
-Read-only commands only read. Commands that create files write new copies next
-to your originals or in a folder you choose. See [File safety](#file-safety)
-for details.
-
-photoc is **not** a RAW developer, an image editor, a photo catalog, or a
-replacement for deep metadata editors such as
-[ExifTool](https://exiftool.org/). Windows is not supported yet.
+Originals stay unchanged unless you pass `--apply` (`rename`, `sort`) or `--in-place` (`scrub`). Read-only commands only read. Commands that create files write new copies next to your originals or in a folder you choose, and never overwrite unrelated output files ([File safety](#file-safety)).
 
 ## Quick start
 
