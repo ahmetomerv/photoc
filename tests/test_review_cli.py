@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""PTY contract tests for the text-only review command."""
+"""PTY contract tests for the interactive review command."""
 
+import base64
 import hashlib
 import json
 import os
@@ -21,12 +22,12 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures/jpeg"
 
 
 class Session:
-    def __init__(self, args):
+    def __init__(self, args, env=None):
         self.master, self.slave = pty.openpty()
         self.original = termios.tcgetattr(self.slave)
         self.process = subprocess.Popen([BINARY, *map(str, args)],
                                         stdin=self.slave, stdout=self.slave,
-                                        stderr=subprocess.PIPE)
+                                        stderr=subprocess.PIPE, env=env)
         self.output = b""
         self.cursor = 0
 
@@ -116,7 +117,7 @@ class ReviewTests(unittest.TestCase):
             (["review", self.root, "--sort", "bad"], 2, "invalid sort"),
             (["review", self.root, "--show", "bad"], 2, "invalid show"),
             (["review", self.root, "--state"], 2, "requires a value"),
-            (["review", self.root, "--images", "iterm"], 2, "only --images none"),
+            (["review", self.root, "--images", "bad"], 2, "invalid images"),
             (["--sort", "date", "review", self.root, "--images", "none"],
              1, "requires a terminal"),
         ]:
@@ -150,9 +151,84 @@ class ReviewTests(unittest.TestCase):
                                   for p in (first, second)])
 
         resumed = self.run_session("--show", "picked")
-        resumed.read_until(b"a.jpg")
-        self.assertIn(b"PICKED", resumed.output)
+        self.assertIn(b"PICKED", resumed.wait_screen())
         resumed.finish()
+
+    def test_image_modes_and_auto_detection(self):
+        self.photo("a.jpg", "flat.jpg")
+        unknown = os.environ.copy()
+        for name in ("TERM_PROGRAM", "ITERM_SESSION_ID", "TMUX", "STY"):
+            unknown.pop(name, None)
+
+        for options in ([], ["--images", "auto"], ["--images", "none"]):
+            with self.subTest(options=options):
+                session = Session(["review", self.root, *options], env=unknown)
+                self.addCleanup(session.close)
+                screen = session.wait_screen()
+                self.assertIn(b"Sharpness:", screen)
+                self.assertNotIn(b"\x1b]1337;File=", screen)
+                session.finish()
+
+        forced = Session(["review", self.root, "--images", "iterm"], env=unknown)
+        self.addCleanup(forced.close)
+        screen = forced.wait_screen()
+        self.assertIn(b"\x1b]1337;File=inline=1;", screen)
+        self.assertIn(b"preserveAspectRatio=1:", screen)
+        self.assertIn(b"\a\r\n", screen)
+        begin = screen.index(b"\x1b]1337;File=")
+        payload_start = screen.index(b":", begin) + 1
+        payload_end = screen.index(b"\a", payload_start)
+        self.assertEqual(base64.b64decode(screen[payload_start:payload_end],
+                                          validate=True),
+                         (FIXTURES / "flat.jpg").read_bytes())
+        forced.finish()
+
+        detected = dict(unknown, TERM_PROGRAM="iTerm.app",
+                        ITERM_SESSION_ID="test-session", TERM="xterm-256color")
+        direct = Session(["review", self.root], env=detected)
+        self.addCleanup(direct.close)
+        self.assertIn(b"\x1b]1337;File=", direct.wait_screen())
+        direct.finish()
+
+        multiplexed = Session(["review", self.root], env=dict(detected, TMUX="1"))
+        self.addCleanup(multiplexed.close)
+        self.assertNotIn(b"\x1b]1337;File=", multiplexed.wait_screen())
+        multiplexed.finish()
+
+    def test_iterm_navigation_and_resize_redraw(self):
+        self.photo("a.jpg", "flat.jpg")
+        self.photo("b.jpg", "sharp.jpg")
+        unknown = os.environ.copy()
+        unknown.pop("TERM_PROGRAM", None)
+        unknown.pop("ITERM_SESSION_ID", None)
+        session = Session(["review", self.root, "--images", "iterm"], env=unknown)
+        self.addCleanup(session.close)
+        self.assertIn(b"a.jpg", session.wait_screen())
+        session.send(b"l")
+        second = session.wait_screen()
+        self.assertIn(b"b.jpg", second)
+        self.assertIn(b"\x1b]1337;File=", second)
+        os.kill(session.process.pid, signal.SIGWINCH)
+        resized = session.wait_screen()
+        self.assertIn(b"b.jpg", resized)
+        self.assertIn(b"\x1b]1337;File=", resized)
+        session.finish()
+
+    def test_forced_iterm_keeps_text_when_photo_disappears(self):
+        self.photo("a.jpg", "flat.jpg")
+        target = self.photo("b.jpg", "sharp.jpg")
+        session = Session(["review", self.root, "--images", "iterm"])
+        self.addCleanup(session.close)
+        self.assertIn(b"\x1b]1337;File=", session.wait_screen())
+        target.unlink()
+        session.send(b"l")
+        screen = session.wait_screen()
+        self.assertIn(b"b.jpg", screen)
+        self.assertIn(b"Photo unavailable", screen)
+        self.assertNotIn(b"\x1b]1337;File=", screen)
+        session.send(b"h")
+        self.assertIn(b"a.jpg", session.wait_screen())
+        session.finish()
 
     def test_arrows_filter_and_unmark(self):
         self.photo("a.jpg")

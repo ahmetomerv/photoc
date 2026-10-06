@@ -126,6 +126,7 @@ add_executable(photoc
     src/commands/query.c
     src/commands/review.c
     src/commands/review_display.c
+    src/commands/review_iterm.c
     src/commands/review_model.c
     src/commands/review_state.c
     src/commands/review_terminal.c
@@ -411,6 +412,15 @@ if(BUILD_TESTING)
     target_compile_definitions(test_review_display PRIVATE
         PHOTOC_REVIEW_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg")
     add_test(NAME review_display COMMAND test_review_display)
+
+    add_executable(test_review_iterm
+        tests/test_review_iterm.c
+        src/commands/review_iterm.c)
+    photoc_configure_c_target(test_review_iterm)
+    target_include_directories(test_review_iterm PRIVATE src/commands)
+    target_compile_definitions(test_review_iterm PRIVATE
+        PHOTOC_REVIEW_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg")
+    add_test(NAME review_iterm COMMAND test_review_iterm)
 
     add_executable(test_timeline tests/test_timeline.c)
     photoc_configure_c_target(test_timeline)

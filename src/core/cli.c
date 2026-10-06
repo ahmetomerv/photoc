@@ -193,6 +193,7 @@ static const char *const check_notes[] = {
     NULL};
 
 static const char *const review_examples[] = {
+    "photoc review ./shoot",
     "photoc review ./shoot --images none",
     "photoc review ./shoot --recursive --sort date --show unmarked",
     "photoc review ./shoot --state ./review-state.json", NULL};
@@ -201,12 +202,13 @@ static const photoc_help_option review_options[] = {
     {"--recursive", "Include nested directories"},
     {"--sort name|date", "Sort by filename (default) or capture timestamp"},
     {"--show all|unmarked|picked|rejected", "Filter navigation (default: all)"},
-    {"--images none", "Text-only display; image rendering is not available yet"},
+    {"--images auto|iterm|none", "Inline images in iTerm (default: auto)"},
     {"--state <file>", "Review state file (default: <directory>/.photoc-review.json)"},
     {NULL, NULL}};
 
 static const char *const review_notes[] = {
     "Requires a terminal on stdin and stdout; --json is not supported.",
+    "Auto uses images in direct iTerm sessions; iterm forces the backend.",
     "Keys: left/h previous, right/l/space next, p pick, x reject, u unmark,",
     "i details, ? help, q quit. Marks are saved atomically before advancing.",
     "Only review state is written; JPEG files are never changed.", NULL};
@@ -633,7 +635,8 @@ static int run_review(const photoc_cli_options *options,
 {
     static const char usage[] =
         "review <directory> [--recursive] [--sort name|date] "
-        "[--show all|unmarked|picked|rejected] [--images none] [--state <file>]";
+        "[--show all|unmarked|picked|rejected] "
+        "[--images auto|iterm|none] [--state <file>]";
     if (options->argument_count != 1) {
         usage_error("review", "expected exactly one directory", usage);
         return PHOTOC_EXIT_USAGE;
@@ -656,22 +659,26 @@ static int run_review(const photoc_cli_options *options,
                       show);
         return PHOTOC_EXIT_USAGE;
     }
-    if (options->review_images != NULL &&
-        strcmp(options->review_images, "none") != 0) {
-        command_error("review", "only --images none is available currently\n");
+    const char *images = options->review_images == NULL ? "auto" :
+                                                       options->review_images;
+    if (strcmp(images, "auto") != 0 && strcmp(images, "iterm") != 0 &&
+        strcmp(images, "none") != 0) {
+        command_error("review", "invalid images '%s'; use auto, iterm, or none\n",
+                      images);
         return PHOTOC_EXIT_USAGE;
     }
     return photoc_command_review_with_output(options->first_argument,
                                              options->recursive, sort_date,
-                                             show, options->review_state,
+                                             show, images, options->review_state,
                                              output);
 }
 
 static const photoc_command commands[] = {
-    {"review", "Cull JPEGs in a text-only terminal session",
+    {"review", "Cull JPEGs in an interactive terminal session",
      "<directory> [--recursive] [--sort name|date] "
-     "[--show all|unmarked|picked|rejected] [--images none] [--state <file>]",
-     "Status: text-only interactive review; writes review state only",
+     "[--show all|unmarked|picked|rejected] "
+     "[--images auto|iterm|none] [--state <file>]",
+     "Status: interactive review with optional iTerm images; writes review state only",
      review_examples, review_options, review_notes, true, false, run_review},
     {"query", "Search JPEG metadata and print matching paths",
      "<file|directory> [filters] [--recursive] [--json | --print0]",

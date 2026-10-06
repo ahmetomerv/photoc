@@ -1,11 +1,12 @@
-Usage: photoc [global options] review <directory> [--recursive] [--sort name|date] [--show all|unmarked|picked|rejected] [--images none] [--state <file>]
+Usage: photoc [global options] review <directory> [--recursive] [--sort name|date] [--show all|unmarked|picked|rejected] [--images auto|iterm|none] [--state <file>]
        photoc review --help
 
-Cull JPEGs in a text-only terminal session
+Cull JPEGs in an interactive terminal session
 
-Status: text-only interactive review; writes review state only
+Status: interactive review with optional iTerm images; writes review state only
 
 Example:
+  photoc review ./shoot
   photoc review ./shoot --images none
   photoc review ./shoot --recursive --sort date --show unmarked
   photoc review ./shoot --state ./review-state.json
@@ -14,10 +15,11 @@ Options:
   --recursive          Include nested directories
   --sort name|date     Sort by filename (default) or capture timestamp
   --show all|unmarked|picked|rejected Filter navigation (default: all)
-  --images none        Text-only display; image rendering is not available yet
+  --images auto|iterm|none Inline images in iTerm (default: auto)
   --state <file>       Review state file (default: <directory>/.photoc-review.json)
 
 Requires a terminal on stdin and stdout; --json is not supported.
+Auto uses images in direct iTerm sessions; iterm forces the backend.
 Keys: left/h previous, right/l/space next, p pick, x reject, u unmark,
 i details, ? help, q quit. Marks are saved atomically before advancing.
 Only review state is written; JPEG files are never changed.

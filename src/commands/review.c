@@ -3,6 +3,7 @@
 #include "photoc/commands.h"
 
 #include "review_display.h"
+#include "review_iterm.h"
 #include "review_model.h"
 #include "review_state.h"
 #include "review_terminal.h"
@@ -25,6 +26,7 @@ typedef struct {
     review_state state;
     review_terminal terminal;
     review_score_cache *scores; /* Indexed by model.items; owned. */
+    bool show_images;
     bool details;
     bool help;
     bool save_failed;
@@ -101,6 +103,16 @@ static int render(review_session *session)
                     fputs("Sharpness: unavailable\n", stdout);
                 } else {
                     if (metadata == PHOTOC_METADATA_OK) {
+                        if (session->show_images) {
+                            review_image_result image =
+                                review_iterm_render(stdout, item->path);
+                            if (image == REVIEW_IMAGE_OUTPUT_ERROR) {
+                                photo_cleanup(&photo);
+                                return -1;
+                            }
+                            if (image == REVIEW_IMAGE_UNAVAILABLE)
+                                fputs("Image unavailable\n", stdout);
+                        }
                         review_display_metadata(stdout, &photo,
                                                 session->details);
                         photo_cleanup(&photo);
@@ -204,10 +216,10 @@ static int run_terminal(review_session *session)
 
 int photoc_command_review_with_output(const char *directory, bool recursive,
                                       bool sort_date, const char *show,
-                                      const char *state_path,
+                                      const char *images, const char *state_path,
                                       const photoc_output *output)
 {
-    if (directory == NULL || show == NULL) {
+    if (directory == NULL || show == NULL || images == NULL) {
         errno = EINVAL;
         return photoc_error_report("review", PHOTOC_ERR_NOTE_NONE,
                                    PHOTOC_ERR_INTERNAL, NULL,
@@ -228,6 +240,12 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
                                    "interactive review requires a terminal", 0);
 
     review_session session = {.state.directory_fd = -1};
+    session.show_images = strcmp(images, "iterm") == 0 ||
+        (strcmp(images, "auto") == 0 &&
+         review_iterm_auto_supported(getenv("TERM_PROGRAM"),
+                                     getenv("ITERM_SESSION_ID"),
+                                     getenv("TERM"),
+                                     getenv("TMUX"), getenv("STY")));
     int result = PHOTOC_EXIT_FAILURE;
     if (review_model_load(&session.model, directory, recursive,
                           sort_date ? PHOTOC_REVIEW_SORT_DATE :

@@ -79,10 +79,10 @@ int photoc_command_query_with_output(const char *path,
                                      const photoc_output *output);
 
 /* Interactive JPEG review. Arguments and output are borrowed synchronously.
-   show is one of all/unmarked/picked/rejected, validated by the CLI. */
+   show and images are validated by the CLI. */
 int photoc_command_review_with_output(const char *directory, bool recursive,
                                       bool sort_date, const char *show,
-                                      const char *state_path,
+                                      const char *images, const char *state_path,
                                       const photoc_output *output);
 
 /* Output-aware entry points. All arguments and output are borrowed only for
