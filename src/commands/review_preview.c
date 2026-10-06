@@ -38,6 +38,8 @@ bool review_source_equal(const struct stat *left, const struct stat *right)
 
 static void evict(review_preview_cache *cache, review_preview_entry *entry)
 {
+    if (entry == NULL)
+        return;
     cache->bytes -= entry->jpeg.size;
     photoc_jpeg_buffer_cleanup(&entry->jpeg);
     *entry = (review_preview_entry){0};
@@ -60,8 +62,14 @@ static const photoc_jpeg_buffer *remember(review_preview_cache *cache,
                                           const struct stat *source,
                                           photoc_jpeg_buffer preview)
 {
-    while (cache->bytes + preview.size > PREVIEW_CACHE_BYTES)
-        evict(cache, oldest_entry(cache));
+    while (cache->bytes + preview.size > PREVIEW_CACHE_BYTES) {
+        review_preview_entry *stale = oldest_entry(cache);
+        if (stale == NULL) {
+            cache->bytes = 0;
+            break;
+        }
+        evict(cache, stale);
+    }
     review_preview_entry *slot = NULL;
     for (size_t i = 0; i < REVIEW_PREVIEW_SLOTS; ++i) {
         if (!cache->entries[i].occupied) {
@@ -71,6 +79,10 @@ static const photoc_jpeg_buffer *remember(review_preview_cache *cache,
     }
     if (slot == NULL) {
         slot = oldest_entry(cache);
+        if (slot == NULL) {
+            photoc_jpeg_buffer_cleanup(&preview);
+            return NULL;
+        }
         evict(cache, slot);
     }
     *slot = (review_preview_entry){.item_index = item_index,

@@ -1,5 +1,9 @@
-#define _POSIX_C_SOURCE 200809L
+#if defined(__linux__)
+#define _GNU_SOURCE
+#elif defined(__APPLE__)
 #define _DARWIN_C_SOURCE
+#endif
+#define _POSIX_C_SOURCE 200809L
 
 #include "review_state.h"
 
