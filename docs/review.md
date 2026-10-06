@@ -50,6 +50,10 @@ does not add lines inside the UI. Review does not run a progress spinner, so
 | `q` | Quit and show a short summary. |
 | Ctrl+C | Interrupt cleanly, preserving marks already saved. |
 
+The screen puts Pick, Reject, and Unmark in a separate action row with colored
+keycaps and text labels. The bracketed keys and labels remain visible without
+color; set `NO_COLOR=1` to disable action colors.
+
 Each mark is saved before the selection and counts change on screen. After
 `p`, `x`, or `u`, review advances if there is a next matching photo. In a
 filtered view, a changed photo that no longer matches disappears from

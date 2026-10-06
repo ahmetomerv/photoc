@@ -27,6 +27,7 @@ typedef struct {
     review_terminal terminal;
     review_score_cache *scores; /* Indexed by model.items; owned. */
     bool show_images;
+    bool color_actions;
     bool details;
     bool help;
     bool save_failed;
@@ -63,6 +64,38 @@ static const char *show_name(review_show show)
     case PHOTOC_REVIEW_SHOW_REJECTED: return "rejected";
     }
     return "matching";
+}
+
+static void print_action(FILE *stream, bool color, const char *key,
+                         const char *label, const char *key_style,
+                         const char *label_style)
+{
+    if (color)
+        fputs(key_style, stream);
+    fprintf(stream, "[%s]", key);
+    if (color)
+        fputs("\033[0m", stream);
+    fputc(' ', stream);
+    if (color)
+        fputs(label_style, stream);
+    fputs(label, stream);
+    if (color)
+        fputs("\033[0m", stream);
+}
+
+static void render_controls(bool color)
+{
+    fputs("\nACTIONS  ", stdout);
+    print_action(stdout, color, "P", "PICK", "\033[1;30;42m",
+                 "\033[1;32m");
+    fputs("    ", stdout);
+    print_action(stdout, color, "X", "REJECT", "\033[1;37;41m",
+                 "\033[1;31m");
+    fputs("    ", stdout);
+    print_action(stdout, color, "U", "UNMARK", "\033[1;30;43m",
+                 "\033[1;33m");
+    fputs("\nMOVE     [Left/H] Previous    [Right/L/Space] Next\n"
+          "MORE     [I] Info  [?] Help  [Q] Quit\n", stdout);
 }
 
 static int render(review_session *session)
@@ -130,8 +163,7 @@ static int render(review_session *session)
             session->model.unmarked, session->model.count);
     if (session->save_message[0] != '\0')
         fprintf(stdout, "\nCould not save selection: %s\n", session->save_message);
-    fputs("\nLeft/h previous  Right/l/space next  p pick  x reject  u unmark\n"
-          "i details  ? help  q quit\n", stdout);
+    render_controls(session->color_actions);
     return fflush(stdout) == 0 && !ferror(stdout) ? 0 : -1;
 }
 
@@ -240,6 +272,10 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
                                    "interactive review requires a terminal", 0);
 
     review_session session = {.state.directory_fd = -1};
+    const char *no_color = getenv("NO_COLOR");
+    const char *term = getenv("TERM");
+    session.color_actions = (no_color == NULL || no_color[0] == '\0') &&
+                            (term == NULL || strcmp(term, "dumb") != 0);
     session.show_images = strcmp(images, "iterm") == 0 ||
         (strcmp(images, "auto") == 0 &&
          review_iterm_auto_supported(getenv("TERM_PROGRAM"),

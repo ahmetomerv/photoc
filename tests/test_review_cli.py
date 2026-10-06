@@ -57,7 +57,7 @@ class Session:
 
     def wait_screen(self):
         self.read_until(b"\x1b[H\x1b[2J")
-        self.read_until(b"q quit")
+        self.read_until(b"[Q] Quit")
         return self.latest_screen()
 
     def finish(self, keys=b"q", expected=0):
@@ -194,6 +194,34 @@ class ReviewTests(unittest.TestCase):
         self.addCleanup(multiplexed.close)
         self.assertNotIn(b"\x1b]1337;File=", multiplexed.wait_screen())
         multiplexed.finish()
+
+    def test_action_shortcuts_are_visible_with_and_without_color(self):
+        self.photo("a.jpg", "flat.jpg")
+        colored_env = os.environ.copy()
+        colored_env.pop("NO_COLOR", None)
+        colored_env["TERM"] = "xterm-256color"
+        for mode in ("none", "iterm"):
+            with self.subTest(mode=mode):
+                session = Session(["review", self.root, "--images", mode],
+                                  env=colored_env)
+                self.addCleanup(session.close)
+                screen = session.wait_screen()
+                self.assertIn(b"ACTIONS", screen)
+                self.assertIn(b"\x1b[1;30;42m[P]\x1b[0m", screen)
+                self.assertIn(b"\x1b[1;37;41m[X]\x1b[0m", screen)
+                self.assertIn(b"\x1b[1;30;43m[U]\x1b[0m", screen)
+                self.assertIn(b"[Left/H] Previous", screen)
+                self.assertIn(b"[Q] Quit", screen)
+                session.finish()
+
+        plain_env = dict(colored_env, NO_COLOR="1")
+        plain = Session(["review", self.root, "--images", "none"],
+                        env=plain_env)
+        self.addCleanup(plain.close)
+        screen = plain.wait_screen()
+        self.assertIn(b"ACTIONS  [P] PICK    [X] REJECT    [U] UNMARK", screen)
+        self.assertNotIn(b"\x1b[1;30;42m", screen)
+        plain.finish()
 
     def test_iterm_navigation_and_resize_redraw(self):
         self.photo("a.jpg", "flat.jpg")
