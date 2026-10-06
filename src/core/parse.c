@@ -273,8 +273,7 @@ static photoc_parse_status take_value(int *index, int argc, char *argv[],
 }
 
 static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
-                                      int argc, char *argv[],
-                                      unsigned command,
+                                      int argc, char *argv[], unsigned command,
                                       photoc_cli_options *options,
                                       const char **error_arg)
 {
@@ -330,8 +329,8 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
     } else if (strcmp(name, "--thumb-size") == 0) {
         slot = &options->thumb_size;
     } else if (strcmp(name, "--sort") == 0) {
-        slot = command == CMD_REVIEW ? &options->review_sort :
-                                      &options->contact_sort;
+        slot = command == CMD_REVIEW ? &options->review_sort
+                                     : &options->contact_sort;
     } else if (strcmp(name, "--show") == 0) {
         slot = &options->review_show;
     } else if (strcmp(name, "--images") == 0) {

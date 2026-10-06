@@ -31,8 +31,7 @@ static bool valid_show(review_show show)
 
 static bool valid_status(photoc_review_status status)
 {
-    return status >= PHOTOC_REVIEW_UNMARKED &&
-           status <= PHOTOC_REVIEW_REJECTED;
+    return status >= PHOTOC_REVIEW_UNMARKED && status <= PHOTOC_REVIEW_REJECTED;
 }
 
 static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
@@ -76,8 +75,7 @@ static int compare_name(const void *left, const void *right)
 {
     const review_item *a = left;
     const review_item *b = right;
-    return photoc_fs_compare_name_then_path(a->relative_path,
-                                            b->relative_path);
+    return photoc_fs_compare_name_then_path(a->relative_path, b->relative_path);
 }
 
 static int compare_date(const void *left, const void *right)
@@ -108,8 +106,7 @@ static int load_dates(review_model *model)
         }
         if (result == PHOTOC_METADATA_OK &&
             photoc_timestamp_is_valid(photo.capture_timestamp)) {
-            model->items[i].capture_timestamp =
-                strdup(photo.capture_timestamp);
+            model->items[i].capture_timestamp = strdup(photo.capture_timestamp);
             if (model->items[i].capture_timestamp == NULL) {
                 photo_cleanup(&photo);
                 return -1;
@@ -134,7 +131,8 @@ static bool matches(review_show show, photoc_review_status status)
 int review_model_rebuild(review_model *model)
 {
     if (model == NULL || !valid_show(model->show) ||
-        (model->count != 0 && (model->items == NULL || model->visible == NULL))) {
+        (model->count != 0 &&
+         (model->items == NULL || model->visible == NULL))) {
         errno = EINVAL;
         return -1;
     }
@@ -167,17 +165,16 @@ int review_model_rebuild(review_model *model)
 int review_model_load(review_model *out, const char *root, bool recursive,
                       review_sort sort, review_show show)
 {
-    if (out == NULL || root == NULL || root[0] == '\0' ||
-        !valid_sort(sort) || !valid_show(show)) {
+    if (out == NULL || root == NULL || root[0] == '\0' || !valid_sort(sort) ||
+        !valid_show(show)) {
         errno = EINVAL;
         return -1;
     }
     review_collection collection = {.root = root};
     collection.model.show = show;
-    int walk_result = recursive
-                          ? photoc_fs_walk_recursive(root, collect_file,
-                                                     &collection)
-                          : photoc_fs_walk(root, collect_file, &collection);
+    int walk_result =
+        recursive ? photoc_fs_walk_recursive(root, collect_file, &collection)
+                  : photoc_fs_walk(root, collect_file, &collection);
     if (walk_result != 0) {
         int saved_errno = walk_result == 1 ? collection.error : errno;
         review_model_cleanup(&collection.model);
@@ -194,7 +191,8 @@ int review_model_load(review_model *out, const char *root, bool recursive,
         qsort(collection.model.items, collection.model.count,
               sizeof(*collection.model.items),
               sort == PHOTOC_REVIEW_SORT_DATE ? compare_date : compare_name);
-        if (collection.model.count > SIZE_MAX / sizeof(*collection.model.visible)) {
+        if (collection.model.count >
+            SIZE_MAX / sizeof(*collection.model.visible)) {
             review_model_cleanup(&collection.model);
             errno = EOVERFLOW;
             return -1;

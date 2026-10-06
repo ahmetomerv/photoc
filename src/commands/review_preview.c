@@ -83,9 +83,9 @@ static const photoc_jpeg_buffer *remember(review_preview_cache *cache,
 }
 
 const photoc_jpeg_buffer *review_preview_get(review_preview_cache *cache,
-                                              size_t item_index,
-                                              const char *path,
-                                              const Photo *metadata)
+                                             size_t item_index,
+                                             const char *path,
+                                             const Photo *metadata)
 {
     if (cache == NULL || path == NULL || metadata == NULL)
         return NULL;
@@ -123,8 +123,8 @@ const photoc_jpeg_buffer *review_preview_get(review_preview_cache *cache,
     photoc_image_result result = photoc_image_decode_jpeg_scaled_bounded(
         path, PREVIEW_MAX_DIMENSION, PREVIEW_MAX_SOURCE_BYTES, &decoded);
     if (result == PHOTOC_IMAGE_OK && metadata->has_orientation)
-        result = photoc_image_apply_orientation(&decoded,
-                                                metadata->orientation);
+        result =
+            photoc_image_apply_orientation(&decoded, metadata->orientation);
     if (result == PHOTOC_IMAGE_OK)
         result = photoc_image_encode_jpeg(&decoded, PREVIEW_QUALITY, &preview);
     photoc_image_cleanup(&decoded);

@@ -10,13 +10,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define CHECK(condition) do { \
-    if (!(condition)) { \
-        fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__, \
-                #condition, errno); \
-        return 1; \
-    } \
-} while (0)
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,      \
+                    #condition, errno);                                        \
+            return 1;                                                          \
+        }                                                                      \
+    } while (0)
 
 static char *contents(FILE *stream)
 {
@@ -46,12 +47,18 @@ static int metadata_display(void)
                    .camera_model = model,
                    .lens_model = lens,
                    .capture_timestamp = timestamp,
-                   .has_width = true, .width = 300,
-                   .has_height = true, .height = 200,
-                   .has_iso = true, .iso = 100,
-                   .has_aperture = true, .aperture = 2.8,
-                   .has_exposure_time = true, .exposure_time = 0.01,
-                   .has_focal_length = true, .focal_length = 50};
+                   .has_width = true,
+                   .width = 300,
+                   .has_height = true,
+                   .height = 200,
+                   .has_iso = true,
+                   .iso = 100,
+                   .has_aperture = true,
+                   .aperture = 2.8,
+                   .has_exposure_time = true,
+                   .exposure_time = 0.01,
+                   .has_focal_length = true,
+                   .focal_length = 50};
     FILE *stream = tmpfile();
     CHECK(stream != NULL);
     review_display_metadata(stream, &photo, false);
@@ -81,9 +88,12 @@ static int metadata_display(void)
 
     stream = tmpfile();
     CHECK(stream != NULL);
-    Photo sparse = {.has_width = true, .width = 3,
-                    .has_height = true, .height = 2,
-                    .has_exposure_time = true, .exposure_time = 0};
+    Photo sparse = {.has_width = true,
+                    .width = 3,
+                    .has_height = true,
+                    .height = 2,
+                    .has_exposure_time = true,
+                    .exposure_time = 0};
     review_display_metadata(stream, &sparse, true);
     char *minimal = contents(stream);
     CHECK(minimal != NULL);

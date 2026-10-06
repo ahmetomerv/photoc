@@ -38,7 +38,7 @@ review_image_result review_iterm_render(FILE *destination, const char *path);
 
 /* The caller owns bytes and must keep them valid until this returns. */
 review_image_result review_iterm_render_bytes(FILE *destination,
-                                               const unsigned char *bytes,
-                                               size_t length);
+                                              const unsigned char *bytes,
+                                              size_t length);
 
 #endif

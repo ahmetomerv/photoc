@@ -88,8 +88,7 @@ static photoc_metadata_result metadata_get(review_session *session,
     *slot = (review_metadata_entry){0};
     photoc_metadata_result result = photo_load_metadata(path, &slot->photo);
     struct stat current;
-    if (lstat(path, &current) != 0 ||
-        !review_source_equal(&source, &current)) {
+    if (lstat(path, &current) != 0 || !review_source_equal(&source, &current)) {
         photo_cleanup(&slot->photo);
         return PHOTOC_METADATA_IO_ERROR;
     }
@@ -116,9 +115,12 @@ static review_show parse_show(const char *show)
 static const char *status_name(photoc_review_status status)
 {
     switch (status) {
-    case PHOTOC_REVIEW_UNMARKED: return "UNMARKED";
-    case PHOTOC_REVIEW_PICKED: return "PICKED";
-    case PHOTOC_REVIEW_REJECTED: return "REJECTED";
+    case PHOTOC_REVIEW_UNMARKED:
+        return "UNMARKED";
+    case PHOTOC_REVIEW_PICKED:
+        return "PICKED";
+    case PHOTOC_REVIEW_REJECTED:
+        return "REJECTED";
     }
     return "UNKNOWN";
 }
@@ -126,10 +128,14 @@ static const char *status_name(photoc_review_status status)
 static const char *show_name(review_show show)
 {
     switch (show) {
-    case PHOTOC_REVIEW_SHOW_ALL: return "matching";
-    case PHOTOC_REVIEW_SHOW_UNMARKED: return "unmarked";
-    case PHOTOC_REVIEW_SHOW_PICKED: return "picked";
-    case PHOTOC_REVIEW_SHOW_REJECTED: return "rejected";
+    case PHOTOC_REVIEW_SHOW_ALL:
+        return "matching";
+    case PHOTOC_REVIEW_SHOW_UNMARKED:
+        return "unmarked";
+    case PHOTOC_REVIEW_SHOW_PICKED:
+        return "picked";
+    case PHOTOC_REVIEW_SHOW_REJECTED:
+        return "rejected";
     }
     return "matching";
 }
@@ -154,16 +160,14 @@ static void print_action(FILE *stream, bool color, const char *key,
 static void render_controls(bool color)
 {
     fputs("\nACTIONS  ", stdout);
-    print_action(stdout, color, "P", "PICK", "\033[1;30;42m",
-                 "\033[1;32m");
+    print_action(stdout, color, "P", "PICK", "\033[1;30;42m", "\033[1;32m");
     fputs("    ", stdout);
-    print_action(stdout, color, "X", "REJECT", "\033[1;37;41m",
-                 "\033[1;31m");
+    print_action(stdout, color, "X", "REJECT", "\033[1;37;41m", "\033[1;31m");
     fputs("    ", stdout);
-    print_action(stdout, color, "U", "UNMARK", "\033[1;30;43m",
-                 "\033[1;33m");
+    print_action(stdout, color, "U", "UNMARK", "\033[1;30;43m", "\033[1;33m");
     fputs("\nMOVE     [Left/H] Previous    [Right/L/Space] Next\n"
-          "MORE     [I] Info  [?] Help  [Q] Quit\n", stdout);
+          "MORE     [I] Info  [?] Help  [Q] Quit\n",
+          stdout);
 }
 
 static int render(review_session *session)
@@ -172,7 +176,8 @@ static int render(review_session *session)
         return -1;
     const review_item *item = review_model_current(&session->model);
     if (item == NULL) {
-        fprintf(stdout, "No %s photos to review.\n", show_name(session->model.show));
+        fprintf(stdout, "No %s photos to review.\n",
+                show_name(session->model.show));
     } else {
         review_terminal_print_safe(stdout, item->relative_path);
         fprintf(stdout, "    %zu / %zu\n%s\n\n", session->model.cursor + 1,
@@ -181,7 +186,8 @@ static int render(review_session *session)
             fputs("Help\n"
                   "  Left/h: previous     Right/l/space: next\n"
                   "  p: pick             x: reject       u: unmark\n"
-                  "  i: details          ?: help         q: quit\n", stdout);
+                  "  i: details          ?: help         q: quit\n",
+                  stdout);
         } else {
             size_t index = session->model.visible[session->model.cursor];
             review_score_cache *score = &session->scores[index];
@@ -198,8 +204,9 @@ static int render(review_session *session)
                 if (metadata == PHOTOC_METADATA_IO_ERROR ||
                     metadata == PHOTOC_METADATA_INVALID_JPEG) {
                     review_score_fail(score,
-                        metadata == PHOTOC_METADATA_IO_ERROR ?
-                        PHOTOC_IMAGE_IO_ERROR : PHOTOC_IMAGE_INVALID_JPEG);
+                                      metadata == PHOTOC_METADATA_IO_ERROR
+                                          ? PHOTOC_IMAGE_IO_ERROR
+                                          : PHOTOC_IMAGE_INVALID_JPEG);
                     fputs("Photo unavailable\n", stdout);
                     fputs("Sharpness: unavailable\n", stdout);
                 } else {
@@ -209,10 +216,10 @@ static int render(review_session *session)
                                 review_preview_get(&session->previews, index,
                                                    item->path, photo);
                             review_image_result image =
-                                preview != NULL ?
-                                review_iterm_render_bytes(stdout, preview->data,
-                                                          preview->size) :
-                                review_iterm_render(stdout, item->path);
+                                preview != NULL
+                                    ? review_iterm_render_bytes(
+                                          stdout, preview->data, preview->size)
+                                    : review_iterm_render(stdout, item->path);
                             if (image == REVIEW_IMAGE_OUTPUT_ERROR) {
                                 return -1;
                             }
@@ -230,11 +237,13 @@ static int render(review_session *session)
             }
         }
     }
-    fprintf(stdout, "\nPicked: %zu    Rejected: %zu    Unmarked: %zu    Total: %zu\n",
+    fprintf(stdout,
+            "\nPicked: %zu    Rejected: %zu    Unmarked: %zu    Total: %zu\n",
             session->model.picked, session->model.rejected,
             session->model.unmarked, session->model.count);
     if (session->save_message[0] != '\0')
-        fprintf(stdout, "\nCould not save selection: %s\n", session->save_message);
+        fprintf(stdout, "\nCould not save selection: %s\n",
+                session->save_message);
     render_controls(session->color_actions);
     return fflush(stdout) == 0 && !ferror(stdout) ? 0 : -1;
 }
@@ -244,11 +253,11 @@ static int handle_mark(review_session *session, photoc_review_status status)
     const review_item *item = review_model_current(&session->model);
     if (item == NULL)
         return 0;
-    if (review_state_save_mark(&session->state, item->relative_path,
-                               status) != 0) {
+    if (review_state_save_mark(&session->state, item->relative_path, status) !=
+        0) {
         session->save_failed = true;
-        snprintf(session->save_message, sizeof(session->save_message),
-                 "%s", strerror(errno));
+        snprintf(session->save_message, sizeof(session->save_message), "%s",
+                 strerror(errno));
         return render(session);
     }
     session->save_message[0] = '\0';
@@ -330,7 +339,8 @@ static int run_terminal(review_session *session)
         }
         bool key_redrew = false;
         switch (key) {
-        case REVIEW_KEY_NONE: break;
+        case REVIEW_KEY_NONE:
+            break;
         case REVIEW_KEY_NEXT:
             if (review_model_next(&session->model)) {
                 result = render(session);
@@ -392,7 +402,8 @@ static int run_terminal(review_session *session)
 
 int photoc_command_review_with_output(const char *directory, bool recursive,
                                       bool sort_date, const char *show,
-                                      const char *images, const char *state_path,
+                                      const char *images,
+                                      const char *state_path,
                                       const photoc_output *output)
 {
     if (directory == NULL || show == NULL || images == NULL) {
@@ -420,19 +431,18 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
     const char *term = getenv("TERM");
     session.color_actions = (no_color == NULL || no_color[0] == '\0') &&
                             (term == NULL || strcmp(term, "dumb") != 0);
-    session.show_images = strcmp(images, "iterm") == 0 ||
+    session.show_images =
+        strcmp(images, "iterm") == 0 ||
         (strcmp(images, "auto") == 0 &&
          review_iterm_auto_supported(getenv("TERM_PROGRAM"),
-                                     getenv("ITERM_SESSION_ID"),
-                                     getenv("TERM"),
+                                     getenv("ITERM_SESSION_ID"), getenv("TERM"),
                                      getenv("TMUX"), getenv("STY")));
     int result = PHOTOC_EXIT_FAILURE;
     if (review_model_load(&session.model, directory, recursive,
-                          sort_date ? PHOTOC_REVIEW_SORT_DATE :
-                                      PHOTOC_REVIEW_SORT_NAME,
+                          sort_date ? PHOTOC_REVIEW_SORT_DATE
+                                    : PHOTOC_REVIEW_SORT_NAME,
                           parse_show(show)) != 0) {
-        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE,
-                            PHOTOC_ERR_IO, NULL,
+        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL,
                             "unable to discover JPEG photos", errno);
         goto cleanup;
     }
@@ -440,21 +450,19 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
         goto cleanup;
     if (review_state_open(&session.state, directory, state_path) != 0) {
         int error = errno;
-        const char *detail = error == EXDEV ?
-            "review state belongs to another directory" :
-            error == ENOTSUP ? "unsupported review state version" :
-            error == EINVAL ? "malformed or unrelated review state file" :
-                              "unable to open review state";
-        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE,
-                            PHOTOC_ERR_IO, NULL, detail,
-                            error == EXDEV || error == ENOTSUP || error == EINVAL ?
-                            0 : error);
+        const char *detail =
+            error == EXDEV     ? "review state belongs to another directory"
+            : error == ENOTSUP ? "unsupported review state version"
+            : error == EINVAL  ? "malformed or unrelated review state file"
+                               : "unable to open review state";
+        photoc_error_report(
+            "review", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL, detail,
+            error == EXDEV || error == ENOTSUP || error == EINVAL ? 0 : error);
         goto cleanup;
     }
     if (review_state_apply(&session.state, &session.model) != 0) {
-        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE,
-                            PHOTOC_ERR_INTERNAL, NULL,
-                            "unable to restore review selections", errno);
+        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_INTERNAL,
+                            NULL, "unable to restore review selections", errno);
         goto cleanup;
     }
     if (session.model.count == 0) {
@@ -465,7 +473,8 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
     if (session.model.visible_count == 0) {
         photoc_output_info(output, "No %s photos to review.\n",
                            show_name(session.model.show));
-        photoc_output_info(output, "Picked: %zu  Rejected: %zu  Unmarked: %zu\n",
+        photoc_output_info(output,
+                           "Picked: %zu  Rejected: %zu  Unmarked: %zu\n",
                            session.model.picked, session.model.rejected,
                            session.model.unmarked);
         result = PHOTOC_EXIT_SUCCESS;
@@ -473,34 +482,34 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
     }
     session.scores = calloc(session.model.count, sizeof(*session.scores));
     if (session.scores == NULL) {
-        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE,
-                            PHOTOC_ERR_INTERNAL, NULL,
-                            "unable to allocate review cache", ENOMEM);
+        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_INTERNAL,
+                            NULL, "unable to allocate review cache", ENOMEM);
         goto cleanup;
     }
     if (run_terminal(&session) != 0) {
         if (!photoc_progress_interrupted())
-            photoc_error_report("review", PHOTOC_ERR_NOTE_NONE,
-                                PHOTOC_ERR_IO, NULL,
-                                review_terminal_hung_up() ? "terminal disconnected" :
-                                                            "terminal I/O failure",
-                                errno);
+            photoc_error_report(
+                "review", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL,
+                review_terminal_hung_up() ? "terminal disconnected"
+                                          : "terminal I/O failure",
+                errno);
         goto cleanup;
     }
     if (session.save_failed) {
         photoc_output_info(output, "Review ended with unsaved selections.\n");
-        photoc_output_info(output,
-                           "%zu photos: %zu picked, %zu rejected, %zu unmarked\n",
-                           session.model.count, session.model.picked,
-                           session.model.rejected, session.model.unmarked);
-        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE,
-                            PHOTOC_ERR_IO, NULL,
+        photoc_output_info(
+            output, "%zu photos: %zu picked, %zu rejected, %zu unmarked\n",
+            session.model.count, session.model.picked, session.model.rejected,
+            session.model.unmarked);
+        photoc_error_report("review", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL,
                             "one or more selections were not saved", 0);
         goto cleanup;
     }
     photoc_output_info(output, "Review %s.\n",
-                       session.state.exists ? "saved" : "finished without changes");
-    photoc_output_info(output, "%zu photos: %zu picked, %zu rejected, %zu unmarked\n",
+                       session.state.exists ? "saved"
+                                            : "finished without changes");
+    photoc_output_info(output,
+                       "%zu photos: %zu picked, %zu rejected, %zu unmarked\n",
                        session.model.count, session.model.picked,
                        session.model.rejected, session.model.unmarked);
     result = PHOTOC_EXIT_SUCCESS;

@@ -69,7 +69,8 @@ static int unicode_unit(json_cursor *cursor, unsigned int *unit)
     return 0;
 }
 
-static int append_codepoint(char *output, size_t *length, unsigned int codepoint)
+static int append_codepoint(char *output, size_t *length,
+                            unsigned int codepoint)
 {
     if (codepoint == 0)
         return -1; /* Filesystem path strings cannot contain NUL. */
@@ -135,12 +136,26 @@ static char *parse_string(json_cursor *cursor)
             break;
         ch = cursor->bytes[cursor->position++];
         switch (ch) {
-        case '"': case '\\': case '/': result[used++] = (char)ch; break;
-        case 'b': result[used++] = '\b'; break;
-        case 'f': result[used++] = '\f'; break;
-        case 'n': result[used++] = '\n'; break;
-        case 'r': result[used++] = '\r'; break;
-        case 't': result[used++] = '\t'; break;
+        case '"':
+        case '\\':
+        case '/':
+            result[used++] = (char)ch;
+            break;
+        case 'b':
+            result[used++] = '\b';
+            break;
+        case 'f':
+            result[used++] = '\f';
+            break;
+        case 'n':
+            result[used++] = '\n';
+            break;
+        case 'r':
+            result[used++] = '\r';
+            break;
+        case 't':
+            result[used++] = '\t';
+            break;
         case 'u': {
             unsigned int unit;
             if (unicode_unit(cursor, &unit) != 0)
@@ -165,7 +180,8 @@ static char *parse_string(json_cursor *cursor)
                 goto invalid;
             break;
         }
-        default: goto invalid;
+        default:
+            goto invalid;
         }
     }
 invalid:
@@ -205,8 +221,8 @@ static bool valid_relative_path(const char *path)
     const char *component = path;
     while (*component != '\0') {
         const char *slash = strchr(component, '/');
-        size_t length = slash == NULL ? strlen(component) :
-                                         (size_t)(slash - component);
+        size_t length =
+            slash == NULL ? strlen(component) : (size_t)(slash - component);
         if (length == 0 || (length == 1 && component[0] == '.') ||
             (length == 2 && component[0] == '.' && component[1] == '.'))
             return false;
@@ -239,19 +255,22 @@ static int parse_item(json_cursor *cursor, review_state_entry *entry)
         }
         if (strcmp(key, "path") == 0 || strcmp(key, "path_bytes_hex") == 0) {
             if (have_path) {
-                free(key); free(value);
+                free(key);
+                free(value);
                 goto invalid;
             }
             hex_path = strcmp(key, "path_bytes_hex") == 0;
             entry->path = hex_path ? decode_hex(value) : strdup(value);
             if (entry->path == NULL) {
-                free(key); free(value);
+                free(key);
+                free(value);
                 return -1;
             }
             have_path = true;
         } else if (strcmp(key, "status") == 0) {
             if (have_status) {
-                free(key); free(value);
+                free(key);
+                free(value);
                 goto invalid;
             }
             if (strcmp(value, "picked") == 0)
@@ -259,12 +278,14 @@ static int parse_item(json_cursor *cursor, review_state_entry *entry)
             else if (strcmp(value, "rejected") == 0)
                 entry->status = PHOTOC_REVIEW_REJECTED;
             else {
-                free(key); free(value);
+                free(key);
+                free(value);
                 goto invalid;
             }
             have_status = true;
         } else {
-            free(key); free(value);
+            free(key);
+            free(value);
             goto invalid;
         }
         free(key);
@@ -312,7 +333,8 @@ static int parse_items(json_cursor *cursor, review_state_entry **entries,
                 errno = EOVERFLOW;
                 return -1;
             }
-            review_state_entry *grown = realloc(*entries, next * sizeof(**entries));
+            review_state_entry *grown =
+                realloc(*entries, next * sizeof(**entries));
             if (grown == NULL)
                 return -1;
             *entries = grown;
@@ -343,7 +365,8 @@ invalid:
 static int parse_state(const char *bytes, size_t length, const char *root,
                        review_state_entry **entries, size_t *count)
 {
-    json_cursor cursor = {.bytes = (const unsigned char *)bytes, .length = length};
+    json_cursor cursor = {.bytes = (const unsigned char *)bytes,
+                          .length = length};
     char *file_root = NULL;
     if (!take(&cursor, '{'))
         goto invalid;
@@ -367,7 +390,8 @@ static int parse_state(const char *bytes, size_t length, const char *root,
             }
             have_version = true;
         } else if ((strcmp(key, "root") == 0 ||
-                    strcmp(key, "root_bytes_hex") == 0) && !have_root) {
+                    strcmp(key, "root_bytes_hex") == 0) &&
+                   !have_root) {
             hex_root = strcmp(key, "root_bytes_hex") == 0;
             char *value = parse_string(&cursor);
             if (value == NULL) {
@@ -412,15 +436,15 @@ static int parse_state(const char *bytes, size_t length, const char *root,
 invalid:
     errno = EINVAL;
 fail: {
-        int saved_errno = errno;
-        free(file_root);
-        errno = saved_errno;
-        return -1;
-    }
+    int saved_errno = errno;
+    free(file_root);
+    errno = saved_errno;
+    return -1;
+}
 }
 
-static int read_state_file(int directory_fd, const char *filename,
-                           char **bytes, size_t *length, bool *exists)
+static int read_state_file(int directory_fd, const char *filename, char **bytes,
+                           size_t *length, bool *exists)
 {
     struct stat prior;
     if (fstatat(directory_fd, filename, &prior, AT_SYMLINK_NOFOLLOW) != 0) {
@@ -463,7 +487,8 @@ static int read_state_file(int directory_fd, const char *filename,
             continue;
         if (got <= 0) {
             int saved_errno = got == 0 ? EIO : errno;
-            free(buffer); close(fd);
+            free(buffer);
+            close(fd);
             errno = saved_errno;
             return -1;
         }
@@ -495,8 +520,7 @@ static int split_state_path(const char *path, char **directory, char **filename)
 {
     const char *slash = strrchr(path, '/');
     const char *leaf = slash == NULL ? path : slash + 1;
-    if (leaf[0] == '\0' || strcmp(leaf, ".") == 0 ||
-        strcmp(leaf, "..") == 0) {
+    if (leaf[0] == '\0' || strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0) {
         errno = EINVAL;
         return -1;
     }
@@ -546,37 +570,34 @@ int review_state_open(review_state *out, const char *root,
     }
     char *default_path = NULL;
     if (state_path == NULL) {
-        if (photoc_fs_join(out->root, ".photoc-review.json",
-                           &default_path) != 0)
+        if (photoc_fs_join(out->root, ".photoc-review.json", &default_path) !=
+            0)
             goto fail;
         state_path = default_path;
     }
-    int result = split_state_path(state_path, &out->directory,
-                                  &out->filename);
+    int result = split_state_path(state_path, &out->directory, &out->filename);
     free(default_path);
     if (result != 0)
         goto fail;
-    out->directory_fd = open(out->directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+    out->directory_fd =
+        open(out->directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
     if (out->directory_fd < 0)
         goto fail;
-    if (read_state_file(out->directory_fd, out->filename,
-                        &out->snapshot, &out->snapshot_length,
-                        &out->exists) != 0)
+    if (read_state_file(out->directory_fd, out->filename, &out->snapshot,
+                        &out->snapshot_length, &out->exists) != 0)
         goto fail;
     if (out->exists) {
-        if (parse_state(out->snapshot, out->snapshot_length,
-                        out->root, &out->entries,
-                        &out->count) != 0)
+        if (parse_state(out->snapshot, out->snapshot_length, out->root,
+                        &out->entries, &out->count) != 0)
             goto fail;
     }
     return 0;
-fail:
-    {
-        int saved_errno = errno;
-        review_state_cleanup(out);
-        errno = saved_errno;
-        return -1;
-    }
+fail: {
+    int saved_errno = errno;
+    review_state_cleanup(out);
+    errno = saved_errno;
+    return -1;
+}
 }
 
 static const review_state_entry *find_entry(const review_state *state,
@@ -585,8 +606,8 @@ static const review_state_entry *find_entry(const review_state *state,
     if (state->count == 0)
         return NULL;
     review_state_entry key = {.path = (char *)path};
-    return bsearch(&key, state->entries, state->count,
-                   sizeof(*state->entries), compare_entry);
+    return bsearch(&key, state->entries, state->count, sizeof(*state->entries),
+                   compare_entry);
 }
 
 int review_state_apply(const review_state *state, review_model *model)
@@ -599,8 +620,8 @@ int review_state_apply(const review_state *state, review_model *model)
     for (size_t i = 0; i < model->count; ++i) {
         const review_state_entry *entry =
             find_entry(state, model->items[i].relative_path);
-        model->items[i].status = entry == NULL ? PHOTOC_REVIEW_UNMARKED :
-                                                  entry->status;
+        model->items[i].status =
+            entry == NULL ? PHOTOC_REVIEW_UNMARKED : entry->status;
     }
     return review_model_rebuild(model);
 }
@@ -624,8 +645,8 @@ static int write_path_field(FILE *stream, const char *normal_key,
     bool valid = photoc_json_is_valid_utf8(value);
     if (fprintf(stream, "\"%s\":", valid ? normal_key : hex_key) < 0)
         return -1;
-    return valid ? photoc_json_write_string(stream, value) :
-                   write_hex(stream, value);
+    return valid ? photoc_json_write_string(stream, value)
+                 : write_hex(stream, value);
 }
 
 static int write_state(FILE *stream, const char *root,
@@ -636,13 +657,12 @@ static int write_state(FILE *stream, const char *root,
         fputs(",\"items\":[", stream) == EOF)
         return -1;
     for (size_t i = 0; i < count; ++i) {
-        if ((i > 0 && fputc(',', stream) == EOF) ||
-            fputc('{', stream) == EOF ||
+        if ((i > 0 && fputc(',', stream) == EOF) || fputc('{', stream) == EOF ||
             write_path_field(stream, "path", "path_bytes_hex",
                              entries[i].path) != 0 ||
             fprintf(stream, ",\"status\":\"%s\"}",
-                    entries[i].status == PHOTOC_REVIEW_PICKED ? "picked" :
-                                                             "rejected") < 0)
+                    entries[i].status == PHOTOC_REVIEW_PICKED ? "picked"
+                                                              : "rejected") < 0)
             return -1;
     }
     return fputs("]}\n", stream) == EOF ? -1 : 0;
@@ -653,8 +673,8 @@ static int unchanged_on_disk(const review_state *state)
     char *current = NULL;
     size_t length = 0;
     bool exists = false;
-    if (read_state_file(state->directory_fd, state->filename,
-                        &current, &length, &exists) != 0)
+    if (read_state_file(state->directory_fd, state->filename, &current, &length,
+                        &exists) != 0)
         return -1;
     bool same = exists == state->exists &&
                 (!exists || (length == state->snapshot_length &&
@@ -719,14 +739,16 @@ static int write_atomic(review_state *state, const review_state_entry *entries,
     struct stat temp_info;
     if (fstat(fd, &temp_info) != 0) {
         int saved_errno = errno;
-        close(fd); unlinkat(state->directory_fd, temp_leaf, 0);
+        close(fd);
+        unlinkat(state->directory_fd, temp_leaf, 0);
         errno = saved_errno;
         return -1;
     }
     FILE *stream = fdopen(fd, "w");
     if (stream == NULL) {
         int saved_errno = errno;
-        close(fd); unlinkat(state->directory_fd, temp_leaf, 0);
+        close(fd);
+        unlinkat(state->directory_fd, temp_leaf, 0);
         errno = saved_errno;
         return -1;
     }
@@ -742,7 +764,8 @@ static int write_atomic(review_state *state, const review_state_entry *entries,
         size_t length = 0;
         bool exists = false;
         if (read_state_file(state->directory_fd, temp_leaf, &written_bytes,
-                            &length, &exists) != 0 || !exists) {
+                            &length, &exists) != 0 ||
+            !exists) {
             failed = 1;
             saved_errno = errno;
         } else {
@@ -768,11 +791,12 @@ static int write_atomic(review_state *state, const review_state_entry *entries,
         }
     }
     if (!failed) {
-        int rename_result = state->exists ?
-            renameat(state->directory_fd, temp_leaf, state->directory_fd,
-                     state->filename) :
-            photoc_fs_renameat_noreplace(state->directory_fd, temp_leaf,
-                                          state->directory_fd, state->filename);
+        int rename_result = state->exists
+                                ? renameat(state->directory_fd, temp_leaf,
+                                           state->directory_fd, state->filename)
+                                : photoc_fs_renameat_noreplace(
+                                      state->directory_fd, temp_leaf,
+                                      state->directory_fd, state->filename);
         if (rename_result != 0) {
             failed = 1;
             saved_errno = errno;
@@ -796,8 +820,7 @@ int review_state_save_mark(review_state *state, const char *relative_path,
 {
     if (state == NULL || state->directory_fd < 0 ||
         !valid_relative_path(relative_path) ||
-        (status != PHOTOC_REVIEW_UNMARKED &&
-         status != PHOTOC_REVIEW_PICKED &&
+        (status != PHOTOC_REVIEW_UNMARKED && status != PHOTOC_REVIEW_PICKED &&
          status != PHOTOC_REVIEW_REJECTED)) {
         errno = EINVAL;
         return -1;
@@ -815,8 +838,8 @@ int review_state_save_mark(review_state *state, const char *relative_path,
     bool insert = found == state->count;
     bool remove = status == PHOTOC_REVIEW_UNMARKED;
     size_t next_count = state->count + (insert ? 1u : 0u) - (remove ? 1u : 0u);
-    review_state_entry *next = calloc(next_count == 0 ? 1 : next_count,
-                                      sizeof(*next));
+    review_state_entry *next =
+        calloc(next_count == 0 ? 1 : next_count, sizeof(*next));
     if (next == NULL)
         return -1;
     char *new_path = NULL;
@@ -841,7 +864,8 @@ int review_state_save_mark(review_state *state, const char *relative_path,
     qsort(next, next_count, sizeof(*next), compare_entry);
     char *snapshot = NULL;
     size_t snapshot_length = 0;
-    if (write_atomic(state, next, next_count, &snapshot, &snapshot_length) != 0) {
+    if (write_atomic(state, next, next_count, &snapshot, &snapshot_length) !=
+        0) {
         free(new_path);
         free(next);
         return -1;

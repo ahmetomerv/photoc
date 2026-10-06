@@ -9,16 +9,18 @@
 #include <unistd.h>
 
 static int failures;
-#define CHECK(condition) do { \
-    if (!(condition)) { \
-        fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition); \
-        ++failures; \
-    } \
-} while (0)
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);    \
+            ++failures;                                                        \
+        }                                                                      \
+    } while (0)
 
 static int make_jpeg(const char *path, unsigned int seed)
 {
-    photoc_image image = {.width = 2400, .height = 1600,
+    photoc_image image = {.width = 2400,
+                          .height = 1600,
                           .stride = 2400u * 3u,
                           .pixel_bytes = 2400u * 1600u * 3u};
     image.pixels = malloc(image.pixel_bytes);
@@ -67,8 +69,8 @@ int main(void)
 
     review_preview_cache cache = {0};
     Photo photo = {.has_orientation = true, .orientation = 6};
-    const photoc_jpeg_buffer *preview = review_preview_get(&cache, 0, path,
-                                                            &photo);
+    const photoc_jpeg_buffer *preview =
+        review_preview_get(&cache, 0, path, &photo);
     CHECK(preview != NULL);
     if (preview != NULL) {
         CHECK(preview->size * 5 <= (size_t)before.st_size * 4);

@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "review_display.h"
 
 #include "review_terminal.h"
@@ -48,16 +50,16 @@ void review_display_metadata(FILE *stream, const Photo *photo, bool details)
                       photo->has_height && photo->height > 0;
     bool exposure = photo->has_exposure_time &&
                     isfinite(photo->exposure_time) && photo->exposure_time > 0;
-    bool aperture = photo->has_aperture && isfinite(photo->aperture) &&
-                    photo->aperture > 0;
+    bool aperture =
+        photo->has_aperture && isfinite(photo->aperture) && photo->aperture > 0;
     bool iso = photo->has_iso && photo->iso > 0;
     bool focal = photo->has_focal_length && isfinite(photo->focal_length) &&
                  photo->focal_length > 0;
     bool captured = has_text(photo->capture_timestamp);
     bool lens = details && has_text(photo->lens_model);
 
-    if (!camera && !dimensions && !exposure && !aperture && !iso &&
-        !focal && !captured && !lens) {
+    if (!camera && !dimensions && !exposure && !aperture && !iso && !focal &&
+        !captured && !lens) {
         fputs("Metadata unavailable\n", stream);
         return;
     }

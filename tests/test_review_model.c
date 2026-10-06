@@ -79,8 +79,7 @@ static int copy_fixture(const char *fixture, const char *destination)
     return result;
 }
 
-static int add_fixture(const char *root, const char *name,
-                       const char *fixture)
+static int add_fixture(const char *root, const char *name, const char *fixture)
 {
     char *path = join(root, name);
     if (path == NULL)
@@ -90,8 +89,7 @@ static int add_fixture(const char *root, const char *name,
     return result;
 }
 
-static int add_bytes(const char *root, const char *name,
-                     const char *bytes)
+static int add_bytes(const char *root, const char *name, const char *bytes)
 {
     char *path = join(root, name);
     if (path == NULL)
@@ -119,8 +117,7 @@ static int remove_tree(const char *directory)
     int result = 0;
     struct dirent *entry;
     while ((entry = readdir(stream)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 ||
-            strcmp(entry->d_name, "..") == 0)
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
         char *path = join(directory, entry->d_name);
         if (path == NULL) {
@@ -196,8 +193,8 @@ static void test_discovery(const char *root)
     CHECK(removed != NULL);
     if (removed != NULL) {
         CHECK(unlink(removed) == 0);
-        CHECK(strcmp(model.items[4].relative_path,
-                     "nested/deeper/c.JpEg") == 0);
+        CHECK(strcmp(model.items[4].relative_path, "nested/deeper/c.JpEg") ==
+              0);
         free(removed);
     }
     review_model_cleanup(&model);
@@ -263,8 +260,8 @@ static void test_date_sort(const char *root)
     review_model model = {0};
     CHECK(review_model_load(&model, dates, false, PHOTOC_REVIEW_SORT_DATE,
                             PHOTOC_REVIEW_SHOW_ALL) == 0);
-    const char *expected[] = {"z-early.jpg", "a-late.jpg", "b-late.jpg",
-                              "broken.jpg", "invalid-date.jpg", "undated.jpg"};
+    const char *expected[] = {"z-early.jpg", "a-late.jpg",       "b-late.jpg",
+                              "broken.jpg",  "invalid-date.jpg", "undated.jpg"};
     check_paths(&model, expected, 6);
     CHECK(model.items[0].capture_timestamp != NULL);
     CHECK(model.items[1].capture_timestamp != NULL);
@@ -275,8 +272,8 @@ static void test_date_sort(const char *root)
 
     CHECK(review_model_load(&model, dates, true, PHOTOC_REVIEW_SORT_DATE,
                             PHOTOC_REVIEW_SHOW_ALL) == 0);
-    const char *recursive[] = {"z-early.jpg", "a-late.jpg", "a/z.jpg",
-                               "b-late.jpg", "z/a.jpg", "broken.jpg",
+    const char *recursive[] = {"z-early.jpg",      "a-late.jpg", "a/z.jpg",
+                               "b-late.jpg",       "z/a.jpg",    "broken.jpg",
                                "invalid-date.jpg", "undated.jpg"};
     check_paths(&model, recursive, 8);
     review_model_cleanup(&model);

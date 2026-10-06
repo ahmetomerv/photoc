@@ -33,10 +33,8 @@ static void write_jpeg(const char *path, const photoc_jpeg_buffer *jpeg)
 
 static void test_orientations(void)
 {
-    static const char *expected[] = {
-        "ABCDEF", "BADCFE", "FEDCBA", "EFCDAB",
-        "ACEBDF", "ECAFDB", "FDBECA", "BDFACE"
-    };
+    static const char *expected[] = {"ABCDEF", "BADCFE", "FEDCBA", "EFCDAB",
+                                     "ACEBDF", "ECAFDB", "FDBECA", "BDFACE"};
     for (uint16_t orientation = 1; orientation <= 8; ++orientation) {
         photoc_image image = {0};
         image.width = 2;

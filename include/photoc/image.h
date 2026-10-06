@@ -77,7 +77,7 @@ void photoc_image_source_coordinate(uint32_t x, uint32_t y,
 /* Apply EXIF orientation to RGB pixels before metadata-free preview encoding.
    On allocation failure the original image remains unchanged. */
 photoc_image_result photoc_image_apply_orientation(photoc_image *image,
-                                                    uint16_t orientation);
+                                                   uint16_t orientation);
 
 /* Encode decoded grayscale RGB samples as a one-component JPEG. This keeps
    grayscale ICC profiles associated with grayscale image data. Ownership and

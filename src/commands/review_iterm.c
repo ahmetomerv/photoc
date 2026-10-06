@@ -17,11 +17,10 @@ bool review_iterm_auto_supported(const char *term_program,
 {
     return term_program != NULL && strcmp(term_program, "iTerm.app") == 0 &&
            session_id != NULL && session_id[0] != '\0' &&
-           (term == NULL || (strncmp(term, "screen", 6) != 0 &&
-                             strncmp(term, "tmux", 4) != 0 &&
-                             strcmp(term, "dumb") != 0)) &&
-           (tmux == NULL || tmux[0] == '\0') &&
-           (sty == NULL || sty[0] == '\0');
+           (term == NULL ||
+            (strncmp(term, "screen", 6) != 0 && strncmp(term, "tmux", 4) != 0 &&
+             strcmp(term, "dumb") != 0)) &&
+           (tmux == NULL || tmux[0] == '\0') && (sty == NULL || sty[0] == '\0');
 }
 
 static void encode_triplet(const unsigned char bytes[3], char result[4])
@@ -127,8 +126,8 @@ static bool write_prefix(FILE *destination, uintmax_t length)
 }
 
 review_image_result review_iterm_render_bytes(FILE *destination,
-                                               const unsigned char *bytes,
-                                               size_t length)
+                                              const unsigned char *bytes,
+                                              size_t length)
 {
     if (bytes == NULL || length == 0)
         return REVIEW_IMAGE_UNAVAILABLE;
@@ -141,8 +140,8 @@ review_image_result review_iterm_render_bytes(FILE *destination,
         try_terminate_sequence(destination);
         return REVIEW_IMAGE_OUTPUT_ERROR;
     }
-    return fputs("\a\n", destination) == EOF ? REVIEW_IMAGE_OUTPUT_ERROR :
-                                               REVIEW_IMAGE_RENDERED;
+    return fputs("\a\n", destination) == EOF ? REVIEW_IMAGE_OUTPUT_ERROR
+                                             : REVIEW_IMAGE_RENDERED;
 }
 
 review_image_result review_iterm_render(FILE *destination, const char *path)

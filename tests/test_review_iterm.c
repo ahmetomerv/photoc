@@ -9,13 +9,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define CHECK(condition) do { \
-    if (!(condition)) { \
-        fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__, \
-                #condition, errno); \
-        exit(1); \
-    } \
-} while (0)
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,      \
+                    #condition, errno);                                        \
+            exit(1);                                                           \
+        }                                                                      \
+    } while (0)
 
 static char *contents(FILE *stream)
 {
@@ -64,12 +65,10 @@ static int encode_bytes(const unsigned char *bytes, size_t length,
 
 static int test_vectors(void)
 {
-    static const char *plain[] = {
-        "", "f", "fo", "foo", "foob", "fooba", "foobar"
-    };
-    static const char *encoded[] = {
-        "", "Zg==", "Zm8=", "Zm9v", "Zm9vYg==", "Zm9vYmE=", "Zm9vYmFy"
-    };
+    static const char *plain[] = {"",     "f",     "fo",    "foo",
+                                  "foob", "fooba", "foobar"};
+    static const char *encoded[] = {"",         "Zg==",     "Zm8=",    "Zm9v",
+                                    "Zm9vYg==", "Zm9vYmE=", "Zm9vYmFy"};
     for (size_t i = 0; i < sizeof(plain) / sizeof(*plain); ++i)
         CHECK(encode_bytes((const unsigned char *)plain[i], strlen(plain[i]),
                            encoded[i]) == 0);
@@ -105,7 +104,8 @@ static int test_write_error(void)
     CHECK(fputs("foo", source) >= 0 && fseek(source, 0, SEEK_SET) == 0);
     CHECK(setvbuf(destination, NULL, _IONBF, 0) == 0);
     CHECK(close(fileno(destination)) == 0);
-    CHECK(review_base64_encode(source, destination) == REVIEW_BASE64_WRITE_ERROR);
+    CHECK(review_base64_encode(source, destination) ==
+          REVIEW_BASE64_WRITE_ERROR);
     fclose(source);
     fclose(destination);
 
@@ -121,8 +121,8 @@ static int test_write_error(void)
     CHECK(destination != NULL);
     CHECK(setvbuf(destination, NULL, _IONBF, 0) == 0);
     CHECK(close(fileno(destination)) == 0);
-    CHECK(review_iterm_render(destination, PHOTOC_REVIEW_FIXTURES "/flat.jpg") ==
-          REVIEW_IMAGE_OUTPUT_ERROR);
+    CHECK(review_iterm_render(destination, PHOTOC_REVIEW_FIXTURES
+                              "/flat.jpg") == REVIEW_IMAGE_OUTPUT_ERROR);
     fclose(destination);
     return 0;
 }
@@ -134,11 +134,11 @@ static int test_protocol(void)
     CHECK(stat(path, &info) == 0);
     FILE *destination = tmpfile();
     CHECK(destination != NULL);
-    CHECK(review_iterm_render(destination, PHOTOC_REVIEW_FIXTURES "/missing.jpg") ==
-          REVIEW_IMAGE_UNAVAILABLE);
+    CHECK(review_iterm_render(destination, PHOTOC_REVIEW_FIXTURES
+                              "/missing.jpg") == REVIEW_IMAGE_UNAVAILABLE);
     CHECK(ftell(destination) == 0);
-    CHECK(review_iterm_render_bytes(destination, (const unsigned char *)"", 0) ==
-          REVIEW_IMAGE_UNAVAILABLE);
+    CHECK(review_iterm_render_bytes(destination, (const unsigned char *)"",
+                                    0) == REVIEW_IMAGE_UNAVAILABLE);
     CHECK(ftell(destination) == 0);
     CHECK(review_iterm_render(destination, path) == REVIEW_IMAGE_RENDERED);
     char *rendered = contents(destination);
@@ -146,7 +146,8 @@ static int test_protocol(void)
     char prefix[160];
     snprintf(prefix, sizeof(prefix),
              "\033]1337;File=inline=1;size=%lld;width=100%%;height=40%%;"
-             "preserveAspectRatio=1:", (long long)info.st_size);
+             "preserveAspectRatio=1:",
+             (long long)info.st_size);
     size_t prefix_length = strlen(prefix);
     size_t rendered_length = strlen(rendered);
     CHECK(strncmp(rendered, prefix, prefix_length) == 0);
@@ -192,16 +193,16 @@ static int test_detection(void)
     CHECK(!review_iterm_auto_supported("xterm", "session", NULL, NULL, NULL));
     CHECK(!review_iterm_auto_supported("iTerm.app", NULL, NULL, NULL, NULL));
     CHECK(!review_iterm_auto_supported("iTerm.app", "", NULL, NULL, NULL));
-    CHECK(!review_iterm_auto_supported("iTerm.app", "session", "screen-256color",
-                                       NULL, NULL));
+    CHECK(!review_iterm_auto_supported("iTerm.app", "session",
+                                       "screen-256color", NULL, NULL));
     CHECK(!review_iterm_auto_supported("iTerm.app", "session", "tmux-256color",
                                        NULL, NULL));
-    CHECK(!review_iterm_auto_supported("iTerm.app", "session", "dumb",
-                                       NULL, NULL));
-    CHECK(!review_iterm_auto_supported("iTerm.app", "session", NULL,
-                                       "tmux", NULL));
-    CHECK(!review_iterm_auto_supported("iTerm.app", "session", NULL,
-                                       NULL, "screen"));
+    CHECK(!review_iterm_auto_supported("iTerm.app", "session", "dumb", NULL,
+                                       NULL));
+    CHECK(!review_iterm_auto_supported("iTerm.app", "session", NULL, "tmux",
+                                       NULL));
+    CHECK(!review_iterm_auto_supported("iTerm.app", "session", NULL, NULL,
+                                       "screen"));
     return 0;
 }
 

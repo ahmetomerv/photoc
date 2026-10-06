@@ -71,8 +71,8 @@ int review_terminal_enter(review_terminal *terminal)
         return -1;
     }
     struct termios current = terminal->original;
-    current.c_lflag &= (tcflag_t)~(ICANON | ECHO);
-    current.c_iflag &= (tcflag_t)~(IXON | ICRNL);
+    current.c_lflag &= (tcflag_t) ~(ICANON | ECHO);
+    current.c_iflag &= (tcflag_t) ~(IXON | ICRNL);
     current.c_cc[VMIN] = 0;
     current.c_cc[VTIME] = 1;
     terminal->raw = true;
@@ -99,8 +99,8 @@ int review_terminal_leave(review_terminal *terminal)
         return 0;
     int failure = 0;
     int saved_errno = 0;
-    if (terminal->raw && tcsetattr(STDIN_FILENO, TCSANOW,
-                                   &terminal->original) != 0) {
+    if (terminal->raw &&
+        tcsetattr(STDIN_FILENO, TCSANOW, &terminal->original) != 0) {
         failure = -1;
         saved_errno = errno;
     }
@@ -202,8 +202,7 @@ int review_terminal_print_safe(FILE *stream, const char *text)
         if (*p >= 0x20 && *p <= 0x7e) {
             if (fputc(*p, stream) == EOF)
                 return -1;
-        } else if (fputc('\\', stream) == EOF ||
-                   fputc('x', stream) == EOF ||
+        } else if (fputc('\\', stream) == EOF || fputc('x', stream) == EOF ||
                    fputc(digits[*p >> 4], stream) == EOF ||
                    fputc(digits[*p & 15], stream) == EOF) {
             return -1;

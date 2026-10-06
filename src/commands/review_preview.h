@@ -31,9 +31,9 @@ bool review_source_equal(const struct stat *left, const struct stat *right);
    Previews are prepared lazily, kept only in memory, and never written to the
    source directory. Source identity is checked before reusing an entry. */
 const photoc_jpeg_buffer *review_preview_get(review_preview_cache *cache,
-                                              size_t item_index,
-                                              const char *path,
-                                              const Photo *metadata);
+                                             size_t item_index,
+                                             const char *path,
+                                             const Photo *metadata);
 
 void review_preview_cleanup(review_preview_cache *cache);
 

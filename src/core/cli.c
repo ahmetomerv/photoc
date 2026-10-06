@@ -193,17 +193,18 @@ static const char *const check_notes[] = {
     NULL};
 
 static const char *const review_examples[] = {
-    "photoc review ./shoot",
-    "photoc review ./shoot --images none",
+    "photoc review ./shoot", "photoc review ./shoot --images none",
     "photoc review ./shoot --recursive --sort date --show unmarked",
     "photoc review ./shoot --state ./review-state.json", NULL};
 
 static const photoc_help_option review_options[] = {
     {"--recursive", "Include nested directories"},
     {"--sort name|date", "Sort by filename (default) or valid capture time"},
-    {"--show all|unmarked|picked|rejected", "Filter navigation; counts cover all photos"},
+    {"--show all|unmarked|picked|rejected",
+     "Filter navigation; counts cover all photos"},
     {"--images auto|iterm|none", "Inline images in iTerm (default: auto)"},
-    {"--state <file>", "Review state file (default: <directory>/.photoc-review.json)"},
+    {"--state <file>",
+     "Review state file (default: <directory>/.photoc-review.json)"},
     {NULL, NULL}};
 
 static const char *const review_notes[] = {
@@ -213,7 +214,8 @@ static const char *const review_notes[] = {
     "The iterm mode forces protocol output, not terminal support.",
     "Keys: left/h previous, right/l/space next, p pick, x reject, u unmark,",
     "i details, ? help, q quit. Marks are saved atomically before advancing.",
-    "Only review state is written; JPEG files are never changed.", NULL};
+    "Only review state is written; JPEG files are never changed.",
+    NULL};
 
 static const photoc_help_option scrub_options[] = {
     {"--gps", "Remove EXIF GPS tags (original behavior)"},
@@ -653,26 +655,28 @@ static int run_review(const photoc_cli_options *options,
             return PHOTOC_EXIT_USAGE;
         }
     }
-    const char *show = options->review_show == NULL ? "all" :
-                                                 options->review_show;
+    const char *show =
+        options->review_show == NULL ? "all" : options->review_show;
     if (strcmp(show, "all") != 0 && strcmp(show, "unmarked") != 0 &&
         strcmp(show, "picked") != 0 && strcmp(show, "rejected") != 0) {
-        command_error("review", "invalid show '%s'; use all, unmarked, picked, or rejected\n",
-                      show);
+        command_error(
+            "review",
+            "invalid show '%s'; use all, unmarked, picked, or rejected\n",
+            show);
         return PHOTOC_EXIT_USAGE;
     }
-    const char *images = options->review_images == NULL ? "auto" :
-                                                       options->review_images;
+    const char *images =
+        options->review_images == NULL ? "auto" : options->review_images;
     if (strcmp(images, "auto") != 0 && strcmp(images, "iterm") != 0 &&
         strcmp(images, "none") != 0) {
-        command_error("review", "invalid images '%s'; use auto, iterm, or none\n",
+        command_error("review",
+                      "invalid images '%s'; use auto, iterm, or none\n",
                       images);
         return PHOTOC_EXIT_USAGE;
     }
-    return photoc_command_review_with_output(options->first_argument,
-                                             options->recursive, sort_date,
-                                             show, images, options->review_state,
-                                             output);
+    return photoc_command_review_with_output(
+        options->first_argument, options->recursive, sort_date, show, images,
+        options->review_state, output);
 }
 
 static const photoc_command commands[] = {
@@ -680,7 +684,8 @@ static const photoc_command commands[] = {
      "<directory> [--recursive] [--sort name|date] "
      "[--show all|unmarked|picked|rejected] "
      "[--images auto|iterm|none] [--state <file>]",
-     "Status: interactive review with optional iTerm images; writes review state only",
+     "Status: interactive review with optional iTerm images; writes review "
+     "state only",
      review_examples, review_options, review_notes, true, false, run_review},
     {"query", "Search JPEG metadata and print matching paths",
      "<file|directory> [filters] [--recursive] [--json | --print0]",

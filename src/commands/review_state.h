@@ -12,9 +12,9 @@ typedef struct {
 } review_state_entry;
 
 typedef struct {
-    char *root; /* Owned canonical review root. */
-    char *directory; /* Owned canonical state parent directory. */
-    char *filename; /* Owned state-file leaf name. */
+    char *root;                  /* Owned canonical review root. */
+    char *directory;             /* Owned canonical state parent directory. */
+    char *filename;              /* Owned state-file leaf name. */
     review_state_entry *entries; /* Owned sorted array and paths. */
     size_t count;
     char *snapshot; /* Owned bytes of the last loaded/written state file. */

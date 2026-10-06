@@ -17,13 +17,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define CHECK(condition) do { \
-    if (!(condition)) { \
-        fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__, \
-                #condition, errno); \
-        exit(1); \
-    } \
-} while (0)
+#define CHECK(condition)                                                       \
+    do {                                                                       \
+        if (!(condition)) {                                                    \
+            fprintf(stderr, "%s:%d: %s (errno=%d)\n", __FILE__, __LINE__,      \
+                    #condition, errno);                                        \
+            exit(1);                                                           \
+        }                                                                      \
+    } while (0)
 
 static char *join(const char *left, const char *right)
 {
@@ -109,7 +110,8 @@ static bool test_save_reload_and_model(const char *root, const char *state_path)
     CHECK(review_state_open(&state, root, NULL) == 0);
     CHECK(!state.exists && access(state_path, F_OK) != 0);
     CHECK(review_state_apply(&state, &model) == 0);
-    CHECK(review_state_save_mark(&state, "first.JPG", PHOTOC_REVIEW_PICKED) == 0);
+    CHECK(review_state_save_mark(&state, "first.JPG", PHOTOC_REVIEW_PICKED) ==
+          0);
     CHECK(review_model_mark_current(&model, PHOTOC_REVIEW_PICKED) == 0);
     CHECK(model.picked == 1 && model.unmarked == 1);
     char *json = read_file(state_path);
@@ -126,16 +128,17 @@ static bool test_save_reload_and_model(const char *root, const char *state_path)
     CHECK(model.picked == 1 && model.unmarked == 1 && model.visible_count == 1);
     CHECK(review_state_save_mark(&state, "missing/nested.jpg",
                                  PHOTOC_REVIEW_REJECTED) == 0);
-    CHECK(review_state_save_mark(&state, "first.JPG",
-                                 PHOTOC_REVIEW_UNMARKED) == 0);
+    CHECK(review_state_save_mark(&state, "first.JPG", PHOTOC_REVIEW_UNMARKED) ==
+          0);
     CHECK(review_state_apply(&state, &model) == 0);
     CHECK(model.picked == 0 && model.unmarked == 2 && model.visible_count == 0);
-    CHECK(state.count == 1 && strcmp(state.entries[0].path,
-                                     "missing/nested.jpg") == 0);
+    CHECK(state.count == 1 &&
+          strcmp(state.entries[0].path, "missing/nested.jpg") == 0);
     review_state_cleanup(&state);
     review_model_cleanup(&model);
     CHECK(review_state_open(&state, root, NULL) == 0);
-    CHECK(state.count == 1 && state.entries[0].status == PHOTOC_REVIEW_REJECTED);
+    CHECK(state.count == 1 &&
+          state.entries[0].status == PHOTOC_REVIEW_REJECTED);
     review_state_cleanup(&state);
     free(first);
     free(second);
@@ -176,16 +179,18 @@ static bool test_rejections(const char *root)
         "[{\"path_bytes_hex\":\"6100\",\"status\":\"picked\"}]}",
         "[{\"path_bytes_hex\":\"61\",\"status\":\"picked\"}]}",
         "[{\"path\":\"a.jpg\",\"status\":\"picked\"}",
-        "[]}" "trailing"
-    };
+        "[]}"
+        "trailing"};
     for (size_t i = 0; i < sizeof(bad_items) / sizeof(bad_items[0]); ++i) {
         char document[8192];
         n = snprintf(document, sizeof(document), "%s%s", prefix, bad_items[i]);
         CHECK(n > 0 && (size_t)n < sizeof(document));
         CHECK(expect_invalid(root, path, document));
     }
-    CHECK(expect_invalid(root, path, "{\"version\":2,\"root\":\"/tmp\",\"items\":[]}"));
-    CHECK(expect_invalid(root, path, "{\"version\":1,\"root\":\"/unrelated\",\"items\":[]}"));
+    CHECK(expect_invalid(root, path,
+                         "{\"version\":2,\"root\":\"/tmp\",\"items\":[]}"));
+    CHECK(expect_invalid(
+        root, path, "{\"version\":1,\"root\":\"/unrelated\",\"items\":[]}"));
     CHECK(expect_invalid(root, path, "just another file"));
     char *target = join(root, "symlink-target.json");
     CHECK(target != NULL && write_file(target, "foreign"));
@@ -205,11 +210,12 @@ static bool test_filename_roundtrip(const char *root)
     CHECK(state_path != NULL);
     review_state state = {0};
     CHECK(review_state_open(&state, root, state_path) == 0);
-    const char *names[] = {"quote\".jpg", "back\\slash.jpg", "tab\t.jpg",
-                           "line\nbreak.jpg", "caf\xc3\xa9.jpg",
-                           "nonutf8-\xff.jpg"};
+    const char *names[] = {"quote\".jpg",     "back\\slash.jpg",
+                           "tab\t.jpg",       "line\nbreak.jpg",
+                           "caf\xc3\xa9.jpg", "nonutf8-\xff.jpg"};
     for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i)
-        CHECK(review_state_save_mark(&state, names[i], PHOTOC_REVIEW_PICKED) == 0);
+        CHECK(review_state_save_mark(&state, names[i], PHOTOC_REVIEW_PICKED) ==
+              0);
     char *json = read_file(state_path);
     CHECK(json != NULL && strstr(json, "path_bytes_hex") != NULL &&
           strstr(json, "\\n") != NULL && strstr(json, "\\t") != NULL &&
@@ -230,16 +236,17 @@ static bool test_filename_roundtrip(const char *root)
     char *canonical_root = realpath(root, NULL);
     CHECK(canonical_root != NULL);
     char document[8192];
-    int length = snprintf(document, sizeof(document),
-                          "{\"version\":1,\"root\":\"%s\",\"items\":["
-                          "{\"path\":\"smile-\\uD83D\\uDE00.jpg\",\"status\":\"picked\"}]}  ",
-                          canonical_root);
+    int length = snprintf(
+        document, sizeof(document),
+        "{\"version\":1,\"root\":\"%s\",\"items\":["
+        "{\"path\":\"smile-\\uD83D\\uDE00.jpg\",\"status\":\"picked\"}]}  ",
+        canonical_root);
     free(canonical_root);
     CHECK(length > 0 && (size_t)length < sizeof(document));
     CHECK(write_file(escaped, document));
     CHECK(review_state_open(&state, root, escaped) == 0);
-    CHECK(state.count == 1 && strcmp(state.entries[0].path,
-                                     "smile-\xf0\x9f\x98\x80.jpg") == 0);
+    CHECK(state.count == 1 &&
+          strcmp(state.entries[0].path, "smile-\xf0\x9f\x98\x80.jpg") == 0);
     review_state_cleanup(&state);
     free(escaped);
     free(state_path);
@@ -259,7 +266,8 @@ static bool test_non_utf8_root(const char *root)
     CHECK(state_path != NULL);
     review_state state = {0};
     CHECK(review_state_open(&state, raw_root, NULL) == 0);
-    CHECK(review_state_save_mark(&state, "photo.jpg", PHOTOC_REVIEW_PICKED) == 0);
+    CHECK(review_state_save_mark(&state, "photo.jpg", PHOTOC_REVIEW_PICKED) ==
+          0);
     review_state_cleanup(&state);
     char *json = read_file(state_path);
     CHECK(json != NULL && strstr(json, "root_bytes_hex") != NULL);
@@ -338,7 +346,8 @@ static bool test_failed_save(const char *root)
     CHECK(before != NULL);
     CHECK(write_file(other, "foreign file"));
     CHECK(rename(other, path) == 0);
-    CHECK(review_state_save_mark(&state, "one.jpg", PHOTOC_REVIEW_REJECTED) != 0);
+    CHECK(review_state_save_mark(&state, "one.jpg", PHOTOC_REVIEW_REJECTED) !=
+          0);
     CHECK(state.count == 1 && strcmp(state.entries[0].path, "one.jpg") == 0);
     CHECK(model.picked == 1 && model.rejected == 0);
     bool one_is_picked = false;
@@ -354,7 +363,8 @@ static bool test_failed_save(const char *root)
     CHECK(symlink(other, path) != 0); /* The existing file blocks a symlink. */
     CHECK(unlink(path) == 0);
     CHECK(symlink(other, path) == 0);
-    CHECK(review_state_save_mark(&state, "two.jpg", PHOTOC_REVIEW_REJECTED) != 0);
+    CHECK(review_state_save_mark(&state, "two.jpg", PHOTOC_REVIEW_REJECTED) !=
+          0);
     CHECK(state.count == 1);
     CHECK(unlink(path) == 0);
     CHECK(write_file(path, before));
@@ -380,10 +390,8 @@ int main(void)
     char *state_path = join(root, ".photoc-review.json");
     bool okay = state_path != NULL &&
                 test_save_reload_and_model(root, state_path) &&
-                test_rejections(root) &&
-                test_filename_roundtrip(root) &&
-                test_non_utf8_root(root) &&
-                test_write_failure_cleanup(root) &&
+                test_rejections(root) && test_filename_roundtrip(root) &&
+                test_non_utf8_root(root) && test_write_failure_cleanup(root) &&
                 test_failed_save(root);
     free(state_path);
     remove_tree(root);
