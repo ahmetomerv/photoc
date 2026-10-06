@@ -7,6 +7,11 @@ collection, inspect available metadata and a sharpness score, and mark each
 photo **picked**, **rejected**, or **unmarked**. Marks survive quitting and
 restarting. Review never edits, moves, or deletes a JPEG.
 
+**Automatic image previews appear only in a detected direct iTerm2 session.**
+In other terminals, review still works but shows filenames, metadata,
+sharpness, and controls without the photo. A terminal that understands the
+iTerm2 protocol may use `--images iterm` to force a preview attempt.
+
 ## Syntax and options
 
 ```text
@@ -49,6 +54,9 @@ does not add lines inside the UI. Review does not run a progress spinner, so
 | `?` | Toggle help. |
 | `q` | Quit and show a short summary. |
 | Ctrl+C | Interrupt cleanly, preserving marks already saved. |
+
+Letter shortcuts accept either uppercase or lowercase input. A lone Escape
+key is ignored and does not consume the next shortcut.
 
 The screen puts Pick, Reject, and Unmark in a separate action row with colored
 keycaps and text labels. The bracketed keys and labels remain visible without
@@ -117,7 +125,8 @@ The previous valid state is retained.
 is detected from `TERM_PROGRAM=iTerm.app` and `ITERM_SESSION_ID`, excluding
 tmux, screen, and a dumb terminal. Otherwise it behaves like `none`.
 `--images iterm` forces that backend when detection misses a supported
-terminal. `--images none` uses text only and is useful in any ANSI terminal.
+terminal; it cannot add image support to a terminal that lacks the protocol.
+`--images none` uses text only and is useful in any ANSI terminal.
 All modes show the filename, position, status, metadata, sharpness, counts,
 and controls.
 

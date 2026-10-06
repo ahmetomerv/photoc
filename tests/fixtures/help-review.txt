@@ -20,7 +20,8 @@ Options:
 
 Requires one directory; reviews regular .jpg/.jpeg files only.
 Requires a terminal on stdin and stdout; --json is not supported.
-Auto uses images in direct iTerm sessions; iterm forces the backend.
+Auto shows images only in direct iTerm2; other terminals get text only.
+The iterm mode forces protocol output, not terminal support.
 Keys: left/h previous, right/l/space next, p pick, x reject, u unmark,
 i details, ? help, q quit. Marks are saved atomically before advancing.
 Only review state is written; JPEG files are never changed.

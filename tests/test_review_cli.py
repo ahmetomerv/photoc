@@ -286,6 +286,35 @@ class ReviewTests(unittest.TestCase):
         state = json.loads((self.root / ".photoc-review.json").read_text())
         self.assertEqual([item["path"] for item in state["items"]], ["b.jpg"])
 
+    def test_lone_escape_does_not_consume_next_shortcut(self):
+        self.photo("a.jpg")
+        session = self.run_session()
+        session.wait_screen()
+        session.send(b"\x1b")
+        time.sleep(0.2)
+        session.finish(keys=b"q")
+
+    def test_uppercase_keycaps_accept_uppercase_keys(self):
+        self.photo("a.jpg")
+        self.photo("b.jpg")
+        session = self.run_session()
+        self.assertIn(b"a.jpg", session.wait_screen())
+        session.send(b"P")
+        self.assertIn(b"b.jpg", session.wait_screen())
+        session.send(b"X")
+        self.assertIn(b"REJECTED", session.wait_screen())
+        session.send(b"H")
+        self.assertIn(b"a.jpg", session.wait_screen())
+        session.send(b"L")
+        self.assertIn(b"b.jpg", session.wait_screen())
+        session.send(b"U")
+        self.assertIn(b"UNMARKED", session.wait_screen())
+        session.send(b"I")
+        self.assertIn(b"Details", session.wait_screen())
+        session.finish(keys=b"Q")
+        state = json.loads((self.root / ".photoc-review.json").read_text())
+        self.assertEqual(state["items"], [{"path": "a.jpg", "status": "picked"}])
+
     def test_empty_and_empty_filter_do_not_enter_raw_mode(self):
         empty = self.run_session()
         output, error = empty.finish(keys=b"", expected=0)

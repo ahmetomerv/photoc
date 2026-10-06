@@ -80,7 +80,8 @@ usable for quitting.
 .B \-\-images auto|iterm|none
 Auto (default) uses iTerm2 inline images only in a directly detected iTerm2
 session and otherwise shows text only. It excludes tmux and screen. iTerm
-forces the image backend; none always uses text only. The original JPEG is
+forces the image backend but cannot make an unsupported terminal display
+images; none always uses text only. The original JPEG is
 streamed to the terminal without writing another image. iTerm2 controls
 display orientation. All modes show filename, status, metadata, sharpness,
 counts, and controls.
@@ -102,7 +103,8 @@ unchanged and returns status 1.
 Right arrow, l, or Space moves forward; left arrow or h moves backward.
 p picks, x rejects, u clears a mark, i toggles metadata detail, ? toggles
 help, and q quits. Ctrl+C interrupts cleanly. Each changed mark is saved
-before advancing. Sharpness is computed on first display and cached for the
+before advancing. Letter shortcuts accept either case; a lone Escape is
+ignored. Sharpness is computed on first display and cached for the
 session; it never marks automatically. Files that disappear or become
 unreadable show as unavailable while navigation continues. Filename and
 metadata control bytes are escaped before display. Terminal settings and

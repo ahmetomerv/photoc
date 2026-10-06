@@ -18,7 +18,9 @@
 Summarize a shoot, read metadata, find blurry shots and exact duplicates,
 rename and sort photos into folders, make contact sheets and smaller copies,
 or remove GPS location before sharing. Most commands work in shell scripts;
-`review` requires a terminal. Several inspection commands can print JSON.
+`review` requires a terminal. By default, inline photo previews appear only
+in a detected direct iTerm2 session; other terminals get a text-only review
+screen. Several inspection commands can print JSON.
 
 photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
 files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported

@@ -1,39 +1,48 @@
-# photoc 0.5.0
+# photoc 0.6.0
 
-This release makes file sizes easier to read in terminal output and reorganizes
-the documentation. JSON retains exact numeric byte values for scripts.
+This release adds interactive JPEG review. Browse a shoot in the terminal,
+inspect metadata and sharpness, and save picked or rejected marks without
+changing the photos.
 
-## Changes since 0.4.0
+## Changes since 0.5.0
 
-- `exif`, `stats`, `timeline`, `duplicates`, and `compress` display file sizes
-  using decimal B, KB, MB, GB, TB, PB, or EB. Values above B use one decimal
-  place, such as `2.3 MB`. This also applies to compression summaries and
-  target-miss diagnostics.
-- Added shared size formatting and tests for unit boundaries and a 2.3 MB EXIF
-  file. JSON byte fields keep their existing names, types, and exact values.
-- The README now gives a shorter overview with a demo GIF. Detailed usage,
-  installation, scripting, and command references are linked from it.
-- Removed duplicate installer and uninstaller files from the repository root.
-  The maintained checkout paths are `scripts/install.sh` and
-  `scripts/uninstall.sh`; the Quick start still downloads them as
-  `install-photoc.sh` and `uninstall-photoc.sh`.
+- Added `photoc review <directory>` with keyboard navigation, pick (`p`),
+  reject (`x`), unmark (`u`), metadata detail (`i`), help (`?`), and quit (`q`).
+  Letter keys accept either case. The action keys have prominent labels and
+  colors that can be disabled with `NO_COLOR=1`.
+- Added flat or recursive JPEG discovery, deterministic name or capture-date
+  ordering, and `--show all|unmarked|picked|rejected` navigation filters.
+  Counts always cover the full discovered collection.
+- Added a versioned `.photoc-review.json` state file with atomic saves after
+  each changed mark. Review resumes saved selections, retains entries for
+  temporarily absent photos, and refuses malformed or wrong-root state files.
+- Added `--images auto|iterm|none`. Auto mode uses inline JPEG display in a
+  confidently detected direct iTerm2 session and otherwise uses text only.
+  `iterm` forces protocol output but cannot make an unsupported terminal show
+  images; `none` keeps the metadata and controls without an image. Sharpness
+  is computed when first needed and cached for the session.
+- Added review coverage for state safety, unusual filenames, ordering, image
+  encoding, terminal restoration, and interactive navigation. Updated help,
+  the man page, command guide, and shell completions.
 
 ## Compatibility and safety
 
-Human-readable size text has changed. Scripts that need exact byte counts
-should use the existing JSON output. There are no JSON schema or exit-code
-changes and no new runtime dependencies. Read-only commands remain read only;
-file-modifying commands keep their existing overwrite, preview, and rollback
-behavior. See the [command guides](https://github.com/ahmetomerv/photoc/tree/v0.5.0/docs)
-for their safety and metadata limits.
+`review` requires a directory and interactive stdin and stdout. It supports
+JPEG files only, does not support `--json`, and never edits, moves, or deletes
+photos. Its only persistent write is the separate review-state JSON file.
+Existing commands, JSON schemas, and runtime dependencies are unchanged.
+Review supports macOS and Linux terminals; inline images use iTerm2's protocol,
+with a text-only fallback elsewhere. See the [review guide](https://github.com/ahmetomerv/photoc/blob/v0.6.0/docs/review.md)
+for controls, state behavior, and terminal limits.
 
 ## Upgrading
 
 Installed copies do not update automatically. Follow the
-[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.5.0/docs/installation.md#upgrading)
-to replace an owned release installation. Source installations should be
-rebuilt and reinstalled from the new tag. Verify with `photoc --version`,
-which should print `photoc 0.5.0`.
+[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.6.0/docs/installation.md#upgrading)
+to replace an owned release installation. Homebrew users can upgrade after
+the tap formula has been updated for this release. Source installations should
+be rebuilt and reinstalled from the new tag. Verify with `photoc --version`,
+which should print `photoc 0.6.0`.
 
 ## Downloads and requirements
 
@@ -57,5 +66,5 @@ platform's archive and executable. Verify downloaded files with
 `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
 `sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that directory.
 
-See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.5.0/docs/installation.md)
+See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.6.0/docs/installation.md)
 for the checksum-verified release installer and safe uninstall flow.

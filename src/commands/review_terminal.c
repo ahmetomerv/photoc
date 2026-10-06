@@ -147,8 +147,11 @@ int review_terminal_read(review_terminal *terminal, review_key *key)
         return 0;
     if (count < 0)
         return -1;
-    if (count == 0)
+    if (count == 0) {
+        /* A lone Escape must not swallow a shortcut typed later. */
+        terminal->escape_state = 0;
         return 0;
+    }
     if (terminal->escape_state == 1) {
         terminal->escape_state = ch == '[' || ch == 'O' ? 2 : 0;
         return 0;
@@ -161,6 +164,9 @@ int review_terminal_read(review_terminal *terminal, review_key *key)
             *key = REVIEW_KEY_PREVIOUS;
         return 0;
     }
+    /* The visible keycaps use capitals; accept both letter cases. */
+    if (ch >= 'A' && ch <= 'Z')
+        ch = (unsigned char)(ch - 'A' + 'a');
     if (ch == 0x1b) {
         terminal->escape_state = 1;
     } else if (ch == 'l' || ch == ' ') {
