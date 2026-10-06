@@ -65,6 +65,11 @@ bool photoc_jpeg_metadata_has_grayscale_icc(
     return metadata != NULL && metadata->has_icc && metadata->components == 1;
 }
 
+bool photoc_jpeg_metadata_has_icc(const photoc_jpeg_metadata *metadata)
+{
+    return metadata != NULL && metadata->has_icc;
+}
+
 static bool signature_matches(const unsigned char *bytes, unsigned int length,
                               const char *signature, size_t signature_length)
 {

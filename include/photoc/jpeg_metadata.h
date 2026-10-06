@@ -27,6 +27,9 @@ photoc_jpeg_metadata_output_overhead(const photoc_jpeg_metadata *metadata);
 bool photoc_jpeg_metadata_has_grayscale_icc(
     const photoc_jpeg_metadata *metadata);
 
+/* True when any ICC_PROFILE APP2 chunks were found. */
+bool photoc_jpeg_metadata_has_icc(const photoc_jpeg_metadata *metadata);
+
 void photoc_jpeg_metadata_free(photoc_jpeg_metadata *metadata);
 
 #endif

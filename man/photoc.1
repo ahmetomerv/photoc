@@ -81,10 +81,12 @@ usable for quitting.
 Auto (default) uses iTerm2 inline images only in a directly detected iTerm2
 session and otherwise shows text only. It excludes tmux and screen. iTerm
 forces the image backend but cannot make an unsupported terminal display
-images; none always uses text only. The original JPEG is
-streamed to the terminal without writing another image. iTerm2 controls
-display orientation. All modes show filename, status, metadata, sharpness,
-counts, and controls.
+images; none always uses text only. Larger JPEGs may be displayed using
+smaller, lossy in-memory previews; sources with ICC profiles and files that
+cannot be previewed safely are streamed as originals. EXIF orientation is
+applied to generated previews. No preview image is written to disk. Resize redraws
+are coalesced. All modes show filename, status, metadata, sharpness, counts,
+and controls.
 .TP
 .B \-\-state file
 Use a different review-state JSON file; its parent must already exist. The

@@ -130,12 +130,18 @@ terminal; it cannot add image support to a terminal that lacks the protocol.
 All modes show the filename, position, status, metadata, sharpness, counts,
 and controls.
 
-The iTerm backend streams the original JPEG bytes without generating a copy
-or decoding it for display. iTerm2 decides how to show EXIF orientation;
-photoc does not rotate pixels. The single-sequence V1 backend is not designed
-for tmux passthrough. If an image or metadata becomes unreadable or disappears
-during review, the UI shows it as unavailable and navigation continues. The
-discovered list is fixed for the session; review does not rescan automatically.
+For larger JPEGs, review prepares a smaller JPEG preview in memory when that
+substantially reduces the bytes sent to iTerm2. The displayed preview is a
+lossy copy and may differ slightly from the source. Review applies EXIF
+orientation to preview pixels before encoding. It keeps up to three recent
+previews within an 8 MiB cache and prepares adjacent photos after a short idle
+period. Sources with an ICC profile, smaller files, and files that cannot be
+previewed safely are streamed as originals. Previews are never written to
+disk. Resizes are coalesced so the image redraws once after the window
+settles. The single-sequence backend is not designed for tmux passthrough.
+If an image or metadata becomes unreadable or disappears during review, the
+UI shows it as unavailable and navigation continues. The discovered list is
+fixed for the session; review does not rescan automatically.
 
 The interface restores terminal input settings and leaves its alternate
 screen on normal quit, handled interruption, and controlled I/O failures.
@@ -148,7 +154,7 @@ The **only** file review creates or updates is its review-state JSON. It never
 changes JPEG bytes, EXIF, filenames, or locations; it never deletes or moves
 picked or rejected files. Keep the state file if you want to resume later.
 Review is not a database or a photo editor, and V1 has no RAW previews,
-ratings, thumbnail cache, mouse controls, or additional image protocols.
+ratings, disk thumbnail cache, mouse controls, or additional image protocols.
 
 Exit status is **0** on success, **2** for invalid usage, and **1** for
 operational failure (including no TTY, a refused state file, or a failed

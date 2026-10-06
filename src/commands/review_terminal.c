@@ -51,10 +51,12 @@ int review_terminal_enter(review_terminal *terminal)
     struct sigaction action = {0};
     sigemptyset(&action.sa_mask);
     action.sa_handler = on_winch;
+    action.sa_flags = SA_RESTART;
     if (sigaction(SIGWINCH, &action, &terminal->previous_winch) != 0)
         return -1;
     terminal->have_winch = true;
     action.sa_handler = on_hup;
+    action.sa_flags = 0;
     if (sigaction(SIGHUP, &action, &terminal->previous_hup) != 0) {
         int saved_errno = errno;
         review_terminal_leave(terminal);

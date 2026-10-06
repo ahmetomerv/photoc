@@ -21,6 +21,10 @@ changing the photos.
   `iterm` forces protocol output but cannot make an unsupported terminal show
   images; `none` keeps the metadata and controls without an image. Sharpness
   is computed when first needed and cached for the session.
+- Improved iTerm2 review navigation with bounded in-memory JPEG previews and
+  idle preparation of adjacent photos. Resize bursts redraw after the window
+  settles. ICC-profiled photos retain original-byte display, and source JPEGs
+  remain unchanged.
 - Added review coverage for state safety, unusual filenames, ordering, image
   encoding, terminal restoration, and interactive navigation. Updated help,
   the man page, command guide, and shell completions.

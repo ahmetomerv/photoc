@@ -31,8 +31,38 @@ static void write_jpeg(const char *path, const photoc_jpeg_buffer *jpeg)
     CHECK(fclose(file) == 0);
 }
 
+static void test_orientations(void)
+{
+    static const char *expected[] = {
+        "ABCDEF", "BADCFE", "FEDCBA", "EFCDAB",
+        "ACEBDF", "ECAFDB", "FDBECA", "BDFACE"
+    };
+    for (uint16_t orientation = 1; orientation <= 8; ++orientation) {
+        photoc_image image = {0};
+        image.width = 2;
+        image.height = 3;
+        image.stride = 6;
+        image.pixel_bytes = 18;
+        image.pixels = malloc(18);
+        CHECK(image.pixels != NULL);
+        if (image.pixels == NULL)
+            return;
+        for (size_t i = 0; i < 6; ++i)
+            memset(image.pixels + i * 3, (int)('A' + i), 3);
+        CHECK(photoc_image_apply_orientation(&image, orientation) ==
+              PHOTOC_IMAGE_OK);
+        CHECK(image.width == (orientation >= 5 ? 3u : 2u));
+        CHECK(image.height == (orientation >= 5 ? 2u : 3u));
+        for (size_t i = 0; i < 6; ++i)
+            CHECK(image.pixels[i * 3] ==
+                  (unsigned char)expected[orientation - 1][i]);
+        photoc_image_cleanup(&image);
+    }
+}
+
 int main(void)
 {
+    test_orientations();
     const char *source = PHOTOC_IMAGE_FIXTURES "/with_exif.jpg";
     const char *invalid = PHOTOC_IMAGE_FIXTURES "/invalid.jpg";
     const char *unsupported = PHOTOC_IMAGE_FIXTURES "/unsupported.png";

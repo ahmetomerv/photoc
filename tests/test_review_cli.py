@@ -7,12 +7,14 @@ import json
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import shutil
 import signal
 import subprocess
 import tempfile
 import termios
+import threading
 import time
 import unittest
 
@@ -241,6 +243,131 @@ class ReviewTests(unittest.TestCase):
         self.assertIn(b"b.jpg", resized)
         self.assertIn(b"\x1b]1337;File=", resized)
         session.finish()
+
+    def test_resize_burst_draws_latest_image_once(self):
+        self.photo("a.jpg", "flat.jpg")
+        session = Session(["review", self.root, "--images", "iterm"])
+        self.addCleanup(session.close)
+        session.wait_screen()
+        before = len(session.output)
+        for _ in range(6):
+            os.kill(session.process.pid, signal.SIGWINCH)
+            time.sleep(0.12)
+        session.wait_screen()
+        time.sleep(0.25)
+        while select.select([session.master], [], [], 0)[0]:
+            session.output += os.read(session.master, 65536)
+        self.assertEqual(session.output[before:].count(b"\x1b]1337;File="), 1)
+        session.finish()
+
+    def test_large_preview_navigation_resize_and_original_hashes(self):
+        paths = [self.photo("a.jpg"), self.photo("b.jpg")]
+        for path in paths:
+            with path.open("ab") as output:
+                output.write(b"\0" * (1024 * 1024))
+        hashes = [hashlib.sha256(path.read_bytes()).digest() for path in paths]
+        session = Session(["review", self.root, "--images", "iterm"])
+        self.addCleanup(session.close)
+        first = session.wait_screen()
+        self.assertLess(int(re.search(rb"File=inline=1;size=(\d+)", first)[1]),
+                        paths[0].stat().st_size // 2)
+        time.sleep(0.65)  # Let the idle neighbor preview be prepared.
+        session.send(b"l")
+        second = session.wait_screen()
+        self.assertIn(b"b.jpg", second)
+        self.assertLess(int(re.search(rb"File=inline=1;size=(\d+)", second)[1]),
+                        paths[1].stat().st_size // 2)
+        os.kill(session.process.pid, signal.SIGWINCH)
+        resized = session.wait_screen()
+        self.assertIn(b"b.jpg", resized)
+        self.assertLess(int(re.search(rb"File=inline=1;size=(\d+)", resized)[1]),
+                        paths[1].stat().st_size // 2)
+        session.finish()
+        self.assertEqual(hashes, [hashlib.sha256(path.read_bytes()).digest()
+                                  for path in paths])
+
+    def test_icc_photo_streams_original_for_color_safety(self):
+        path = self.root / "icc.jpg"
+        path.write_bytes((FIXTURES.parent / "jpeg_metadata/icc_only.jpg").read_bytes()
+                         + b"\0" * (1024 * 1024))
+        session = Session(["review", self.root, "--images", "iterm"])
+        self.addCleanup(session.close)
+        screen = session.wait_screen()
+        size = int(re.search(rb"File=inline=1;size=(\d+)", screen)[1])
+        self.assertEqual(size, path.stat().st_size)
+        session.finish()
+
+    def test_metadata_cache_refreshes_after_file_replacement(self):
+        first = self.photo("a.jpg", "with_exif.jpg")
+        self.photo("b.jpg", "flat.jpg")
+        session = self.run_session()
+        self.assertIn(b"Fixture Camera Co.", session.wait_screen())
+        session.send(b"l")
+        session.wait_screen()
+        replacement = self.root / "replacement.jpg"
+        shutil.copyfile(FIXTURES / "no_exif.jpg", replacement)
+        replacement.replace(first)
+        session.send(b"h")
+        refreshed = session.wait_screen()
+        self.assertIn(b"a.jpg", refreshed)
+        self.assertNotIn(b"Fixture Camera Co.", refreshed)
+        session.finish()
+
+    def test_replaced_symlink_is_not_previewed(self):
+        first = self.photo("a.jpg")
+        second = self.photo("b.jpg")
+        session = Session(["review", self.root, "--images", "iterm"])
+        self.addCleanup(session.close)
+        session.wait_screen()
+        second.unlink()
+        second.symlink_to(first)
+        session.send(b"l")
+        screen = session.wait_screen()
+        self.assertIn(b"Photo unavailable", screen)
+        self.assertNotIn(b"\x1b]1337;File=", screen)
+        session.finish()
+
+    def test_iterm_resize_during_image_write_keeps_review_open(self):
+        photo = self.photo("large.jpg")
+        with photo.open("ab") as output:
+            output.write(b"\0" * (4 * 1024 * 1024))
+        session = Session(["review", self.root, "--images", "iterm"])
+        self.addCleanup(session.close)
+        session.read_until(b"\x1b]1337;File=")
+
+        def resize_storm():
+            for _ in range(200):
+                if session.process.poll() is not None:
+                    return
+                try:
+                    os.kill(session.process.pid, signal.SIGWINCH)
+                except ProcessLookupError:
+                    return
+                time.sleep(0.001)
+
+        worker = threading.Thread(target=resize_storm)
+        worker.start()
+        deadline = time.monotonic() + 12
+        tail = b""
+        quit_sent = False
+        while time.monotonic() < deadline and session.process.poll() is None:
+            ready, _, _ = select.select([session.master], [], [], 0.02)
+            if ready:
+                try:
+                    tail = (tail + os.read(session.master, 65536))[-256:]
+                except OSError:
+                    break
+            if not quit_sent and not worker.is_alive() and b"[Q] Quit" in tail:
+                session.send(b"q")
+                quit_sent = True
+        worker.join(timeout=2)
+        self.assertFalse(worker.is_alive())
+        code = session.process.wait(timeout=3)
+        error = session.process.stderr.read().decode(errors="replace")
+        self.assertEqual(code, 0, error)
+        self.assertTrue(quit_sent)
+        restored = termios.tcgetattr(session.slave)
+        self.assertEqual(restored[6], session.original[6])
 
     def test_forced_iterm_keeps_text_when_photo_disappears(self):
         self.photo("a.jpg", "flat.jpg")

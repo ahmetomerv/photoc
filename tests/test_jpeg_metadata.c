@@ -88,6 +88,10 @@ static void test_roundtrip(const char *destination)
         uint64_t source_size = 0;
         CHECK(photoc_jpeg_metadata_load_copy(path, &metadata) ==
               PHOTOC_JPEG_EDIT_OK);
+        CHECK(photoc_jpeg_metadata_has_icc(metadata) ==
+              (strstr(fixtures[i], "icc") != NULL ||
+               strcmp(fixtures[i], "all_metadata.jpg") == 0 ||
+               strcmp(fixtures[i], "xmp_extended.jpg") == 0));
         CHECK(photoc_fs_file_size(path, &source_size) == 0);
         uint64_t plain_size = base_size;
         if (photoc_jpeg_metadata_has_grayscale_icc(metadata)) {

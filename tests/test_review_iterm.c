@@ -47,9 +47,18 @@ static int encode_bytes(const unsigned char *bytes, size_t length,
     char *actual = contents(destination);
     CHECK(actual != NULL);
     CHECK(strcmp(actual, expected) == 0);
+    FILE *memory_destination = tmpfile();
+    CHECK(memory_destination != NULL);
+    CHECK(review_base64_encode_bytes(bytes, length, memory_destination) ==
+          REVIEW_BASE64_OK);
+    char *from_memory = contents(memory_destination);
+    CHECK(from_memory != NULL);
+    CHECK(strcmp(from_memory, expected) == 0);
+    free(from_memory);
     free(actual);
     fclose(source);
     fclose(destination);
+    fclose(memory_destination);
     return 0;
 }
 
@@ -104,6 +113,14 @@ static int test_write_error(void)
     CHECK(destination != NULL);
     CHECK(setvbuf(destination, NULL, _IONBF, 0) == 0);
     CHECK(close(fileno(destination)) == 0);
+    CHECK(review_base64_encode_bytes((const unsigned char *)"foo", 3,
+                                     destination) == REVIEW_BASE64_WRITE_ERROR);
+    fclose(destination);
+
+    destination = tmpfile();
+    CHECK(destination != NULL);
+    CHECK(setvbuf(destination, NULL, _IONBF, 0) == 0);
+    CHECK(close(fileno(destination)) == 0);
     CHECK(review_iterm_render(destination, PHOTOC_REVIEW_FIXTURES "/flat.jpg") ==
           REVIEW_IMAGE_OUTPUT_ERROR);
     fclose(destination);
@@ -118,6 +135,9 @@ static int test_protocol(void)
     FILE *destination = tmpfile();
     CHECK(destination != NULL);
     CHECK(review_iterm_render(destination, PHOTOC_REVIEW_FIXTURES "/missing.jpg") ==
+          REVIEW_IMAGE_UNAVAILABLE);
+    CHECK(ftell(destination) == 0);
+    CHECK(review_iterm_render_bytes(destination, (const unsigned char *)"", 0) ==
           REVIEW_IMAGE_UNAVAILABLE);
     CHECK(ftell(destination) == 0);
     CHECK(review_iterm_render(destination, path) == REVIEW_IMAGE_RENDERED);
@@ -141,6 +161,21 @@ static int test_protocol(void)
     CHECK(payload != NULL);
     CHECK(strlen(payload) == rendered_length - prefix_length - 2);
     CHECK(memcmp(rendered + prefix_length, payload, strlen(payload)) == 0);
+    CHECK(fseek(source, 0, SEEK_SET) == 0);
+    unsigned char *bytes = malloc((size_t)info.st_size);
+    CHECK(bytes != NULL);
+    CHECK(fread(bytes, 1, (size_t)info.st_size, source) ==
+          (size_t)info.st_size);
+    FILE *from_bytes = tmpfile();
+    CHECK(from_bytes != NULL);
+    CHECK(review_iterm_render_bytes(from_bytes, bytes, (size_t)info.st_size) ==
+          REVIEW_IMAGE_RENDERED);
+    char *rendered_bytes = contents(from_bytes);
+    CHECK(rendered_bytes != NULL);
+    CHECK(strcmp(rendered_bytes, rendered) == 0);
+    free(rendered_bytes);
+    free(bytes);
+    fclose(from_bytes);
     free(payload);
     free(rendered);
     fclose(source);

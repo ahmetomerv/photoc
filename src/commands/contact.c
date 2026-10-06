@@ -256,54 +256,13 @@ static void rectangle(photoc_image *image, uint32_t x, uint32_t y,
     }
 }
 
-static void orient_point(uint32_t x, uint32_t y, const photoc_image *source,
-                         uint16_t orientation, uint32_t *raw_x, uint32_t *raw_y)
-{
-    uint32_t width = source->width;
-    uint32_t height = source->height;
-    switch (orientation) {
-    case 2:
-        *raw_x = width - 1 - x;
-        *raw_y = y;
-        break;
-    case 3:
-        *raw_x = width - 1 - x;
-        *raw_y = height - 1 - y;
-        break;
-    case 4:
-        *raw_x = x;
-        *raw_y = height - 1 - y;
-        break;
-    case 5:
-        *raw_x = y;
-        *raw_y = x;
-        break;
-    case 6:
-        *raw_x = y;
-        *raw_y = height - 1 - x;
-        break;
-    case 7:
-        *raw_x = width - 1 - y;
-        *raw_y = height - 1 - x;
-        break;
-    case 8:
-        *raw_x = width - 1 - y;
-        *raw_y = x;
-        break;
-    default:
-        *raw_x = x;
-        *raw_y = y;
-        break;
-    }
-}
-
 static const unsigned char *oriented_pixel(const photoc_image *source,
                                            uint16_t orientation, uint32_t x,
                                            uint32_t y)
 {
     uint32_t raw_x = 0;
     uint32_t raw_y = 0;
-    orient_point(x, y, source, orientation, &raw_x, &raw_y);
+    photoc_image_source_coordinate(x, y, source, orientation, &raw_x, &raw_y);
     return source->pixels + (size_t)raw_y * source->stride + (size_t)raw_x * 3;
 }
 

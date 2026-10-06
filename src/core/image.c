@@ -300,6 +300,63 @@ photoc_image_result photoc_image_encode_jpeg(const photoc_image *image,
     return encode_jpeg(image, quality, out, TJSAMP_420);
 }
 
+void photoc_image_source_coordinate(uint32_t x, uint32_t y,
+                                    const photoc_image *source,
+                                    uint16_t orientation, uint32_t *raw_x,
+                                    uint32_t *raw_y)
+{
+    uint32_t width = source->width;
+    uint32_t height = source->height;
+    switch (orientation) {
+    case 2: *raw_x = width - 1 - x; *raw_y = y; break;
+    case 3: *raw_x = width - 1 - x; *raw_y = height - 1 - y; break;
+    case 4: *raw_x = x; *raw_y = height - 1 - y; break;
+    case 5: *raw_x = y; *raw_y = x; break;
+    case 6: *raw_x = y; *raw_y = height - 1 - x; break;
+    case 7: *raw_x = width - 1 - y; *raw_y = height - 1 - x; break;
+    case 8: *raw_x = width - 1 - y; *raw_y = x; break;
+    default: *raw_x = x; *raw_y = y; break;
+    }
+}
+
+photoc_image_result photoc_image_apply_orientation(photoc_image *image,
+                                                    uint16_t orientation)
+{
+    if (image == NULL || image->pixels == NULL || image->width == 0 ||
+        image->height == 0 || (uint64_t)image->width * 3 > SIZE_MAX ||
+        image->stride < (size_t)image->width * 3 ||
+        (size_t)image->height > SIZE_MAX / image->stride ||
+        image->pixel_bytes < image->stride * image->height ||
+        orientation < 1 || orientation > 8)
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    if (orientation == 1)
+        return PHOTOC_IMAGE_OK;
+    uint32_t width = orientation >= 5 ? image->height : image->width;
+    uint32_t height = orientation >= 5 ? image->width : image->height;
+    if ((uint64_t)width * 3 > SIZE_MAX ||
+        (size_t)height > SIZE_MAX / ((size_t)width * 3))
+        return PHOTOC_IMAGE_TOO_LARGE;
+    size_t stride = (size_t)width * 3;
+    size_t length = stride * (size_t)height;
+    unsigned char *pixels = malloc(length);
+    if (pixels == NULL)
+        return PHOTOC_IMAGE_NO_MEMORY;
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            uint32_t raw_x, raw_y;
+            photoc_image_source_coordinate(x, y, image, orientation, &raw_x,
+                                           &raw_y);
+            memcpy(pixels + (size_t)y * stride + (size_t)x * 3,
+                   image->pixels + (size_t)raw_y * image->stride +
+                       (size_t)raw_x * 3,
+                   3);
+        }
+    }
+    free(image->pixels);
+    *image = (photoc_image){width, height, stride, length, pixels};
+    return PHOTOC_IMAGE_OK;
+}
+
 photoc_image_result
 photoc_image_encode_jpeg_grayscale(const photoc_image *image, int quality,
                                    photoc_jpeg_buffer *out)

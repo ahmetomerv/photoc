@@ -21,6 +21,8 @@ or remove GPS location before sharing. Most commands work in shell scripts;
 `review` requires a terminal. By default, inline photo previews appear only
 in a detected direct iTerm2 session; other terminals get a text-only review
 screen. Several inspection commands can print JSON.
+Large JPEGs may use temporary in-memory previews for faster review; the
+original photos stay unchanged. See the [review guide](docs/review.md).
 
 photoc works with **JPEG** files and reads metadata from **Sony ARW** RAW
 files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported

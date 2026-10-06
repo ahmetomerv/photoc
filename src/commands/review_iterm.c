@@ -75,6 +75,39 @@ review_base64_result review_base64_encode(FILE *source, FILE *destination)
     return REVIEW_BASE64_OK;
 }
 
+review_base64_result review_base64_encode_bytes(const unsigned char *bytes,
+                                                size_t length,
+                                                FILE *destination)
+{
+    if (bytes == NULL || destination == NULL)
+        return REVIEW_BASE64_WRITE_ERROR;
+    char output[4096];
+    size_t produced = 0;
+    size_t i = 0;
+    for (; length - i >= 3; i += 3) {
+        encode_triplet(bytes + i, output + produced);
+        produced += 4;
+        if (produced == sizeof(output)) {
+            if (fwrite(output, 1, produced, destination) != produced)
+                return REVIEW_BASE64_WRITE_ERROR;
+            produced = 0;
+        }
+    }
+    if (i < length) {
+        unsigned char remainder[3] = {0};
+        size_t count = length - i;
+        memcpy(remainder, bytes + i, count);
+        encode_triplet(remainder, output + produced);
+        if (count == 1)
+            output[produced + 2] = '=';
+        output[produced + 3] = '=';
+        produced += 4;
+    }
+    if (produced != 0 && fwrite(output, 1, produced, destination) != produced)
+        return REVIEW_BASE64_WRITE_ERROR;
+    return REVIEW_BASE64_OK;
+}
+
 static void try_terminate_sequence(FILE *destination)
 {
     /* An output failure may have left an OSC sequence open. Best effort only:
@@ -82,6 +115,34 @@ static void try_terminate_sequence(FILE *destination)
     clearerr(destination);
     (void)fputc('\a', destination);
     (void)fflush(destination);
+}
+
+static bool write_prefix(FILE *destination, uintmax_t length)
+{
+    /* https://iterm2.com/documentation-images.html#protocol */
+    return fprintf(destination,
+                   "\033]1337;File=inline=1;size=%" PRIuMAX
+                   ";width=100%%;height=40%%;preserveAspectRatio=1:",
+                   length) >= 0;
+}
+
+review_image_result review_iterm_render_bytes(FILE *destination,
+                                               const unsigned char *bytes,
+                                               size_t length)
+{
+    if (bytes == NULL || length == 0)
+        return REVIEW_IMAGE_UNAVAILABLE;
+    if (!write_prefix(destination, length)) {
+        try_terminate_sequence(destination);
+        return REVIEW_IMAGE_OUTPUT_ERROR;
+    }
+    if (review_base64_encode_bytes(bytes, length, destination) !=
+        REVIEW_BASE64_OK) {
+        try_terminate_sequence(destination);
+        return REVIEW_IMAGE_OUTPUT_ERROR;
+    }
+    return fputs("\a\n", destination) == EOF ? REVIEW_IMAGE_OUTPUT_ERROR :
+                                               REVIEW_IMAGE_RENDERED;
 }
 
 review_image_result review_iterm_render(FILE *destination, const char *path)
@@ -100,11 +161,7 @@ review_image_result review_iterm_render(FILE *destination, const char *path)
         return REVIEW_IMAGE_UNAVAILABLE;
     }
 
-    /* https://iterm2.com/documentation-images.html#protocol */
-    if (fprintf(destination,
-                "\033]1337;File=inline=1;size=%" PRIuMAX
-                ";width=100%%;height=40%%;preserveAspectRatio=1:",
-                (uintmax_t)info.st_size) < 0) {
+    if (!write_prefix(destination, (uintmax_t)info.st_size)) {
         fclose(source);
         try_terminate_sequence(destination);
         return REVIEW_IMAGE_OUTPUT_ERROR;
