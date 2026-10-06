@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <stdbool.h>
 
 static size_t valid_utf8_length(const unsigned char *text, size_t remaining)
 {
@@ -40,6 +41,25 @@ static size_t valid_utf8_length(const unsigned char *text, size_t remaining)
         return 0;
     }
     return length;
+}
+
+bool photoc_json_is_valid_utf8(const char *value)
+{
+    if (value == NULL)
+        return false;
+    const unsigned char *text = (const unsigned char *)value;
+    size_t length = strlen(value);
+    for (size_t i = 0; i < length;) {
+        if (text[i] < 0x80) {
+            ++i;
+        } else {
+            size_t sequence = valid_utf8_length(text + i, length - i);
+            if (sequence == 0)
+                return false;
+            i += sequence;
+        }
+    }
+    return true;
 }
 
 int photoc_json_write_string(FILE *stream, const char *value)

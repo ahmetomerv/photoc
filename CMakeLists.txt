@@ -383,6 +383,15 @@ if(BUILD_TESTING)
     )
     add_test(NAME review_model COMMAND test_review_model)
 
+    add_executable(test_review_state
+        tests/test_review_state.c
+        src/commands/review_model.c
+        src/commands/review_state.c)
+    photoc_configure_c_target(test_review_state)
+    target_include_directories(test_review_state PRIVATE src/commands)
+    target_link_libraries(test_review_state PRIVATE photoc_core)
+    add_test(NAME review_state COMMAND test_review_state)
+
     add_executable(test_timeline tests/test_timeline.c)
     photoc_configure_c_target(test_timeline)
     target_link_libraries(test_timeline PRIVATE photoc_core)
