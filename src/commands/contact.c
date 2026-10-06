@@ -138,8 +138,7 @@ static int compare_name(const void *left, const void *right)
 {
     const contact_photo *a = left;
     const contact_photo *b = right;
-    int order = strcmp(filename(a->path), filename(b->path));
-    return order != 0 ? order : strcmp(a->path, b->path);
+    return photoc_fs_compare_name_then_path(a->path, b->path);
 }
 
 static int compare_date(const void *left, const void *right)

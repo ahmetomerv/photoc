@@ -372,6 +372,17 @@ if(BUILD_TESTING)
     )
     add_test(NAME photo_scanner COMMAND test_scan)
 
+    add_executable(test_review_model
+        tests/test_review_model.c
+        src/commands/review_model.c)
+    photoc_configure_c_target(test_review_model)
+    target_include_directories(test_review_model PRIVATE src/commands)
+    target_link_libraries(test_review_model PRIVATE photoc_core)
+    target_compile_definitions(test_review_model PRIVATE
+        PHOTOC_REVIEW_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg"
+    )
+    add_test(NAME review_model COMMAND test_review_model)
+
     add_executable(test_timeline tests/test_timeline.c)
     photoc_configure_c_target(test_timeline)
     target_link_libraries(test_timeline PRIVATE photoc_core)

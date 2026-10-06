@@ -36,6 +36,10 @@ const char *photoc_fs_relative(const char *root, const char *path);
    portable destination-name collisions; does not inspect the filesystem. */
 int photoc_fs_compare_casefold(const char *left, const char *right);
 
+/* Case-sensitive bytewise filename ordering, with the whole path breaking
+   equal filename ties. Arguments are borrowed and must be non-NULL. */
+int photoc_fs_compare_name_then_path(const char *left, const char *right);
+
 /* Lexical join of a nonempty base and a nonempty relative child.
    Absolute children are rejected. This does not enforce path containment.
    The output pointer must not own memory on entry; *joined must be freed by

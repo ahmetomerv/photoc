@@ -176,6 +176,16 @@ int photoc_fs_filename(const char *path, char **filename)
     return copy_part(path + start, length, filename);
 }
 
+int photoc_fs_compare_name_then_path(const char *left, const char *right)
+{
+    const char *left_slash = strrchr(left, '/');
+    const char *right_slash = strrchr(right, '/');
+    const char *left_name = left_slash == NULL ? left : left_slash + 1;
+    const char *right_name = right_slash == NULL ? right : right_slash + 1;
+    int order = strcmp(left_name, right_name);
+    return order != 0 ? order : strcmp(left, right);
+}
+
 int photoc_fs_extension(const char *path, char **extension)
 {
     if (extension == NULL) {
