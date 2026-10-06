@@ -37,6 +37,10 @@ typedef struct {
     const char *columns;
     const char *thumb_size;
     const char *contact_sort;
+    const char *review_sort;
+    const char *review_show;
+    const char *review_images;
+    const char *review_state;
     const char *threshold;
     const char *camera;
     const char *make;
@@ -55,8 +59,7 @@ typedef enum {
     PHOTOC_PARSE_DUPLICATE_OPTION
 } photoc_parse_status;
 
-/* command, first_argument, format, sort_by, gap, quality, target,
-   min_quality, output_dir, threshold, query filter values, and error_arg
+/* All const char * option fields, command, first_argument, and error_arg
    borrow argv strings. */
 photoc_parse_status photoc_parse_args(int argc, char *argv[],
                                       photoc_cli_options *options,

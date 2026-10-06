@@ -108,9 +108,10 @@ enum {
     CMD_QUERY = 1u << 9,
     CMD_TIMELINE = 1u << 10,
     CMD_CONTACT = 1u << 11,
+    CMD_REVIEW = 1u << 12,
     CMD_RECURSIVE = CMD_COMPRESS | CMD_DUPLICATES | CMD_STATS | CMD_RENAME |
                     CMD_SORT | CMD_FOCUS | CMD_SCRUB | CMD_CHECK | CMD_QUERY |
-                    CMD_TIMELINE | CMD_CONTACT,
+                    CMD_TIMELINE | CMD_CONTACT | CMD_REVIEW,
     CMD_APPLY = CMD_RENAME | CMD_SORT
 };
 
@@ -142,7 +143,10 @@ static const photoc_flag flags[] = {
     {"--columns", CMD_CONTACT, true},
     {"--thumb-size", CMD_CONTACT, true},
     {"--metadata", CMD_CONTACT, false},
-    {"--sort", CMD_CONTACT, true},
+    {"--sort", CMD_CONTACT | CMD_REVIEW, true},
+    {"--show", CMD_REVIEW, true},
+    {"--images", CMD_REVIEW, true},
+    {"--state", CMD_REVIEW, true},
     {"--target", CMD_COMPRESS, true},
     {"--min-quality", CMD_COMPRESS, true},
     {"--output-dir", CMD_COMPRESS, true},
@@ -214,6 +218,9 @@ static unsigned command_mask(const char *name)
     if (strcmp(name, "contact") == 0) {
         return CMD_CONTACT;
     }
+    if (strcmp(name, "review") == 0) {
+        return CMD_REVIEW;
+    }
     return 0;
 }
 
@@ -267,6 +274,7 @@ static photoc_parse_status take_value(int *index, int argc, char *argv[],
 
 static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
                                       int argc, char *argv[],
+                                      unsigned command,
                                       photoc_cli_options *options,
                                       const char **error_arg)
 {
@@ -322,7 +330,14 @@ static photoc_parse_status apply_flag(const photoc_flag *flag, int *index,
     } else if (strcmp(name, "--thumb-size") == 0) {
         slot = &options->thumb_size;
     } else if (strcmp(name, "--sort") == 0) {
-        slot = &options->contact_sort;
+        slot = command == CMD_REVIEW ? &options->review_sort :
+                                      &options->contact_sort;
+    } else if (strcmp(name, "--show") == 0) {
+        slot = &options->review_show;
+    } else if (strcmp(name, "--images") == 0) {
+        slot = &options->review_images;
+    } else if (strcmp(name, "--state") == 0) {
+        slot = &options->review_state;
     } else if (strcmp(name, "--target") == 0) {
         slot = &options->target;
     } else if (strcmp(name, "--min-quality") == 0) {
@@ -378,7 +393,7 @@ photoc_parse_status photoc_parse_args(int argc, char *argv[],
         const photoc_flag *flag = options_ended ? NULL : find_flag(arg);
         if (flag != NULL && flag_allowed(flag, command)) {
             photoc_parse_status status =
-                apply_flag(flag, &i, argc, argv, options, error_arg);
+                apply_flag(flag, &i, argc, argv, command, options, error_arg);
             if (status != PHOTOC_PARSE_OK) {
                 return status;
             }

@@ -4,6 +4,7 @@ Usage: photoc [global options] <command> [args]
        photoc <command> --help
 
 Commands:
+  review       Cull JPEGs in a text-only terminal session
   query        Search JPEG metadata and print matching paths
   check        Audit JPEG structural readability
   compress     Re-encode JPEGs by quality or target size

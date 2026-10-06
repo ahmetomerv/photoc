@@ -124,6 +124,10 @@ add_executable(photoc
     src/commands/exif.c
     src/commands/focus.c
     src/commands/query.c
+    src/commands/review.c
+    src/commands/review_model.c
+    src/commands/review_state.c
+    src/commands/review_terminal.c
     src/commands/rename.c
     src/commands/scrub.c
     src/commands/sort.c
@@ -219,6 +223,10 @@ if(BUILD_TESTING)
                 COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_FOCUS_TEST_BINARY=$<TARGET_FILE:photoc>"
                     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_focus_cli.py")
             set_tests_properties(focus_cli PROPERTIES TIMEOUT 60)
+            add_test(NAME review_cli
+                COMMAND "${CMAKE_COMMAND}" -E env "PHOTOC_REVIEW_TEST_BINARY=$<TARGET_FILE:photoc>"
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_review_cli.py")
+            set_tests_properties(review_cli PROPERTIES TIMEOUT 90)
             add_test(NAME release_installer
                 COMMAND "${Python3_EXECUTABLE}"
                     "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_installer.py")
@@ -531,6 +539,7 @@ if(BUILD_TESTING)
     add_cli_test(command_contact_help command_help contact)
     add_cli_test(command_check_help command_help check)
     add_cli_test(command_query_help command_help query)
+    add_cli_test(command_review_help command_help review)
 
     foreach(case IN ITEMS default quality quality_one quality_hundred quality_effect
                           no_exif extension collision invalid
