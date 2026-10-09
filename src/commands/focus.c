@@ -6,12 +6,17 @@
 #include "photoc/fs.h"
 #include "photoc/json.h"
 #include "photoc/sharpness.h"
+#include "photoc/thread_pool.h"
 
 #include <errno.h>
 #include <math.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* Below this many photos thread startup costs more than it saves. */
+enum { FOCUS_POOL_MIN = 2 };
 
 typedef struct {
     char *path; /* Owned by this row; released by cleanup_walk. */
@@ -48,8 +53,8 @@ static void cleanup_walk(focus_walk *walk)
     free(walk->rows);
 }
 
-/* The filesystem walker owns path only during this callback. Retain a copy
-   for sorting, and decode one image at a time through the shared metric. */
+/* The filesystem walker owns path only during this callback. Retain a copy for
+   sorting; decoding and scoring happen later in analyze_rows. */
 static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
 {
     focus_walk *walk = user_data;
@@ -89,17 +94,68 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
         return false;
     }
     memcpy(copy, path, length + 1);
-    focus_row *row = &walk->rows[walk->count++];
-    *row = (focus_row){.path = copy};
-    row->result = photoc_sharpness_score_jpeg(
-        path, PHOTOC_SHARPNESS_DEFAULT_MAX_DIMENSION, &row->score);
-    row->system_errno = errno;
-    photoc_progress_increment(walk->progress);
-    if (row->result == PHOTOC_IMAGE_NO_MEMORY) {
-        walk->error = ENOMEM;
-        return false;
-    }
+    walk->rows[walk->count++] = (focus_row){.path = copy};
     return true;
+}
+
+typedef struct {
+    focus_walk *walk;
+    atomic_size_t completed;
+} focus_context;
+
+static void focus_task(size_t index, void *user_data)
+{
+    focus_context *context = user_data;
+    focus_row *row = &context->walk->rows[index];
+    if (!photoc_progress_interrupted()) {
+        row->result = photoc_sharpness_score_jpeg(
+            row->path, PHOTOC_SHARPNESS_DEFAULT_MAX_DIMENSION, &row->score);
+        row->system_errno = errno;
+    }
+    atomic_fetch_add_explicit(&context->completed, 1, memory_order_relaxed);
+}
+
+static void focus_poll(void *user_data)
+{
+    focus_context *context = user_data;
+    photoc_progress_update(
+        context->walk->progress,
+        atomic_load_explicit(&context->completed, memory_order_relaxed));
+}
+
+static int analyze_rows(focus_walk *walk)
+{
+    if (walk->count == 0)
+        return 0;
+    focus_context context = {.walk = walk};
+    atomic_init(&context.completed, 0);
+    photoc_thread_pool *pool = NULL;
+    if (walk->count >= FOCUS_POOL_MIN)
+        pool = photoc_thread_pool_create(0);
+    if (pool != NULL) {
+        void (*poll)(void *) = walk->progress == NULL ? NULL : focus_poll;
+        if (photoc_thread_pool_run_poll(pool, walk->count, focus_task, &context,
+                                        poll, &context) != 0) {
+            for (size_t i = 0; i < walk->count; ++i)
+                focus_task(i, &context);
+        }
+        focus_poll(&context);
+        photoc_thread_pool_destroy(pool);
+    } else {
+        for (size_t i = 0; i < walk->count; ++i) {
+            if (photoc_progress_interrupted())
+                break;
+            focus_task(i, &context);
+            photoc_progress_increment(walk->progress);
+        }
+    }
+    for (size_t i = 0; i < walk->count; ++i) {
+        if (walk->rows[i].result == PHOTOC_IMAGE_NO_MEMORY) {
+            walk->error = ENOMEM;
+            return -1;
+        }
+    }
+    return 0;
 }
 
 static int compare_rows(const void *left, const void *right)
@@ -301,6 +357,8 @@ int photoc_command_focus_with_output(const char *path, bool recursive,
         result = recursive ? photoc_fs_walk_recursive(path, visit_file, &walk)
                            : photoc_fs_walk(path, visit_file, &walk);
     }
+    if (result == 0 && analyze_rows(&walk) != 0)
+        result = 1;
     if (photoc_progress_interrupted())
         result = 1;
     if (result != 0) {

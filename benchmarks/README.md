@@ -197,18 +197,20 @@ sanitizers), Apple Silicon laptop, warm disk cache:
 
 | Command | Files | Elapsed (s) | Files/s | Peak RSS |
 | --- | ---: | ---: | ---: | ---: |
-| `focus --recursive` | 128 | 0.871 | 147.0 | 13.0 MiB |
+| `focus --recursive` | 128 | 0.47 | 270.0 | 23.0 MiB |
 | `check --recursive` | 128 | 1.264 | 101.2 | 6.5 MiB |
 | `compress --quality 80` | 64 | 1.773 | 36.1 | 13.9 MiB |
 | `compress --target 278KiB` | 64 | 2.210 | 29.0 | 18.7 MiB |
 | `contact --recursive` | 64 | 0.502 | 127.4 | 17.8 MiB |
 
-A repeat run varied by about 1-4%, so treat smaller differences as noise. All
-five commands run single-threaded today, so the natural next step is to reuse
-the existing worker pool; `benchmark-concurrency.py` shows the ~1.9x scaling
-two workers reach for sharpness at the core API. The corpus is synthetic, so
-use it for before/after comparisons rather than as a claim about a specific
-photo library.
+A repeat run varied by about 1-4%, so treat smaller differences as noise.
+`focus` now scores photos through the shared worker pool (two workers): it
+improved from 0.871 s / 147 files/s at 13.0 MiB to about 0.47 s / 270 files/s
+at ~23 MiB peak RSS, close to the ~1.9x two-worker scaling
+`benchmark-concurrency.py` measures for sharpness. The extra memory is one set
+of decode/analysis buffers per worker. `check`, `compress`, and `contact` are
+still single-threaded. The corpus is synthetic, so use it for before/after
+comparisons rather than as a claim about a specific photo library.
 
 ## Interpreting changes
 

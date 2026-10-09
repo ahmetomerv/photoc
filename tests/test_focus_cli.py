@@ -112,6 +112,25 @@ class FocusTests(unittest.TestCase):
         self.assertEqual(summary["Possibly blurry"], "70 (score < 100)")
         self.assertEqual(summary["Files failed"], "0")
 
+    def test_parallel_directory_matches_single_file_scores(self):
+        # More than FOCUS_POOL_MIN photos exercise the worker pool; scores must
+        # match the single-file path and stay identical across repeated runs.
+        fixtures = ["sharp.jpg", "blurred.jpg", "flat.jpg", "no_exif.jpg",
+                    "large_sharp.jpg", "with_gps.jpeg"]
+        expected = {}
+        for index, fixture in enumerate(fixtures):
+            name = f"photo-{index:02d}.jpg"
+            self.copy(fixture, name)
+            single, _ = self.json_report("focus", self.root / name, "--json")
+            expected[name] = single["photos"][0]["score"]
+        report, _ = self.json_report("focus", self.root, "--json")
+        directory = {photo["path"]: photo["score"] for photo in report["photos"]}
+        self.assertEqual(set(directory), set(expected))
+        for name, score in expected.items():
+            self.assertEqual(directory[name], score)
+        repeated, _ = self.json_report("focus", self.root, "--json")
+        self.assertEqual(report, repeated)
+
     def test_flat_recursive_mixed_and_symlinks(self):
         source = self.copy("flat.jpg", "a.jpg")
         self.copy("sharp.jpg", "nested/b.JpEg")
