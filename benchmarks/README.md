@@ -1,9 +1,18 @@
 # Benchmarks
 
-Lightweight wall-clock measurements for `photoc stats` and
-`photoc duplicates`. These runs generate synthetic corpora, time the built
-CLI, and report files/sec plus peak child RSS. They are for regression
-awareness and bottleneck notes — not a formal performance suite.
+Lightweight wall-clock measurements for `photoc stats`, `duplicates`,
+`focus`, `check`, `compress`, and `contact`. These runs generate synthetic
+corpora, time the built CLI, and report files/sec plus peak child RSS. They
+are for regression awareness and bottleneck notes — not a formal performance
+suite.
+
+There are three scripts:
+
+- `benchmark.py` — metadata-only commands (`stats`, `duplicates`), single run.
+- `benchmark-image.py` — image commands (`focus`, `check`, `compress`,
+  `contact`), warm-cache medians; needs `cjpeg` from libjpeg-turbo.
+- `benchmark-concurrency.py` — core-API worker scaling, needs `cjpeg` and a
+  `PHOTOC_BENCHMARKS=ON` Release build.
 
 ## Running
 
@@ -11,6 +20,8 @@ awareness and bottleneck notes — not a formal performance suite.
 cmake -S . -B build && cmake --build build
 python3 scripts/benchmark.py
 python3 scripts/benchmark.py --count 5000 --keep
+python3 scripts/benchmark-image.py
+python3 scripts/benchmark-image.py --count 256 --trials 5 --json
 ```
 
 | Flag | Meaning |
@@ -21,7 +32,16 @@ python3 scripts/benchmark.py --count 5000 --keep
 | `--keep` | Leave the generated trees after the run |
 | `--json` | Also print a JSON blob after the text report |
 
-The script rebuilds corpora each run:
+`benchmark-image.py` accepts the same flags plus `--size`, `--quality`,
+`--target-size`, and `--trials`; see its `--help`. It defaults to a separate
+`benchmarks/data-image` corpus root, so the two scripts do not delete each
+other's data.
+
+CI runs both scripts with a tiny corpus on Linux and macOS to keep the harness
+working; the timings there are not tracked, and the numbers below come from a
+warm-cache local run.
+
+The metadata script rebuilds corpora each run:
 
 - **stats** — copies of the small synthetic JPEG fixtures under nested
   `batch_*/` directories (EXIF / alternate EXIF / GPS / no-EXIF).
@@ -151,21 +171,52 @@ about every photo library.
   worker completion order. Pools finish outstanding tasks and join all workers
   before resources are freed. Callback stop discards loaded results after that
   callback and retains only preceding scan counts.
-- Focus has no collection command yet. Its benchmark exercises independent
-  existing sharpness calls through the pool; the CLI remains unimplemented.
-  Analysis buffers scale with active workers, so the conservative default also
-  limits memory use.
+- The `focus` core benchmark exercises independent sharpness calls through the
+  pool. The `focus` CLI command still walks and analyzes serially; see the
+  image-processing baselines below for its current end-to-end cost. Analysis
+  buffers scale with active workers, so the conservative default also limits
+  memory use.
 
 The full test suite was run with ThreadSanitizer without race reports. System
 libexif and TurboJPEG binaries are not themselves rebuilt with sanitizer
 instrumentation; the test verifies instrumented project code and observed
 library calls, and does not prove all possible executions race-free.
 
+## Image-processing CLI baselines
+
+`scripts/benchmark-image.py` measures the decode/encode-backed commands end
+to end through the CLI. It generates a two-template high-frequency color
+checkerboard corpus with `cjpeg` (128 photos at 1280x960 for `focus`/`check`,
+64 for the heavier `compress`/`contact` workloads), warms each workload once,
+and reports the median of three timed runs plus peak child RSS. The `--target`
+corpus uses half the source JPEG size so the quality search runs without an
+unreachable target (which would make `compress` exit 1).
+
+Recorded on 2026-10-09 with a local Release build (`cmake --build build`, no
+sanitizers), Apple Silicon laptop, warm disk cache:
+
+| Command | Files | Elapsed (s) | Files/s | Peak RSS |
+| --- | ---: | ---: | ---: | ---: |
+| `focus --recursive` | 128 | 0.871 | 147.0 | 13.0 MiB |
+| `check --recursive` | 128 | 1.264 | 101.2 | 6.5 MiB |
+| `compress --quality 80` | 64 | 1.773 | 36.1 | 13.9 MiB |
+| `compress --target 278KiB` | 64 | 2.210 | 29.0 | 18.7 MiB |
+| `contact --recursive` | 64 | 0.502 | 127.4 | 17.8 MiB |
+
+A repeat run varied by about 1-4%, so treat smaller differences as noise. All
+five commands run single-threaded today, so the natural next step is to reuse
+the existing worker pool; `benchmark-concurrency.py` shows the ~1.9x scaling
+two workers reach for sharpness at the core API. The corpus is synthetic, so
+use it for before/after comparisons rather than as a claim about a specific
+photo library.
+
 ## Interpreting changes
 
 When comparing a future run:
 
 - Prefer the same `--count` and a warm cache (run twice, keep the second).
+- For the image baselines, keep `--size`, `--quality`, and `--trials`
+  consistent; the target label is derived from the source size at run time.
 - Do not mix sanitizer builds with baseline rows.
 - A drop in files/s on `stats` usually points at metadata/I/O; on `duplicates`,
   at hashing or path allocation. For duplicates, also check `files hashed` in

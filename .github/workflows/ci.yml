@@ -57,7 +57,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake pkg-config libexif-dev libturbojpeg0-dev libjpeg-dev libxml2-dev \
-            zsh fish mandoc shellcheck python3
+            libjpeg-turbo-progs zsh fish mandoc shellcheck python3
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
@@ -82,6 +82,11 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+      - name: Benchmark smoke test
+        run: |
+          python3 scripts/benchmark.py --count 50
+          python3 scripts/benchmark-image.py --count 8 --size 256 --trials 1
 
   sanitizers:
     name: Address and undefined behavior sanitizers (Ubuntu)

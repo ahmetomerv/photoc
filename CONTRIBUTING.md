@@ -72,9 +72,11 @@ Report suspected vulnerabilities or data-safety defects through
    in `tests/fixtures/`. Prefer generated synthetic images over external photos;
    see [`tests/fixtures/README.md`](tests/fixtures/README.md). Regenerate binary
    fixtures with `python3 scripts/make-fixtures.py` when you change a generator.
-6. Optional: for scan-heavy changes, run `python3 scripts/benchmark.py` and note
-   any large shift versus [`benchmarks/README.md`](benchmarks/README.md). Do not
-   chase micro-optimizations without a measured regression.
+6. Optional: for scan- or image-heavy changes, run `python3 scripts/benchmark.py`
+   and `python3 scripts/benchmark-image.py` and note any large shift versus
+   [`benchmarks/README.md`](benchmarks/README.md). The image benchmarks need
+   `cjpeg` from libjpeg-turbo. Do not chase micro-optimizations without a
+   measured regression.
 7. For concurrency changes, use a separate ThreadSanitizer build when supported:
 
    ```sh
@@ -264,7 +266,10 @@ leak detection on Linux. A separate formatting job uses clang-format 18 and
 fails when project C sources or headers need formatting.
 
 CI installs libexif, TurboJPEG, libxml2, and native test tools so completion and man-page
-checks run alongside the C and CLI tests. It does not cache dependencies or
+checks run alongside the C and CLI tests. It also runs both benchmark scripts
+with a tiny synthetic corpus (`benchmark.py` and `benchmark-image.py`, the
+latter via `cjpeg` from libjpeg-turbo) to keep the harness working; it does not
+track benchmark timings. CI does not cache dependencies or
 publish releases. The sanitizer build can be reproduced locally with
 `sh scripts/build-and-test-sanitizers.sh`; leak detection depends on platform
 support.
