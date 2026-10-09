@@ -7,9 +7,9 @@ tagged commit's [`VERSION`](../VERSION) file. Prerelease tags are rejected for n
 
 ## Prepare the version
 
-Run these steps from a clean checkout of `main`, after reviewing the changes
-you want to release. [`VERSION`](../VERSION) is the single source for the
-version number; CMake generates the CLI version header from it.
+Run these steps from a clean branch based on the latest `main`, after reviewing
+the changes you want to release. [`VERSION`](../VERSION) is the single source
+for the version number; CMake generates the CLI version header from it.
 
 For the first release, keep the existing **0.1.0**. For later releases, choose
 a bump using the [version policy](../CONTRIBUTING.md#version-policy):
@@ -45,24 +45,30 @@ license texts against the dependency versions used by the release builds.
    ./build/photoc --version
    ```
 
-2. Commit and push the reviewed changes, version file, and release notes to
-   `main`. Include any other changed files intended for the release:
+2. Commit and push the reviewed changes, version file, and release notes on
+   your branch. Include any other changed files intended for the release:
 
    ```sh
    version=$(python3 scripts/package-release.py version)
    git add VERSION docs/release-notes.md
    git commit -m "chore: prepare release $version"
-   git push origin main
+   git push -u origin HEAD
    ```
 
-3. Wait for **CI on that exact commit** to pass, including macOS, Ubuntu,
-   formatting, and the Linux sanitizer job. Find its run with:
+   Open a pull request targeting `main`. Review the diff and merge it after
+   the pull request checks pass.
+
+3. Update your local `main` after the merge. Wait for **CI on that exact merged
+   commit** to pass, including macOS, Ubuntu, formatting, and the Linux
+   sanitizer job. Find its run with:
 
    ```sh
+   git switch main
+   git pull --ff-only origin main
    gh run list --workflow ci.yml --branch main --commit "$(git rev-parse HEAD)"
    ```
 
-4. Once CI passes, create and push the annotated tag:
+4. Once CI passes, create and push the annotated tag from `main`:
 
    ```sh
    version=$(python3 scripts/package-release.py version)

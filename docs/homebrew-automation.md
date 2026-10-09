@@ -86,8 +86,8 @@ future release will exercise PR creation and its build checks.
 
 1. Follow the [photoc release procedure](releasing.md) from a clean source
    checkout. Bump `VERSION`, update `docs/release-notes.md`, build and test,
-   commit and push, and wait for CI on the release commit. Push the matching
-   annotated `vX.Y.Z` tag. Wait for the
+   merge the release pull request, and wait for CI on the merged `main` commit.
+   Push the matching annotated `vX.Y.Z` tag. Wait for the
    [Release workflow](https://github.com/ahmetomerv/photoc/actions/workflows/release.yml)
    to publish a stable GitHub release, then verify its notes, assets,
    checksums, and installer as described in the release guide.

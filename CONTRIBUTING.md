@@ -90,6 +90,16 @@ Report suspected vulnerabilities or data-safety defects through
    benchmarks are documented in [`benchmarks/README.md`](benchmarks/README.md).
 8. Describe what changed and how it was tested in your pull request.
 
+## Pull requests and checks
+
+Work on a branch based on the latest `main`, then push the branch and open a
+pull request targeting `main`. Keep the pull request focused and update the same
+branch as you address feedback. Before merging, check the formatting, Ubuntu
+and macOS build/test, and Ubuntu sanitizer jobs on the pull request. Review
+CodeQL and CodeRabbit findings when those checks appear, and resolve failures
+or actionable findings. GitHub's branch ruleset determines which checks are
+required for merging.
+
 ## Ways to contribute without writing C
 
 - **Report bugs and confusing behavior** with the bug report template. Include
@@ -258,10 +268,13 @@ types are outside its scope. Do not reformat generated or vendored files.
 
 ## Continuous integration
 
-[GitHub Actions CI](.github/workflows/ci.yml) runs on pushes, pull requests,
-and manual dispatches. Release builds configure CMake, compile with warnings
-enabled, and run CTest on Ubuntu 24.04 and macOS 15. A separate Ubuntu Clang
-Debug build enables AddressSanitizer and UndefinedBehaviorSanitizer, including
+[GitHub Actions CI](.github/workflows/ci.yml) runs on pull requests, pushes to
+`main`, and manual dispatches. A push to a feature branch with an open pull
+request does not start a duplicate CI run. The `main` push run checks the merged
+commit; the release workflow requires that run to pass for the tagged commit.
+CI builds configure CMake, compile with warnings enabled, and run CTest on
+Ubuntu 24.04 and macOS 15. A separate Ubuntu Clang Debug build enables
+AddressSanitizer and UndefinedBehaviorSanitizer, including
 leak detection on Linux. A separate formatting job uses clang-format 18 and
 fails when project C sources or headers need formatting.
 
@@ -327,8 +340,10 @@ Follow the numbered [release guide](docs/releasing.md) for the complete process:
    `VERSION`. Use `minor` or `major` according to the policy above.
 2. Update `docs/release-notes.md`, including any breaking changes, and review
    third-party notices against the release dependencies.
-3. Build and test locally, commit the reviewed changes to `main`, and push them.
-4. Wait for passing hosted CI on that exact commit, including macOS, Ubuntu,
+3. Build and test locally, then propose the release changes in a pull request
+   from a branch into `main`.
+4. Review and merge the pull request after its checks pass. Wait for passing
+   hosted CI on the exact merged `main` commit, including macOS, Ubuntu,
    formatting, and the Linux sanitizer job.
 5. Create and push an annotated `v<version>` tag. The release workflow enforces
    the version and CI checks before building and testing all three platforms.
