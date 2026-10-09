@@ -497,9 +497,20 @@ class ReviewTests(unittest.TestCase):
                                     "--images", "none"], stdin=input_slave,
                                    stdout=output_slave, stderr=subprocess.PIPE)
         try:
-            ready, _, _ = select.select([output_master], [], [], 6)
-            self.assertTrue(ready)
-            self.assertIn(b"photoc review", os.read(output_master, 65536))
+            output = b""
+            deadline = time.monotonic() + 6
+            while b"photoc review" not in output:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                ready, _, _ = select.select([output_master], [], [], remaining)
+                if not ready:
+                    break
+                chunk = os.read(output_master, 65536)
+                if not chunk:
+                    break
+                output += chunk
+            self.assertIn(b"photoc review", output)
             os.close(output_master)
             output_master = -1
             os.write(input_master, b"i")
