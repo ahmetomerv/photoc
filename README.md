@@ -420,6 +420,9 @@ also help without writing C: photographers can
 [share sample files from other cameras](CONTRIBUTING.md#ways-to-contribute-without-writing-c)
 so support for more formats can be tested.
 
+For changes, open a pull request from a branch into `main` and follow the
+[contributor checks](CONTRIBUTING.md#pull-requests-and-checks).
+
 - [CONTRIBUTING.md](CONTRIBUTING.md): building, testing, sanitizers, static
   analysis, and project references for maintainers.
 - [Documentation index](docs/README.md): every command guide and reference page.
