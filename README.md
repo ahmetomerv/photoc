@@ -7,6 +7,10 @@
 ![Platforms: macOS | Linux](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)
 
 <p align="center">
+  <a href="https://trendshift.io/repositories/278096?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-278096" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/278096/daily?language=C" alt="ahmetomerv/photoc | Trendshift" width="250" height="55"></a>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick start</a> · <a href="#commands">Commands</a> · <a href="#workflows">Workflows</a> · <a href="#file-safety">File safety</a> · <a href="#scripting">Scripting</a> · <a href="#installation">Installation</a> · <a href="#troubleshooting">Troubleshooting</a> · <a href="#contributing">Contributing</a> · <a href="#license">License</a>
 </p>
 
