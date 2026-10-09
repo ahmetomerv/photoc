@@ -411,6 +411,36 @@ int photoc_fs_renameat_noreplace(int source_directory, const char *source_name,
 #endif
 }
 
+static int append_child(const char *directory, const char *name, char **buffer,
+                        size_t *capacity)
+{
+    size_t directory_length = strlen(directory);
+    size_t name_length = strlen(name);
+    size_t separator =
+        directory_length != 0 && directory[directory_length - 1] != '/' ? 1 : 0;
+    if (directory_length > SIZE_MAX - separator - 1 ||
+        name_length > SIZE_MAX - directory_length - separator - 1) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    size_t needed = directory_length + separator + name_length + 1;
+    if (*buffer == NULL || needed > *capacity) {
+        char *grown = realloc(*buffer, needed);
+        if (grown == NULL) {
+            return -1;
+        }
+        *buffer = grown;
+        *capacity = needed;
+    }
+    memcpy(*buffer, directory, directory_length);
+    size_t at = directory_length;
+    if (separator != 0) {
+        (*buffer)[at++] = '/';
+    }
+    memcpy(*buffer + at, name, name_length + 1);
+    return 0;
+}
+
 static int walk_directory(const char *directory, bool recursive,
                           photoc_fs_visit_fn visit, void *user_data)
 {
@@ -421,6 +451,8 @@ static int walk_directory(const char *directory, bool recursive,
 
     int result = 0;
     int saved_errno = 0;
+    char *child = NULL;
+    size_t child_capacity = 0;
     for (;;) {
         errno = 0;
         struct dirent *entry = readdir(stream);
@@ -436,15 +468,33 @@ static int walk_directory(const char *directory, bool recursive,
             continue;
         }
 
-        char *child = NULL;
-        if (photoc_fs_join(directory, entry->d_name, &child) != 0) {
+        if (append_child(directory, entry->d_name, &child, &child_capacity) !=
+            0) {
             saved_errno = errno;
             result = -1;
             break;
         }
 
-        photoc_fs_type type;
-        if (photoc_fs_get_type(child, &type) != 0) {
+        photoc_fs_type type = PHOTOC_FS_OTHER;
+        bool have_type = true;
+        switch (entry->d_type) {
+        case DT_REG:
+            type = PHOTOC_FS_FILE;
+            break;
+        case DT_DIR:
+            type = PHOTOC_FS_DIRECTORY;
+            break;
+        case DT_LNK:
+            type = PHOTOC_FS_OTHER;
+            break;
+        case DT_UNKNOWN:
+            have_type = false;
+            break;
+        default:
+            type = PHOTOC_FS_OTHER;
+            break;
+        }
+        if (!have_type && photoc_fs_get_type(child, &type) != 0) {
             saved_errno = errno;
             result = -1;
         } else if (!visit(child, type, user_data)) {
@@ -456,12 +506,12 @@ static int walk_directory(const char *directory, bool recursive,
             }
         }
 
-        free(child);
         if (result != 0) {
             break;
         }
     }
 
+    free(child);
     if (closedir(stream) != 0 && result != -1) {
         return -1;
     }
