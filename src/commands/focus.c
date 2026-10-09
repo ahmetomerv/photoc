@@ -2,7 +2,6 @@
 
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
-#include "photoc/format.h"
 #include "photoc/fs.h"
 #include "photoc/json.h"
 #include "photoc/sharpness.h"
@@ -337,18 +336,8 @@ int photoc_command_focus_with_output(const char *path, bool recursive,
                        .progress =
                            type == PHOTOC_FS_DIRECTORY ? progress : NULL};
     if (type == PHOTOC_FS_DIRECTORY) {
-        size_t total = 0;
-        photoc_progress_set_message(progress, "Discovering photos...");
-        if (photoc_progress_discover(progress, path, recursive,
-                                     PHOTOC_FORMATS_JPEG, &total) != 0) {
-            photoc_progress_fail(progress, "Failed to scan directory");
-            return photoc_error_report("focus", PHOTOC_ERR_NOTE_NONE,
-                                       PHOTOC_ERR_IO, path,
-                                       "unable to read directory", errno);
-        }
+        photoc_progress_start(progress);
         photoc_progress_set_message(progress, "Analyzing sharpness...");
-        if (progress != NULL && progress->enabled)
-            photoc_progress_set_total(progress, total);
     }
     int result;
     if (type == PHOTOC_FS_FILE) {

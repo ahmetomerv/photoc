@@ -513,18 +513,8 @@ int photoc_command_contact_with_output(const char *directory,
                                    "expected a directory", 0);
     photoc_progress *progress = output == NULL ? NULL : output->progress;
     contact_collection collection = {.output = output, .progress = progress};
-    size_t total = 0;
-    photoc_progress_set_message(progress, "Discovering photos...");
-    if (photoc_progress_discover(progress, directory, options->recursive,
-                                 PHOTOC_FORMATS_JPEG, &total) != 0) {
-        photoc_progress_fail(progress, "Failed to scan directory");
-        return photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,
-                                   PHOTOC_ERR_IO, directory,
-                                   "unable to read directory", errno);
-    }
+    photoc_progress_start(progress);
     photoc_progress_set_message(progress, "Reading metadata...");
-    if (progress != NULL && progress->enabled)
-        photoc_progress_set_total(progress, total);
     photoc_scan_stats stats = {0};
     int scan_result = photoc_scan_directory_filtered(
         directory, options->recursive, PHOTOC_FORMATS_JPEG, collect_photo,

@@ -70,9 +70,9 @@ matches; no matches returns **0**. `check` returns **0** for warnings and
 ## Progress output
 
 Longer-running directory commands display progress when stderr is connected
-to a terminal. Discovery uses a spinner; processing shows a count and
-percentage when the total is known. Progress is written only to stderr, so
-stdout remains safe for scripts and JSON:
+to a terminal. Progress shows a spinner with a running processed count, plus
+a percentage when the command knows the total up front. Progress is written
+only to stderr, so stdout remains safe for scripts and JSON:
 
 ```sh
 photoc stats ./photos --recursive --json > stats.json

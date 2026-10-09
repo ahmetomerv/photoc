@@ -53,14 +53,8 @@ void photoc_progress_warn(photoc_progress *progress, const char *message);
 void photoc_progress_fail(photoc_progress *progress, const char *message);
 /* Clear before an ordinary diagnostic; later updates redraw naturally. */
 void photoc_progress_before_diagnostic(photoc_progress *progress);
-/* For interactive directory work, count selected regular files before the
-   command's existing pass. formats=0 selects every regular file. Returns -1
-   on traversal failure, or 0 when disabled. No count is required by callers
-   while disabled. */
-int photoc_progress_discover(photoc_progress *progress, const char *directory,
-                             bool recursive, unsigned int formats,
-                             size_t *total);
-/* Pure formatters return the number of bytes that would have been written. */
+/* Pure formatters return the number of bytes that would have been written.
+   Without a total, the running count is appended once it is nonzero. */
 int photoc_progress_format(char *buffer, size_t size, const char *frame,
                            const char *message, size_t current, size_t total,
                            bool has_total);
