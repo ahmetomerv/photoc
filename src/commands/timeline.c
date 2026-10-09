@@ -1,7 +1,6 @@
 #include "photoc/commands.h"
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
-#include "photoc/format.h"
 #include "photoc/json.h"
 #include "photoc/scan.h"
 #include "photoc/size.h"
@@ -194,19 +193,8 @@ int photoc_command_timeline_with_output(const char *directory, bool recursive,
     photoc_progress *progress = output == NULL ? NULL : output->progress;
     timeline_context context = {.output = output, .progress = progress};
     photoc_timeline_init(&context.timeline);
-    size_t total = 0;
-    photoc_progress_set_message(progress, "Discovering photos...");
-    if (photoc_progress_discover(progress, directory, recursive,
-                                 PHOTOC_FORMATS_METADATA, &total) != 0) {
-        photoc_progress_fail(progress, "Failed to scan directory");
-        photoc_timeline_cleanup(&context.timeline);
-        return photoc_error_report("timeline", PHOTOC_ERR_NOTE_NONE,
-                                   PHOTOC_ERR_IO, directory,
-                                   "unable to read directory", errno);
-    }
+    photoc_progress_start(progress);
     photoc_progress_set_message(progress, "Reading metadata...");
-    if (progress != NULL && progress->enabled)
-        photoc_progress_set_total(progress, total);
     photoc_scan_stats scan = {0};
     int result = photoc_scan_directory(directory, recursive, collect_photo,
                                        metadata_warning, &context, &scan);

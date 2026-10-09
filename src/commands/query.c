@@ -224,18 +224,8 @@ int photoc_command_query_with_output(const char *path,
                        .progress =
                            type == PHOTOC_FS_DIRECTORY ? progress : NULL};
     if (type == PHOTOC_FS_DIRECTORY) {
-        size_t total = 0;
-        photoc_progress_set_message(progress, "Discovering photos...");
-        if (photoc_progress_discover(progress, path, recursive,
-                                     PHOTOC_FORMATS_JPEG, &total) != 0) {
-            photoc_progress_fail(progress, "Failed to scan directory");
-            return photoc_error_report("query", PHOTOC_ERR_NOTE_NONE,
-                                       PHOTOC_ERR_IO, path,
-                                       "unable to read directory", errno);
-        }
+        photoc_progress_start(progress);
         photoc_progress_set_message(progress, "Reading metadata...");
-        if (progress != NULL && progress->enabled)
-            photoc_progress_set_total(progress, total);
     }
     photoc_scan_stats stats = {0};
     int result;

@@ -1,8 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "photoc/progress.h"
-#include "photoc/format.h"
-#include "photoc/fs.h"
 
 #include <inttypes.h>
 #include <errno.h>
@@ -89,8 +87,13 @@ int photoc_progress_format(char *buffer, size_t size, const char *frame,
                            const char *message, size_t current, size_t total,
                            bool has_total)
 {
-    if (!has_total)
-        return snprintf(buffer, size, "%s %s", frame, message);
+    if (!has_total) {
+        if (current == 0)
+            return snprintf(buffer, size, "%s %s", frame, message);
+        char seen[sizeof(size_t) * 4];
+        grouped(current, seen, sizeof(seen));
+        return snprintf(buffer, size, "%s %s %s", frame, message, seen);
+    }
     char count[sizeof(size_t) * 4];
     char sum[sizeof(size_t) * 4];
     grouped(current, count, sizeof(count));
@@ -265,55 +268,4 @@ void photoc_progress_warn(photoc_progress *progress, const char *message)
 void photoc_progress_fail(photoc_progress *progress, const char *message)
 {
     complete(progress, "✗", message, false);
-}
-
-typedef struct {
-    photoc_progress *progress;
-    unsigned int formats;
-    size_t count;
-} discover_context;
-
-static bool discover_file(const char *path, photoc_fs_type type,
-                          void *user_data)
-{
-    if (photoc_progress_interrupted()) {
-        errno = EINTR;
-        return false;
-    }
-    discover_context *context = user_data;
-    if (type == PHOTOC_FS_FILE &&
-        (context->formats == 0 ||
-         photoc_format_is_selected(path, context->formats))) {
-        if (context->count == SIZE_MAX) {
-            errno = EOVERFLOW;
-            return false;
-        }
-        ++context->count;
-    }
-    photoc_progress_update(context->progress, context->count);
-    return true;
-}
-
-int photoc_progress_discover(photoc_progress *progress, const char *directory,
-                             bool recursive, unsigned int formats,
-                             size_t *total)
-{
-    if (progress == NULL || !progress->enabled) {
-        if (total != NULL)
-            *total = 0;
-        return 0;
-    }
-    photoc_progress_start(progress);
-    discover_context context = {.progress = progress, .formats = formats};
-    int result =
-        recursive ? photoc_fs_walk_recursive(directory, discover_file, &context)
-                  : photoc_fs_walk(directory, discover_file, &context);
-    if (result != 0) {
-        if (photoc_progress_interrupted())
-            errno = EINTR;
-        return -1;
-    }
-    if (total != NULL)
-        *total = context.count;
-    return 0;
 }

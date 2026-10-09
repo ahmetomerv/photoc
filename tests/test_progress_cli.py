@@ -65,6 +65,11 @@ class ProgressCliTests(unittest.TestCase):
             self.assertNotIn(b"\x1b", stdout)
             self.assertIn(b"\x1b[K", stderr)
             self.assertIn("Reading metadata".encode(), stderr)
+            # Indeterminate form: a standalone running count, never
+            # "count / total (pct%)"; the lookahead also stops a partial match.
+            self.assertRegex(
+                stderr.decode(errors="replace"),
+                r"Reading metadata\.\.\. \d[\d,]*(?![\d,]| *[/\(%])")
             self.assertTrue(stderr.endswith(b"\r\n"), stderr[-80:])
 
             for args in (("--no-progress", "stats", root, "--json"),

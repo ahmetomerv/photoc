@@ -28,6 +28,9 @@ int main(void)
     assert(photoc_progress_format(buffer, sizeof(buffer), "⠋",
                                   "Discovering photos...", 0, 0, false) > 0);
     assert(strcmp(buffer, "⠋ Discovering photos...") == 0);
+    assert(photoc_progress_format(buffer, sizeof(buffer), "⠋", "Reading...",
+                                  1234, 0, false) > 0);
+    assert(strcmp(buffer, "⠋ Reading... 1,234") == 0);
     assert(photoc_progress_format(buffer, sizeof(buffer), "⠸", "Analyzing...",
                                   42, 100, true) > 0);
     assert(strcmp(buffer, "⠸ Analyzing... 42 / 100 (42%)") == 0);

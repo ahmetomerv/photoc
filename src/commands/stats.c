@@ -2,7 +2,6 @@
 
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
-#include "photoc/format.h"
 #include "photoc/json.h"
 #include "photoc/scan.h"
 #include "photoc/stats.h"
@@ -385,19 +384,8 @@ int photoc_command_stats_with_output(const char *directory, bool recursive,
     stats_context context = {.output = output};
     context.progress = output == NULL ? NULL : output->progress;
     photoc_stats_init(&context.aggregate);
-    size_t total = 0;
-    photoc_progress_set_message(context.progress, "Discovering photos...");
-    if (photoc_progress_discover(context.progress, directory, recursive,
-                                 PHOTOC_FORMATS_METADATA, &total) != 0) {
-        photoc_progress_fail(context.progress, "Failed to scan directory");
-        photoc_stats_cleanup(&context.aggregate);
-        return photoc_error_report("stats", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                                   directory, "unable to read directory",
-                                   errno);
-    }
+    photoc_progress_start(context.progress);
     photoc_progress_set_message(context.progress, "Reading metadata...");
-    if (context.progress != NULL && context.progress->enabled)
-        photoc_progress_set_total(context.progress, total);
     photoc_scan_stats scan = {0};
     int result = photoc_scan_directory(directory, recursive, collect_photo,
                                        report_warning, &context, &scan);
