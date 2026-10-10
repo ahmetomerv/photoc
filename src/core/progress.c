@@ -155,14 +155,21 @@ void photoc_progress_start(photoc_progress *progress)
     errno = saved_errno;
 }
 
-static void render(photoc_progress *progress)
+static void render(photoc_progress *progress, bool force)
 {
     if (progress == NULL || !progress->started || !progress->enabled)
         return;
-    ++progress->calls_since_render;
-    if (++progress->calls_since_clock < progress->clock_stride)
-        return;
-    progress->calls_since_clock = 0;
+    if (force) {
+        /* An explicit message or total change samples the clock even when the
+           stride would skip a routine update, so the new state is not hidden
+           for a whole stride.  It does not count toward the update rate. */
+        progress->calls_since_clock = 0;
+    } else {
+        ++progress->calls_since_render;
+        if (++progress->calls_since_clock < progress->clock_stride)
+            return;
+        progress->calls_since_clock = 0;
+    }
     int saved_errno = errno;
     uint64_t now = progress->clock(progress->clock_data);
     uint64_t elapsed = now - progress->last_render_ms;
@@ -208,7 +215,7 @@ void photoc_progress_set_message(photoc_progress *progress, const char *message)
     if (progress == NULL)
         return;
     progress->message = message;
-    render(progress);
+    render(progress, true);
 }
 
 void photoc_progress_set_total(photoc_progress *progress, size_t total)
@@ -218,7 +225,7 @@ void photoc_progress_set_total(photoc_progress *progress, size_t total)
     progress->has_total = true;
     progress->total = total;
     progress->current = 0;
-    render(progress);
+    render(progress, true);
 }
 
 void photoc_progress_update(photoc_progress *progress, size_t current)
@@ -226,7 +233,7 @@ void photoc_progress_update(photoc_progress *progress, size_t current)
     if (progress == NULL)
         return;
     progress->current = current;
-    render(progress);
+    render(progress, false);
 }
 
 void photoc_progress_increment(photoc_progress *progress)
@@ -235,7 +242,7 @@ void photoc_progress_increment(photoc_progress *progress)
         return;
     if (progress->current != SIZE_MAX)
         ++progress->current;
-    render(progress);
+    render(progress, false);
 }
 
 void photoc_progress_clear(photoc_progress *progress)

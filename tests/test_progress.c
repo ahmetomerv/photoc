@@ -187,5 +187,30 @@ int main(void)
         photoc_progress_update(&progress, 1002 + i);
     assert(fast.calls - sampled == 100);
     fclose(file);
+
+    /* An explicit message or total change samples the clock even mid-stride,
+       so a new phase is not hidden for a whole stride of routine updates. */
+    file = tmpfile();
+    assert(file != NULL);
+    clock_state state = {0, 0};
+    photoc_progress_init_test(&progress, file, true, PHOTOC_PROGRESS_AUTO,
+                              false, "Phase one", counting_clock, &state);
+    photoc_progress_start(&progress);
+    for (size_t i = 1; i <= 1000; ++i)
+        photoc_progress_update(&progress, i); /* Clock stays at start. */
+    state.now = 200;
+    photoc_progress_update(&progress, 1001);
+    assert(progress.clock_stride == 8);
+    assert(state.calls == 1002);
+    state.now = 300;
+    photoc_progress_update(&progress, 1002); /* Routine: skipped by stride. */
+    assert(state.calls == 1002);
+    photoc_progress_set_message(&progress, "Phase two");
+    assert(state.calls == 1003);
+    contents(file, buffer, sizeof(buffer));
+    assert(strstr(buffer, "Phase two") != NULL);
+    photoc_progress_set_total(&progress, 10); /* Also samples the clock. */
+    assert(state.calls == 1004);
+    fclose(file);
     return 0;
 }
