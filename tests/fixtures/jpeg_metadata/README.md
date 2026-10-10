@@ -21,6 +21,12 @@ imported.
 | `gray_icc.jpg` | One-component grayscale JPEG with an invented gray ICC profile |
 | `xmp_extended.jpg` | Standard XMP referencing two Extended XMP chunks in reverse offset order, plus EXIF/ICC |
 
+`all_metadata.quality61.compressed.jpg` is a checked-in reference output, not a
+generated input. It is the exact JPEG published by
+`photoc compress tests/fixtures/jpeg_metadata/all_metadata.jpg --quality 61`
+before the single-read compress change; tests compare fresh output against it
+byte for byte.
+
 Additional malformed, maximum-length, post-scan, and memory-limit cases are
 generated in disposable test directories. These fixtures live separately from
 `../jpeg/` to preserve the existing collection-statistics snapshots.

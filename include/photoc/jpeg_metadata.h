@@ -17,6 +17,14 @@
 photoc_jpeg_edit_result
 photoc_jpeg_metadata_load_copy(const char *path, photoc_jpeg_metadata **out);
 
+/* As above, but read the snapshot from an in-memory JPEG. The caller retains
+   ownership of bytes, which must remain valid for the synchronous call. This
+   lets a caller decode and snapshot the same single read. A NULL buffer or
+   empty buffer is rejected. Ownership and failure rules match load_copy. */
+photoc_jpeg_edit_result
+photoc_jpeg_metadata_load_copy_buffer(const unsigned char *bytes, size_t length,
+                                      photoc_jpeg_metadata **out);
+
 /* Exact number of bytes inserted into an encoded JPEG, including marker and
    length bytes. NULL has zero overhead. Does not transfer ownership. */
 uint64_t

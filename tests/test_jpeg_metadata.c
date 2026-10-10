@@ -321,6 +321,104 @@ static void test_large_scan(const char *path)
     photoc_jpeg_metadata_free(metadata);
 }
 
+static bool same_image(const photoc_image *left, const photoc_image *right)
+{
+    return left->width == right->width && left->height == right->height &&
+           left->stride == right->stride &&
+           left->pixel_bytes == right->pixel_bytes &&
+           (left->pixel_bytes == 0 ||
+            memcmp(left->pixels, right->pixels, left->pixel_bytes) == 0);
+}
+
+/* The compress single-read path loads metadata and pixels from one buffer.
+   Prove it reproduces the path-based pipeline byte for byte. */
+static void test_buffer_matches_file(const char *destination)
+{
+    static const char *const fixtures[] = {
+        "exif_only.jpg",    "icc_only.jpg",  "xmp_only.jpg",
+        "all_metadata.jpg", "icc_multi.jpg", "no_metadata.jpg",
+        "xmp_extended.jpg", "gray_icc.jpg"};
+    for (size_t i = 0; i < sizeof(fixtures) / sizeof(fixtures[0]); ++i) {
+        char *path = NULL;
+        CHECK(photoc_fs_join(PHOTOC_SEGMENT_FIXTURES, fixtures[i], &path) == 0);
+        if (path == NULL) {
+            continue;
+        }
+        size_t length = 0;
+        unsigned char *bytes = read_file(path, &length);
+        CHECK(bytes != NULL);
+        photoc_image file_image = {0};
+        photoc_image buffer_image = {0};
+        photoc_jpeg_metadata *file_metadata = NULL;
+        photoc_jpeg_metadata *buffer_metadata = NULL;
+        CHECK(photoc_image_decode_jpeg(path, &file_image) == PHOTOC_IMAGE_OK);
+        CHECK(photoc_image_decode_jpeg_buffer(bytes, length, &buffer_image) ==
+              PHOTOC_IMAGE_OK);
+        CHECK(photoc_jpeg_metadata_load_copy(path, &file_metadata) ==
+              PHOTOC_JPEG_EDIT_OK);
+        CHECK(photoc_jpeg_metadata_load_copy_buffer(
+                  bytes, length, &buffer_metadata) == PHOTOC_JPEG_EDIT_OK);
+        CHECK(same_image(&file_image, &buffer_image));
+        CHECK(photoc_jpeg_metadata_output_overhead(file_metadata) ==
+              photoc_jpeg_metadata_output_overhead(buffer_metadata));
+        CHECK(photoc_jpeg_metadata_has_icc(file_metadata) ==
+              photoc_jpeg_metadata_has_icc(buffer_metadata));
+        CHECK(photoc_jpeg_metadata_has_grayscale_icc(file_metadata) ==
+              photoc_jpeg_metadata_has_grayscale_icc(buffer_metadata));
+        if (file_metadata != NULL && buffer_metadata != NULL &&
+            file_image.pixels != NULL && buffer_image.pixels != NULL) {
+            bool grayscale =
+                photoc_jpeg_metadata_has_grayscale_icc(file_metadata);
+            photoc_jpeg_buffer file_output = {0};
+            photoc_jpeg_buffer buffer_output = {0};
+            CHECK((grayscale ? photoc_image_encode_jpeg_grayscale(
+                                   &file_image, 80, &file_output)
+                             : photoc_image_encode_jpeg(&file_image, 80,
+                                                        &file_output)) ==
+                  PHOTOC_IMAGE_OK);
+            CHECK((grayscale ? photoc_image_encode_jpeg_grayscale(
+                                   &buffer_image, 80, &buffer_output)
+                             : photoc_image_encode_jpeg(&buffer_image, 80,
+                                                        &buffer_output)) ==
+                  PHOTOC_IMAGE_OK);
+            CHECK(file_output.size == buffer_output.size);
+            if (file_output.data != NULL && buffer_output.data != NULL &&
+                file_output.size == buffer_output.size) {
+                CHECK(memcmp(file_output.data, buffer_output.data,
+                             file_output.size) == 0);
+            }
+            CHECK(photoc_jpeg_write_encoded_with_metadata(
+                      destination, &file_output, file_metadata) ==
+                  PHOTOC_JPEG_EDIT_OK);
+            size_t file_length = 0;
+            unsigned char *file_bytes = read_file(destination, &file_length);
+            CHECK(unlink(destination) == 0);
+            CHECK(photoc_jpeg_write_encoded_with_metadata(
+                      destination, &buffer_output, buffer_metadata) ==
+                  PHOTOC_JPEG_EDIT_OK);
+            size_t buffer_length = 0;
+            unsigned char *buffer_bytes =
+                read_file(destination, &buffer_length);
+            CHECK(unlink(destination) == 0);
+            CHECK(file_bytes != NULL && buffer_bytes != NULL);
+            if (file_bytes != NULL && buffer_bytes != NULL) {
+                CHECK(file_length == buffer_length);
+                CHECK(memcmp(file_bytes, buffer_bytes, file_length) == 0);
+            }
+            free(file_bytes);
+            free(buffer_bytes);
+            photoc_jpeg_buffer_cleanup(&file_output);
+            photoc_jpeg_buffer_cleanup(&buffer_output);
+        }
+        photoc_image_cleanup(&file_image);
+        photoc_image_cleanup(&buffer_image);
+        photoc_jpeg_metadata_free(file_metadata);
+        photoc_jpeg_metadata_free(buffer_metadata);
+        free(bytes);
+        free(path);
+    }
+}
+
 int main(void)
 {
     char directory[] = "photoc-marker-test-XXXXXX";
@@ -348,11 +446,22 @@ int main(void)
                   PHOTOC_SEGMENT_FIXTURES "/icc_bad_sequence.jpg", &metadata) ==
               PHOTOC_JPEG_EDIT_INVALID_ICC);
         CHECK(metadata == NULL);
+        CHECK(photoc_jpeg_metadata_load_copy_buffer(NULL, 0, &metadata) ==
+              PHOTOC_JPEG_EDIT_INVALID_ARGUMENT);
+        CHECK(metadata == NULL);
+        CHECK(photoc_jpeg_metadata_load_copy_buffer((const unsigned char *)"",
+                                                    0, &metadata) ==
+              PHOTOC_JPEG_EDIT_INVALID_JPEG);
+        CHECK(metadata == NULL);
+        CHECK(photoc_jpeg_metadata_load_copy_buffer((const unsigned char *)"",
+                                                    1, NULL) ==
+              PHOTOC_JPEG_EDIT_INVALID_ARGUMENT);
         test_roundtrip(destination);
         test_output_verification(destination);
         test_truncation_and_lengths(path);
         test_memory_limit(path);
         test_large_scan(path);
+        test_buffer_matches_file(destination);
         CHECK(unlink(path) == 0);
     }
     free(path);

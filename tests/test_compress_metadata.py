@@ -19,6 +19,9 @@ ICC = b"ICC_PROFILE\0"
 XMP = b"http://ns.adobe.com/xap/1.0/\0"
 EXTENDED = b"http://ns.adobe.com/xmp/extension/\0"
 BASE = (FIXTURES / "no_metadata.jpg").read_bytes()
+# Reference output published by the pre-change compress pipeline. The buffer
+# single-read path must reproduce these exact bytes.
+GOLDEN_QUALITY_61 = FIXTURES / "all_metadata.quality61.compressed.jpg"
 
 
 def marker(kind, payload):
@@ -203,6 +206,31 @@ class CompressMetadataTests(unittest.TestCase):
         result = self.invoke("compress", source, "--target", "1B", "--min-quality", "40", expected=1)
         self.assertIn("target cannot be reached", result.stderr)
         self.check_preserved(source, output)
+
+    def _compress_bytes(self, fixture, relative, quality):
+        source = self.copy(fixture, relative)
+        self.invoke("compress", source, "--quality", quality)
+        return source.with_name(source.stem + ".compressed.jpg").read_bytes()
+
+    def test_output_bytes_are_unchanged(self):
+        """The single-read path must publish the pre-change bytes exactly.
+
+        Independent runs over the same content at different paths pin the
+        published file, and every result is compared byte for byte against the
+        checked-in golden produced by the pre-change pipeline.
+        """
+        golden = GOLDEN_QUALITY_61.read_bytes()
+        first = self._compress_bytes("all_metadata.jpg", "one/photo.jpg", "61")
+        second = self._compress_bytes("all_metadata.jpg", "two/other.jpg", "61")
+        reference = self._compress_bytes("all_metadata.jpg", "three/ref.jpg", "61")
+        self.assertEqual(first, second)
+        self.assertEqual(second, reference)
+        self.assertEqual(first, golden)
+        self.assertEqual(second, golden)
+        self.assertEqual(reference, golden)
+        self.assertGreater(len(first), 4)
+        self.assertEqual(first[:2], b"\xff\xd8")
+        self.assertEqual(first[-2:], b"\xff\xd9")
 
     def test_target_reuses_the_chosen_encode(self):
         source = self.copy("all_metadata.jpg")

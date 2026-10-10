@@ -32,6 +32,17 @@ typedef struct {
     size_t size;
 } photoc_jpeg_buffer;
 
+/* Read an entire file into a newly allocated buffer. max_file_bytes == 0
+   means no size cap. On success *bytes owns malloc'd memory that the caller
+   must free() and *length is its byte count; *bytes is NULL on failure. An
+   empty file returns INVALID_JPEG and an over-cap file returns TOO_LARGE.
+   I/O errors preserve errno. This is the shared read used before JPEG codecs
+   run, so callers can decode and inspect the same bytes once. */
+photoc_image_result photoc_image_read_file(const char *path,
+                                           uint64_t max_file_bytes,
+                                           unsigned char **bytes,
+                                           size_t *length);
+
 /* Read raw JPEG dimensions; EXIF orientation is not applied. On error,
    width and height are unchanged. I/O errors preserve errno. */
 photoc_image_result photoc_image_jpeg_dimensions(const char *path,
@@ -58,6 +69,14 @@ photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
 photoc_image_result photoc_image_decode_jpeg_scaled_bounded(
     const char *path, uint32_t max_dimension, uint64_t max_file_bytes,
     photoc_image *out);
+
+/* Decode an in-memory JPEG to RGB at full resolution. The caller retains
+   ownership of bytes, which must remain valid for the synchronous call; no
+   copy is made. out follows the same ownership and cleanup rules as
+   decode_jpeg. A NULL buffer or output returns INVALID_ARGUMENT. */
+photoc_image_result photoc_image_decode_jpeg_buffer(const unsigned char *bytes,
+                                                    size_t length,
+                                                    photoc_image *out);
 
 /* Encode RGB pixels as JPEG. quality is an integer from 1 to 100. out must
    be zero-initialized or cleaned first. On success out owns data; on error
