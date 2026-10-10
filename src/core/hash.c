@@ -7,6 +7,8 @@
 
 #include "photoc/hash.h"
 
+#include "hash_internal.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -481,6 +483,11 @@ static void process_block_arm(sha256_state *hash, const unsigned char block[64])
 }
 #endif
 
+bool photoc_hash_sha256_x86_dispatch(bool sha, bool ssse3, bool sse4_1)
+{
+    return sha && ssse3 && sse4_1;
+}
+
 #if defined(PHOTOC_SHA256_X86) || defined(PHOTOC_SHA256_ARM)
 static bool sha256_runtime_acceleration(void)
 {
@@ -490,17 +497,26 @@ static bool sha256_runtime_acceleration(void)
 #if defined(PHOTOC_SHA256_X86)
 #if defined(__clang__)
     /* Older Clang rejects the "sha" feature string for __builtin_cpu_supports,
-       so read the SHA bit (CPUID.7.0:EBX[29]) directly instead. */
+       so read the CPUID feature bits directly instead: SHA
+       (CPUID.7.0:EBX[29]), SSSE3 and SSE4.1 (CPUID.1.0:ECX[9] and [19]). */
     unsigned int eax = 0;
     unsigned int ebx = 0;
     unsigned int ecx = 0;
     unsigned int edx = 0;
     if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) == 0)
         return false;
-    return (ebx & (1u << 29)) != 0;
+    bool sha = (ebx & (1u << 29)) != 0;
+    if (__get_cpuid_count(1, 0, &eax, &ebx, &ecx, &edx) == 0)
+        return false;
+    bool ssse3 = (ecx & (1u << 9)) != 0;
+    bool sse4_1 = (ecx & (1u << 19)) != 0;
+    return photoc_hash_sha256_x86_dispatch(sha, ssse3, sse4_1);
 #else
     __builtin_cpu_init();
-    return __builtin_cpu_supports("sha") != 0;
+    bool sha = __builtin_cpu_supports("sha") != 0;
+    bool ssse3 = __builtin_cpu_supports("ssse3") != 0;
+    bool sse4_1 = __builtin_cpu_supports("sse4.1") != 0;
+    return photoc_hash_sha256_x86_dispatch(sha, ssse3, sse4_1);
 #endif
 #elif defined(PHOTOC_SHA256_ARM) && defined(__APPLE__)
     int value = 0;

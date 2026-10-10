@@ -6,6 +6,8 @@
 #include "photoc/fs.h"
 #include "photoc/hash.h"
 
+#include "hash_internal.h"
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -76,6 +78,20 @@ static void check_digest(const char *path, const char *expected)
                 hex);
         ++failures;
     }
+}
+
+static void test_x86_dispatch(void)
+{
+    /* process_block_x86 uses SHA, SSSE3 and SSE4.1 together, so a CPU that
+       advertises SHA while masking either other feature must select scalar. */
+    CHECK(photoc_hash_sha256_x86_dispatch(true, true, true));
+    CHECK(!photoc_hash_sha256_x86_dispatch(false, true, true));
+    CHECK(!photoc_hash_sha256_x86_dispatch(true, false, true));
+    CHECK(!photoc_hash_sha256_x86_dispatch(true, true, false));
+    CHECK(!photoc_hash_sha256_x86_dispatch(false, false, true));
+    CHECK(!photoc_hash_sha256_x86_dispatch(false, true, false));
+    CHECK(!photoc_hash_sha256_x86_dispatch(true, false, false));
+    CHECK(!photoc_hash_sha256_x86_dispatch(false, false, false));
 }
 
 static void test_known_vectors(const char *path)
@@ -206,6 +222,7 @@ static void test_errors(const char *file, const char *directory,
 
 int main(void)
 {
+    test_x86_dispatch();
     const char *temporary = getenv("TMPDIR");
     if (temporary == NULL || temporary[0] == '\0') {
         temporary = "/tmp";
