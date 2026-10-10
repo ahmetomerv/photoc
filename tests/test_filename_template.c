@@ -78,6 +78,97 @@ static void expect_error(const char *pattern, const Photo *photo,
     free(name);
 }
 
+/* The compiled pipeline must return exactly what the one-shot API returns for
+   every pattern, including compile errors and missing-value render errors. */
+static void expect_compiled_matches(const char *pattern, const Photo *photo,
+                                    uint64_t sequence, unsigned int width)
+{
+    char *one_shot = NULL;
+    size_t one_shot_offset = SIZE_MAX;
+    photoc_template_result one_shot_result = photoc_filename_template_expand(
+        pattern, photo, sequence, width, &one_shot, &one_shot_offset);
+
+    photoc_filename_template *compiled = NULL;
+    size_t compile_offset = SIZE_MAX;
+    photoc_template_result compile_result =
+        photoc_filename_template_compile(pattern, &compiled, &compile_offset);
+
+    char *rendered = NULL;
+    size_t render_offset = SIZE_MAX;
+    photoc_template_result render_result = PHOTOC_TEMPLATE_INVALID_ARGUMENT;
+    if (compile_result == PHOTOC_TEMPLATE_OK) {
+        render_result = photoc_filename_template_render(
+            compiled, photo, sequence, width, &rendered, &render_offset);
+    }
+    photoc_filename_template_free(compiled);
+
+    if (compile_result != PHOTOC_TEMPLATE_OK) {
+        CHECK(one_shot_result == compile_result);
+        CHECK(one_shot == NULL);
+        CHECK(one_shot_offset == compile_offset);
+    } else {
+        CHECK(render_result == one_shot_result);
+        if (one_shot_result == PHOTOC_TEMPLATE_OK) {
+            CHECK(one_shot != NULL && rendered != NULL);
+            if (one_shot != NULL && rendered != NULL) {
+                CHECK(strcmp(one_shot, rendered) == 0);
+            }
+            CHECK(one_shot_offset == SIZE_MAX && render_offset == SIZE_MAX);
+        } else {
+            CHECK(one_shot == NULL && rendered == NULL);
+            CHECK(one_shot_offset == render_offset);
+        }
+    }
+    free(one_shot);
+    free(rendered);
+}
+
+static void test_compiled_matches(Photo *photo)
+{
+    static const char *const patterns[] = {
+        "{date}_{camera}_{sequence}.{ext}",
+        "{datetime}_{make}_{iso}_{aperture}_{focal}_{original}.{ext}",
+        "{sequence}",
+        "{{{original}}}",
+        "literal",
+        "{original}.{ext}",
+        "a/b\\c:d*e?f\"g<h>i|j\nk\t",
+        "{unknown}",
+        "prefix_{Camera}",
+        "a{date",
+        "a{date{ext}}",
+        "{}",
+        "a}",
+        "",
+        ".",
+        "..",
+        "{{}}",
+        "x",
+        "{ext}",
+        "{date}",
+        "{camera}",
+        "{make}",
+        "{iso}",
+        "{aperture}",
+        "{focal}",
+        "{datetime}",
+        "{original}",
+    };
+    for (size_t i = 0; i < sizeof(patterns) / sizeof(patterns[0]); ++i) {
+        expect_compiled_matches(patterns[i], photo, 7, 4);
+        expect_compiled_matches(patterns[i], photo, 0, 0);
+        expect_compiled_matches(patterns[i], photo, UINT64_MAX, 20);
+    }
+
+    /* A minimal photo exercises missing-value render errors on both paths. */
+    Photo bare = {0};
+    CHECK(photo_init(&bare, "photos/no_extension") == 0);
+    for (size_t i = 0; i < sizeof(patterns) / sizeof(patterns[0]); ++i) {
+        expect_compiled_matches(patterns[i], &bare, 1, 3);
+    }
+    photo_cleanup(&bare);
+}
+
 static void test_expansion(Photo *photo)
 {
     expect_name("{date}_{camera}_{sequence}.{ext}", photo, 7, 4,
@@ -208,6 +299,7 @@ int main(void)
     test_sanitization(&photo);
     test_errors(&photo);
     test_long_value(&photo);
+    test_compiled_matches(&photo);
     photo_cleanup(&photo);
     if (failures != 0) {
         fprintf(stderr, "%d filename-template test failure(s)\n", failures);

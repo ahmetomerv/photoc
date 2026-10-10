@@ -141,7 +141,8 @@ static int destination_path(const char *source, const char *name, char **output)
     return result;
 }
 
-static int prepare_entries(rename_plan *plan, const char *format)
+static int prepare_entries(rename_plan *plan,
+                           const photoc_filename_template *compiled)
 {
     for (size_t i = 0; i < plan->count; ++i) {
         if (photoc_progress_interrupted()) {
@@ -174,8 +175,9 @@ static int prepare_entries(rename_plan *plan, const char *format)
         }
 
         char *name = NULL;
-        entry->template_error = photoc_filename_template_expand(
-            format, &photo, (uint64_t)i + 1, 4, &name, &entry->template_offset);
+        entry->template_error =
+            photoc_filename_template_render(compiled, &photo, (uint64_t)i + 1,
+                                            4, &name, &entry->template_offset);
         photo_cleanup(&photo);
         if (entry->template_error != PHOTOC_TEMPLATE_OK) {
             if (entry->template_error == PHOTOC_TEMPLATE_NO_MEMORY ||
@@ -491,9 +493,10 @@ int photoc_command_rename_with_output(const char *directory, const char *format,
     photoc_output_verbose(
         output, "rename", "input: '%s'; mode: %s; recursion: %s\n", directory,
         apply ? "apply" : "preview", recursive ? "enabled" : "disabled");
+    photoc_filename_template *compiled = NULL;
     size_t template_offset = SIZE_MAX;
     photoc_template_result validation =
-        photoc_filename_template_validate(format, &template_offset);
+        photoc_filename_template_compile(format, &compiled, &template_offset);
     if (validation != PHOTOC_TEMPLATE_OK) {
         fprintf(stderr, "photoc rename: %s",
                 photoc_template_result_message(validation));
@@ -522,6 +525,7 @@ int photoc_command_rename_with_output(const char *directory, const char *format,
                                                   : PHOTOC_ERR_IO,
                             directory, "unable to read directory", saved_errno);
         free_plan(&plan);
+        photoc_filename_template_free(compiled);
         return PHOTOC_EXIT_FAILURE;
     }
 
@@ -531,8 +535,10 @@ int photoc_command_rename_with_output(const char *directory, const char *format,
     photoc_progress_set_message(progress, "Reading metadata...");
     if (progress != NULL && progress->enabled)
         photoc_progress_set_total(progress, plan.count);
-    if (prepare_entries(&plan, format) != 0 ||
-        mark_duplicate_destinations(&plan) != 0) {
+    int prepare_result = prepare_entries(&plan, compiled);
+    photoc_filename_template_free(compiled);
+    compiled = NULL;
+    if (prepare_result != 0 || mark_duplicate_destinations(&plan) != 0) {
         int saved_errno = errno;
         photoc_progress_fail(progress, "Failed to prepare rename plan");
         photoc_error_report("rename", PHOTOC_ERR_NOTE_NONE,
