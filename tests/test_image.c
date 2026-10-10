@@ -83,6 +83,40 @@ int main(void)
     CHECK(image.stride == 9 && image.pixel_bytes == 18);
     CHECK(image.pixels != NULL);
 
+    /* The single-read path must decode exactly like the file path. */
+    unsigned char *bytes = NULL;
+    size_t length = 0;
+    CHECK(photoc_image_read_file(source, 0, &bytes, &length) ==
+          PHOTOC_IMAGE_OK);
+    CHECK(bytes != NULL && length > 0);
+    photoc_image from_buffer = {0};
+    CHECK(photoc_image_decode_jpeg_buffer(bytes, length, &from_buffer) ==
+          PHOTOC_IMAGE_OK);
+    CHECK(from_buffer.width == image.width &&
+          from_buffer.height == image.height);
+    CHECK(from_buffer.stride == image.stride &&
+          from_buffer.pixel_bytes == image.pixel_bytes);
+    CHECK(from_buffer.pixels != NULL && image.pixels != NULL);
+    if (from_buffer.pixels != NULL && image.pixels != NULL) {
+        CHECK(memcmp(from_buffer.pixels, image.pixels, image.pixel_bytes) == 0);
+    }
+    photoc_image_cleanup(&from_buffer);
+    free(bytes);
+
+    photoc_image rejected = {0};
+    CHECK(photoc_image_decode_jpeg_buffer(NULL, 1, &rejected) ==
+          PHOTOC_IMAGE_INVALID_ARGUMENT);
+    CHECK(photoc_image_decode_jpeg_buffer((const unsigned char *)"", 0,
+                                          &rejected) ==
+          PHOTOC_IMAGE_INVALID_JPEG);
+    CHECK(rejected.pixels == NULL);
+    CHECK(photoc_image_read_file(source, 0, NULL, &length) ==
+          PHOTOC_IMAGE_INVALID_ARGUMENT);
+    unsigned char *no_bytes = NULL;
+    CHECK(photoc_image_read_file("/nonexistent/photoc.jpg", 0, &no_bytes,
+                                 &length) == PHOTOC_IMAGE_IO_ERROR);
+    CHECK(no_bytes == NULL && length == 0);
+
     photoc_jpeg_buffer encoded = {0};
     CHECK(photoc_image_encode_jpeg(&image, 85, &encoded) == PHOTOC_IMAGE_OK);
     CHECK(encoded.data != NULL && encoded.size > 4);

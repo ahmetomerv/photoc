@@ -88,6 +88,25 @@ static photoc_image_result read_file(const char *path, unsigned char **bytes,
     return PHOTOC_IMAGE_OK;
 }
 
+photoc_image_result photoc_image_read_file(const char *path,
+                                           uint64_t max_file_bytes,
+                                           unsigned char **bytes,
+                                           size_t *length)
+{
+    if (path == NULL || path[0] == '\0' || bytes == NULL || length == NULL) {
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    }
+    *bytes = NULL;
+    *length = 0;
+    unsigned long file_length = 0;
+    photoc_image_result result =
+        read_file(path, bytes, &file_length, max_file_bytes);
+    if (result == PHOTOC_IMAGE_OK) {
+        *length = (size_t)file_length;
+    }
+    return result;
+}
+
 static photoc_image_result read_header(tjhandle handle,
                                        const unsigned char *bytes,
                                        unsigned long length, int *width,
@@ -133,29 +152,20 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
     return result;
 }
 
-static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
-                                       uint64_t max_file_bytes,
-                                       photoc_image *out)
+static photoc_image_result decode_jpeg_bytes(const unsigned char *bytes,
+                                             unsigned long length,
+                                             uint32_t max_dimension,
+                                             photoc_image *out)
 {
-    if (path == NULL || path[0] == '\0' || out == NULL) {
-        return PHOTOC_IMAGE_INVALID_ARGUMENT;
-    }
     *out = (photoc_image){0};
-    unsigned char *bytes = NULL;
-    unsigned long length = 0;
-    photoc_image_result result =
-        read_file(path, &bytes, &length, max_file_bytes);
-    if (result != PHOTOC_IMAGE_OK) {
-        return result;
-    }
     tjhandle handle = tjInitDecompress();
     if (handle == NULL) {
-        free(bytes);
         return PHOTOC_IMAGE_CODEC_ERROR;
     }
     int width = 0;
     int height = 0;
-    result = read_header(handle, bytes, length, &width, &height);
+    photoc_image_result result =
+        read_header(handle, bytes, length, &width, &height);
     if (result == PHOTOC_IMAGE_OK && max_dimension != 0) {
         int count = 0;
         tjscalingfactor *factors = tjGetScalingFactors(&count);
@@ -224,7 +234,6 @@ static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
         result = PHOTOC_IMAGE_INVALID_JPEG;
     }
     tjDestroy(handle);
-    free(bytes);
     if (result != PHOTOC_IMAGE_OK) {
         free(pixels);
         return result;
@@ -232,6 +241,44 @@ static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
     *out = (photoc_image){(uint32_t)width, (uint32_t)height, stride,
                           pixel_bytes, pixels};
     return PHOTOC_IMAGE_OK;
+}
+
+static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
+                                       uint64_t max_file_bytes,
+                                       photoc_image *out)
+{
+    if (path == NULL || path[0] == '\0' || out == NULL) {
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    }
+    *out = (photoc_image){0};
+    unsigned char *bytes = NULL;
+    unsigned long length = 0;
+    photoc_image_result result =
+        read_file(path, &bytes, &length, max_file_bytes);
+    if (result != PHOTOC_IMAGE_OK) {
+        return result;
+    }
+    result = decode_jpeg_bytes(bytes, length, max_dimension, out);
+    free(bytes);
+    return result;
+}
+
+photoc_image_result photoc_image_decode_jpeg_buffer(const unsigned char *bytes,
+                                                    size_t length,
+                                                    photoc_image *out)
+{
+    if (bytes == NULL || out == NULL) {
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    }
+    *out = (photoc_image){0};
+    if (length == 0) {
+        return PHOTOC_IMAGE_INVALID_JPEG;
+    }
+    unsigned long jpeg_length = (unsigned long)length;
+    if (jpeg_length != length) {
+        return PHOTOC_IMAGE_TOO_LARGE;
+    }
+    return decode_jpeg_bytes(bytes, jpeg_length, 0, out);
 }
 
 photoc_image_result photoc_image_decode_jpeg(const char *path,

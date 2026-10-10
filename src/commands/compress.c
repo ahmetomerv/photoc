@@ -211,12 +211,6 @@ static int compress_file(const char *path, const char *destination,
                          photoc_quality_choice *choice,
                          photoc_progress *progress)
 {
-    if (photoc_fs_file_size(path, original_size) != 0) {
-        photoc_progress_before_diagnostic(progress);
-        photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                            path, "unable to read file size", errno);
-        return -1;
-    }
     bool exists = false;
     if (photoc_fs_exists(destination, &exists) != 0) {
         photoc_progress_before_diagnostic(progress);
@@ -235,17 +229,35 @@ static int compress_file(const char *path, const char *destination,
         return -1;
     }
 
+    /* Read the source once and share it: the metadata snapshot and the decode
+       both work from this single owned buffer. The length also replaces a
+       separate lstat of the source. */
+    unsigned char *source = NULL;
+    size_t source_length = 0;
+    photoc_image_result image_result =
+        photoc_image_read_file(path, 0, &source, &source_length);
+    if (image_result != PHOTOC_IMAGE_OK) {
+        photoc_progress_before_diagnostic(progress);
+        image_error(path, image_result);
+        return -1;
+    }
+    *original_size = (uint64_t)source_length;
+
     photoc_jpeg_metadata *metadata = NULL;
     photoc_jpeg_edit_result metadata_result =
-        photoc_jpeg_metadata_load_copy(path, &metadata);
+        photoc_jpeg_metadata_load_copy_buffer(source, source_length, &metadata);
     if (metadata_result != PHOTOC_JPEG_EDIT_OK) {
         photoc_progress_before_diagnostic(progress);
         jpeg_error(path, metadata_result);
+        free(source);
         return -1;
     }
 
     photoc_image image = {0};
-    photoc_image_result image_result = photoc_image_decode_jpeg(path, &image);
+    image_result =
+        photoc_image_decode_jpeg_buffer(source, source_length, &image);
+    free(source);
+    source = NULL;
     if (image_result != PHOTOC_IMAGE_OK) {
         photoc_progress_before_diagnostic(progress);
         image_error(path, image_result);
@@ -253,14 +265,15 @@ static int compress_file(const char *path, const char *destination,
         return -1;
     }
     bool grayscale = photoc_jpeg_metadata_has_grayscale_icc(metadata);
-    quality_probe_context context = {
-        .image = &image, .error = PHOTOC_IMAGE_OK, .grayscale = grayscale};
+    uint64_t metadata_overhead = photoc_jpeg_metadata_output_overhead(metadata);
+    quality_probe_context context = {.image = &image,
+                                     .metadata_overhead = metadata_overhead,
+                                     .error = PHOTOC_IMAGE_OK,
+                                     .grayscale = grayscale};
     choice->quality = options->quality;
     choice->target_met = true;
     photoc_jpeg_buffer encoded = {0};
     if (options->target_bytes != 0) {
-        context.metadata_overhead =
-            photoc_jpeg_metadata_output_overhead(metadata);
         if (photoc_quality_search(options->target_bytes, options->min_quality,
                                   probe_quality, &context, choice) != 0) {
             photoc_progress_before_diagnostic(progress);
@@ -304,9 +317,9 @@ static int compress_file(const char *path, const char *destination,
     photoc_jpeg_edit_result write_result =
         photoc_jpeg_write_encoded_with_metadata(destination, &encoded,
                                                 metadata);
-    photoc_jpeg_buffer_cleanup(&encoded);
-    photoc_jpeg_metadata_free(metadata);
     if (write_result != PHOTOC_JPEG_EDIT_OK) {
+        photoc_jpeg_buffer_cleanup(&encoded);
+        photoc_jpeg_metadata_free(metadata);
         if (write_result == PHOTOC_JPEG_EDIT_IO_ERROR && errno == EEXIST) {
             return 1;
         }
@@ -314,13 +327,11 @@ static int compress_file(const char *path, const char *destination,
         jpeg_error(destination, write_result);
         return -1;
     }
-
-    if (photoc_fs_file_size(destination, compressed_size) != 0) {
-        photoc_progress_before_diagnostic(progress);
-        photoc_error_report("compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
-                            destination, "cannot inspect output", errno);
-        return -1;
-    }
+    /* The writer emits the encoded bytes plus exactly the metadata markers, so
+       the destination size is known without inspecting the new file. */
+    *compressed_size = (uint64_t)encoded.size + metadata_overhead;
+    photoc_jpeg_buffer_cleanup(&encoded);
+    photoc_jpeg_metadata_free(metadata);
     choice->size = *compressed_size;
     if (options->target_bytes != 0) {
         choice->target_met = *compressed_size <= options->target_bytes;

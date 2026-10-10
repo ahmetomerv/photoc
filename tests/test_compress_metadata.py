@@ -204,6 +204,27 @@ class CompressMetadataTests(unittest.TestCase):
         self.assertIn("target cannot be reached", result.stderr)
         self.check_preserved(source, output)
 
+    def _compress_bytes(self, fixture, relative, quality):
+        source = self.copy(fixture, relative)
+        self.invoke("compress", source, "--quality", quality)
+        return source.with_name(source.stem + ".compressed.jpg").read_bytes()
+
+    def test_output_bytes_are_unchanged(self):
+        """The single-read path must publish deterministic, identical bytes.
+
+        Independent runs over the same content at different paths pin the
+        published file. The core buffer/path test additionally pins the two
+        acquisition pipelines against each other byte for byte.
+        """
+        first = self._compress_bytes("all_metadata.jpg", "one/photo.jpg", "61")
+        second = self._compress_bytes("all_metadata.jpg", "two/other.jpg", "61")
+        reference = self._compress_bytes("all_metadata.jpg", "three/ref.jpg", "61")
+        self.assertEqual(first, second)
+        self.assertEqual(first, reference)
+        self.assertGreater(len(first), 4)
+        self.assertEqual(first[:2], b"\xff\xd8")
+        self.assertEqual(first[-2:], b"\xff\xd9")
+
     def test_target_reuses_the_chosen_encode(self):
         source = self.copy("all_metadata.jpg")
         self.invoke("compress", source, "--quality", "60")

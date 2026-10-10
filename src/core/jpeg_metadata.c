@@ -1,3 +1,6 @@
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 
 #include "photoc/jpeg_metadata.h"
@@ -148,25 +151,15 @@ static int collect_segment(unsigned char marker, const unsigned char *bytes,
     return 0;
 }
 
-photoc_jpeg_edit_result
-photoc_jpeg_metadata_load_copy(const char *path, photoc_jpeg_metadata **out)
+/* Scan an open JPEG stream into a fresh snapshot. *out is set only on
+   success; the caller owns that memory and must close the stream itself
+   (freeing *out if the close fails). */
+static photoc_jpeg_edit_result metadata_scan(FILE *file,
+                                             photoc_jpeg_metadata **out)
 {
-    if (out == NULL) {
-        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
-    }
     *out = NULL;
-    if (path == NULL || path[0] == '\0') {
-        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
-    }
-    FILE *file = fopen(path, "rb");
-    if (file == NULL) {
-        return PHOTOC_JPEG_EDIT_IO_ERROR;
-    }
     photoc_jpeg_metadata *metadata = calloc(1, sizeof(*metadata));
     if (metadata == NULL) {
-        int saved_errno = errno;
-        fclose(file);
-        errno = saved_errno;
         return PHOTOC_JPEG_EDIT_NO_MEMORY;
     }
     metadata_reader reader = {.metadata = metadata,
@@ -188,22 +181,74 @@ photoc_jpeg_metadata_load_copy(const char *path, photoc_jpeg_metadata **out)
             reader.result = PHOTOC_JPEG_EDIT_INVALID_ICC;
         }
     }
-    int saved_errno = errno;
-    if (fclose(file) != 0 && reader.result == PHOTOC_JPEG_EDIT_OK) {
-        reader.result = PHOTOC_JPEG_EDIT_IO_ERROR;
-        saved_errno = errno;
-    }
     if (reader.result != PHOTOC_JPEG_EDIT_OK) {
         photoc_jpeg_metadata_free(metadata);
-    } else {
-        metadata->width = info.width;
-        metadata->height = info.height;
-        metadata->components = info.components;
-        metadata->has_icc = reader.icc_count != 0;
-        *out = metadata;
+        return reader.result;
+    }
+    metadata->width = info.width;
+    metadata->height = info.height;
+    metadata->components = info.components;
+    metadata->has_icc = reader.icc_count != 0;
+    *out = metadata;
+    return PHOTOC_JPEG_EDIT_OK;
+}
+
+photoc_jpeg_edit_result
+photoc_jpeg_metadata_load_copy(const char *path, photoc_jpeg_metadata **out)
+{
+    if (out == NULL) {
+        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
+    }
+    *out = NULL;
+    if (path == NULL || path[0] == '\0') {
+        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
+    }
+    FILE *file = fopen(path, "rb");
+    if (file == NULL) {
+        return PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
+    photoc_jpeg_edit_result result = metadata_scan(file, out);
+    int saved_errno = errno;
+    if (fclose(file) != 0 && result == PHOTOC_JPEG_EDIT_OK) {
+        photoc_jpeg_metadata_free(*out);
+        *out = NULL;
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        saved_errno = errno;
     }
     errno = saved_errno;
-    return reader.result;
+    return result;
+}
+
+photoc_jpeg_edit_result
+photoc_jpeg_metadata_load_copy_buffer(const unsigned char *bytes, size_t length,
+                                      photoc_jpeg_metadata **out)
+{
+    if (out == NULL) {
+        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
+    }
+    *out = NULL;
+    if (bytes == NULL) {
+        return PHOTOC_JPEG_EDIT_INVALID_ARGUMENT;
+    }
+    if (length == 0) {
+        return PHOTOC_JPEG_EDIT_INVALID_JPEG;
+    }
+    /* fmemopen reads from the borrowed buffer; ftello/fseeko let the existing
+       stream parser walk it without copying the JPEG again. */
+    FILE *file = fmemopen((void *)bytes, length, "rb");
+    if (file == NULL) {
+        return PHOTOC_JPEG_EDIT_IO_ERROR;
+    }
+    photoc_jpeg_edit_result result = metadata_scan(file, out);
+    int saved_errno = errno;
+    if (fclose(file) != 0 && result == PHOTOC_JPEG_EDIT_OK) {
+        photoc_jpeg_metadata_free(*out);
+        *out = NULL;
+        result = PHOTOC_JPEG_EDIT_IO_ERROR;
+        saved_errno = errno;
+    }
+    errno = saved_errno;
+    return result;
 }
 
 static int write_bytes(FILE *file, const void *bytes, size_t length)
