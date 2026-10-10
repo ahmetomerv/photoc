@@ -84,52 +84,12 @@ static bool token_kind(const char *token, size_t length, template_token *kind)
 photoc_template_result photoc_filename_template_validate(const char *pattern,
                                                          size_t *error_offset)
 {
-    if (error_offset != NULL) {
-        *error_offset = SIZE_MAX;
-    }
-    if (pattern == NULL) {
-        return PHOTOC_TEMPLATE_INVALID_ARGUMENT;
-    }
-    if (pattern[0] == '\0') {
-        return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
-    }
-    if (strcmp(pattern, ".") == 0 || strcmp(pattern, "..") == 0) {
-        return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
-    }
-    for (size_t i = 0; pattern[i] != '\0';) {
-        if ((pattern[i] == '{' && pattern[i + 1] == '{') ||
-            (pattern[i] == '}' && pattern[i + 1] == '}')) {
-            i += 2;
-        } else if (pattern[i] == '{') {
-            size_t start = i++;
-            size_t token_start = i;
-            while (pattern[i] != '\0' && pattern[i] != '}' &&
-                   pattern[i] != '{') {
-                ++i;
-            }
-            if (error_offset != NULL) {
-                *error_offset = start;
-            }
-            if (pattern[i] != '}' || i == token_start) {
-                return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
-            }
-            if (!token_kind(pattern + token_start, i - token_start, NULL)) {
-                return PHOTOC_TEMPLATE_UNKNOWN_PLACEHOLDER;
-            }
-            if (error_offset != NULL) {
-                *error_offset = SIZE_MAX;
-            }
-            ++i;
-        } else if (pattern[i] == '}') {
-            if (error_offset != NULL) {
-                *error_offset = i;
-            }
-            return PHOTOC_TEMPLATE_INVALID_TEMPLATE;
-        } else {
-            ++i;
-        }
-    }
-    return PHOTOC_TEMPLATE_OK;
+    /* Compile is the single parser; this only discards the compiled form. */
+    photoc_filename_template *compiled = NULL;
+    photoc_template_result result =
+        photoc_filename_template_compile(pattern, &compiled, error_offset);
+    photoc_filename_template_free(compiled);
+    return result;
 }
 
 static bool template_append_literal(photoc_filename_template *compiled,
