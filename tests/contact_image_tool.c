@@ -7,7 +7,8 @@
 
 static int make_image(const char *path, uint32_t width, uint32_t height)
 {
-    if (width == 0 || height == 0 || width > 256 || height > 256)
+    if (width == 0 || height == 0 || width > 8192 || height > 8192 ||
+        (uint64_t)width * height > 4194304u)
         return 1;
     photoc_image image = {.width = width,
                           .height = height,

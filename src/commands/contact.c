@@ -28,10 +28,13 @@ typedef struct {
     char *path;      /* Owned; released by cleanup_collection. */
     char *timestamp; /* Owned, or NULL when absent. */
     uint16_t orientation;
+    uint32_t width;
+    uint32_t height;
     uint32_t iso;
     double aperture;
     double exposure_time;
     double focal_length;
+    bool has_dimensions;
     bool has_iso;
     bool has_aperture;
     bool has_exposure_time;
@@ -112,10 +115,13 @@ static bool collect_photo(const Photo *photo, void *user_data)
         .path = path,
         .timestamp = timestamp,
         .orientation = photo->has_orientation ? photo->orientation : 1,
+        .width = photo->width,
+        .height = photo->height,
         .iso = photo->iso,
         .aperture = photo->aperture,
         .exposure_time = photo->exposure_time,
         .focal_length = photo->focal_length,
+        .has_dimensions = photo->has_width && photo->has_height,
         .has_iso = photo->has_iso,
         .has_aperture = photo->has_aperture,
         .has_exposure_time = photo->has_exposure_time,
@@ -423,10 +429,24 @@ static int render_page(const contact_collection *collection, size_t first,
             break;
         }
         const contact_photo *photo = &collection->items[first + i];
+        /* Decode only as large as the thumbnail box needs, with a small
+           allowance for the software downscale. TurboJPEG can shrink by at
+           most 1/8 per dimension, so keep the cap large enough to admit that
+           scale for large sources; smaller sources decode unscaled. */
+        uint32_t decode_limit = options->thumb_size * 2;
+        if (decode_limit < 512)
+            decode_limit = 512;
+        if (photo->has_dimensions) {
+            uint32_t longest =
+                photo->width > photo->height ? photo->width : photo->height;
+            uint32_t coarsest = longest / 8 + (longest % 8 != 0);
+            if (decode_limit < coarsest)
+                decode_limit = coarsest;
+        }
         photoc_image decoded = {0};
         photoc_image_result image_result =
             photoc_image_decode_jpeg_scaled_bounded(
-                photo->path, 4096, CONTACT_MAX_SOURCE_BYTES, &decoded);
+                photo->path, decode_limit, CONTACT_MAX_SOURCE_BYTES, &decoded);
         if (image_result != PHOTOC_IMAGE_OK) {
             photoc_progress_before_diagnostic(collection->progress);
             outcome = photoc_error_image("contact", PHOTOC_ERR_NOTE_NONE,

@@ -99,6 +99,21 @@ def main():
         assert probe(one, 0, 0)[:2] == (144, 158)
         assert not (root / "one-001.jpeg").exists()
 
+        # A source wider than the thumbnail decode cap must still render: the
+        # cap tracks the source so TurboJPEG's coarsest 1/8 scale fits instead
+        # of refusing the image.
+        wide_source = root / "wide"
+        wide_source.mkdir()
+        wide = wide_source / "wide.jpg"
+        tool("make", wide, 4200, 840)
+        wide_output = root / "wide.jpg"
+        run(wide_source, "--output", wide_output, "--thumb-size", "96")
+        assert probe(wide_output, 0, 0)[:2] == (144, 158)
+        assert probe(wide_output, 30, 63)[2] > 150  # left half: red
+        assert probe(wide_output, 90, 63)[4] > 150  # right half: blue
+        subprocess.run([BINARY, "check", str(wide_output)], check=True,
+                       capture_output=True)
+
         # Exposure lines appear only when requested; missing EXIF is valid.
         metadata_source = root / "metadata"
         metadata_source.mkdir()
