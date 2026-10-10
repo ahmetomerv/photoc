@@ -186,6 +186,34 @@ int main(void)
     for (size_t i = 0; i < 800; ++i)
         photoc_progress_update(&progress, 1002 + i);
     assert(fast.calls - sampled == 100);
+
+    /* A phase change leaves the fast update stream behind. Message and total
+       changes must sample the clock immediately, and the first slow file
+       updates must not wait for the old eight-call stride. */
+    fast.now = 290;
+    photoc_progress_set_message(&progress, "Slow phase...");
+    assert(fast.calls - sampled == 101);
+    contents(file, buffer, sizeof(buffer));
+    assert(strstr(buffer, "Slow phase... 1,801") != NULL);
+    assert(progress.clock_stride == 1);
+
+    fast.now = 380;
+    photoc_progress_set_total(&progress, 4);
+    assert(fast.calls - sampled == 102);
+    contents(file, buffer, sizeof(buffer));
+    assert(strstr(buffer, "Slow phase... 0 / 4 (0%)") != NULL);
+    assert(progress.clock_stride == 1);
+
+    fast.now = 470;
+    photoc_progress_increment(&progress);
+    assert(fast.calls - sampled == 103);
+    contents(file, buffer, sizeof(buffer));
+    assert(strstr(buffer, "Slow phase... 1 / 4 (25%)") != NULL);
+    fast.now = 560;
+    photoc_progress_increment(&progress);
+    assert(fast.calls - sampled == 104);
+    contents(file, buffer, sizeof(buffer));
+    assert(strstr(buffer, "Slow phase... 2 / 4 (50%)") != NULL);
     fclose(file);
     return 0;
 }
