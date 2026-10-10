@@ -332,6 +332,7 @@ if(BUILD_TESTING)
     add_executable(test_hash tests/test_hash.c)
     photoc_configure_c_target(test_hash)
     target_link_libraries(test_hash PRIVATE photoc_core)
+    target_include_directories(test_hash PRIVATE src/core)
     add_test(NAME file_hashing COMMAND test_hash)
     # Run the same known vectors with the scalar fallback forced in a separate
     # process, so both the accelerated and scalar paths must match.
