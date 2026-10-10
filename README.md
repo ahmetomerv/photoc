@@ -235,6 +235,11 @@ Important details:
   photoc still writes a copy at the minimum quality and exits with status
   **1**. `2MB` means 2,000,000 bytes; `2MiB` means 2,097,152 bytes. See
   [metadata preservation](docs/compress.md#metadata-preservation).
+- **Compress memory** scales with one file at a time: the source JPEG, the
+  decoded RGB image (`3 * width * height` bytes), a metadata snapshot up to
+  64 MiB, the encoded output, and up to 12 cached encodings during a `--target`
+  search. Large images use proportionally more memory. See
+  [memory use](docs/compress.md#memory-use).
 - **Scrub** copies JPEG image data without recompression. `--gps` removes EXIF
   GPS only; `--privacy` removes supported location and identifier fields;
   `--all-metadata` removes descriptive metadata but keeps ICC profiles and

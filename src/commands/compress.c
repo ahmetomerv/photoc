@@ -28,6 +28,10 @@ typedef struct {
     photoc_progress *progress;   /* Borrowed; caller thread only. */
 } compress_walk;
 
+/* The target search caches each probe's encoded bytes so the chosen quality is
+   not encoded a second time.  The count is bounded; once full, later probes
+   are sized and released without being kept.  See the memory model in
+   docs/compress.md#memory-use. */
 enum { PROBE_CACHE_CAPACITY = 12 };
 
 typedef struct {

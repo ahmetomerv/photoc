@@ -123,6 +123,32 @@ successful copies in place. Originals remain unchanged. There is no promise
 to preserve filesystem ownership, permissions, ACLs, or extended attributes
 on new copies.
 
+## Memory use
+
+`compress` processes one input file at a time and reads the whole JPEG into
+memory instead of streaming it. For a single file the peak is roughly:
+
+| Part | Size |
+| --- | --- |
+| Source JPEG bytes | the whole compressed input, with no size cap |
+| Decoded RGB pixels | `3 * width * height` bytes |
+| Preserved metadata snapshot | up to **64 MiB**, including segment bookkeeping |
+| Final encoded JPEG | roughly the source size, and larger at high quality |
+| Target-search probe buffers | up to **12** encoded JPEGs (see below) |
+
+The source buffer is released after decoding, and the RGB buffer is released
+before the output is written, so these parts do not all peak at once; the table
+is a conservative upper bound. Directory mode processes files sequentially, so
+the peak applies to one file, not the whole directory.
+
+In `--target` mode the quality search encodes candidate qualities and keeps
+each result so the chosen quality is not encoded again. That cache holds at
+most **12** buffers; once full, later probes are sized and released without
+being kept. Because the RGB buffer and the probe buffers can each exceed the
+source, a large or high-quality image can need well over its own file size in
+memory. Fixed `--quality` mode has no probe cache, so the peak is the source,
+the RGB buffer, the metadata snapshot, and the one encoded output.
+
 ## Metadata preservation
 
 Both quality and target-size modes, including directory compression, preserve
