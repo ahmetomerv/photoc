@@ -10,9 +10,8 @@
 #include <unistd.h>
 
 enum { PROGRESS_DELAY_MS = 200, PROGRESS_RENDER_MS = 90 };
-/* Largest number of update calls between clock reads.  Bounded so a sudden
-   slowdown, such as compress moving from discovery to encoding, still redraws
-   within a few hundred milliseconds instead of a whole phase. */
+/* Largest number of steady-state update calls between clock reads. Phase
+   changes reset the stride so a slower phase samples the clock immediately. */
 enum { PROGRESS_CLOCK_STRIDE_MAX = 8 };
 static const char *const frames[] = {"⠋", "⠙", "⠹", "⠸", "⠼",
                                      "⠴", "⠦", "⠧", "⠇", "⠏"};
@@ -187,8 +186,7 @@ static void render(photoc_progress *progress)
     ++progress->frame;
     /* The calls and time since the previous visible render estimate the
        update rate: consult the clock often enough to keep redrawing at the
-       display cadence, but no more.  A slower phase lowers the stride, and
-       the cap bounds staleness if the rate suddenly changes. */
+       display cadence, but no more. Phase changes discard this estimate. */
     size_t stride = PROGRESS_CLOCK_STRIDE_MAX;
     if (elapsed != 0) {
         stride = (size_t)((uint64_t)progress->calls_since_render *
@@ -203,12 +201,26 @@ static void render(photoc_progress *progress)
     errno = saved_errno;
 }
 
+static void render_phase_change(photoc_progress *progress)
+{
+    progress->clock_stride = 1;
+    progress->calls_since_clock = 0;
+    /* Discard the previous phase's update-rate estimate so the new phase
+       starts sampling immediately. */
+    progress->calls_since_render = 0;
+    render(progress);
+    /* A phase change throttled by the display cadence still counts as a
+       render attempt inside render(); drop it so it does not bias the next
+       update-rate estimate. */
+    progress->calls_since_render = 0;
+}
+
 void photoc_progress_set_message(photoc_progress *progress, const char *message)
 {
     if (progress == NULL)
         return;
     progress->message = message;
-    render(progress);
+    render_phase_change(progress);
 }
 
 void photoc_progress_set_total(photoc_progress *progress, size_t total)
@@ -218,7 +230,7 @@ void photoc_progress_set_total(photoc_progress *progress, size_t total)
     progress->has_total = true;
     progress->total = total;
     progress->current = 0;
-    render(progress);
+    render_phase_change(progress);
 }
 
 void photoc_progress_update(photoc_progress *progress, size_t current)
