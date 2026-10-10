@@ -7,6 +7,7 @@
 #include "metadata_internal.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -119,6 +120,48 @@ static void test_without_exif(void)
     }
     photo_cleanup(&photo);
     free(path);
+}
+
+static void *fail_exif_allocation(size_t size)
+{
+    (void)size;
+    return NULL;
+}
+
+static void test_exif_capture_allocation_failure(void)
+{
+    char *path = fixture("with_exif.jpg");
+    char *without_exif = fixture("no_exif.jpg");
+    CHECK(path != NULL && without_exif != NULL);
+    if (path != NULL && without_exif != NULL) {
+        Photo photo = {0};
+        int free_descriptor = dup(STDERR_FILENO);
+        CHECK(free_descriptor >= 0);
+        if (free_descriptor >= 0) {
+            CHECK(close(free_descriptor) == 0);
+        }
+        errno = 0;
+        CHECK(photoc_metadata_load_with_exif_allocator(path, &photo,
+                                                       fail_exif_allocation) ==
+              PHOTOC_METADATA_NO_MEMORY);
+        CHECK(errno == ENOMEM);
+        if (free_descriptor >= 0) {
+            errno = 0;
+            CHECK(fcntl(free_descriptor, F_GETFD) == -1 && errno == EBADF);
+        }
+        CHECK(photo.path == NULL);
+        CHECK(photo.camera_make == NULL && photo.camera_model == NULL);
+        CHECK(photo.capture_timestamp == NULL);
+        CHECK(!photo.has_file_size && !photo.has_width && !photo.has_height);
+        photo_cleanup(&photo);
+
+        CHECK(photoc_metadata_load_with_exif_allocator(without_exif, &photo,
+                                                       fail_exif_allocation) ==
+              PHOTOC_METADATA_OK);
+        photo_cleanup(&photo);
+    }
+    free(path);
+    free(without_exif);
 }
 
 static void test_failures(void)
@@ -266,6 +309,7 @@ int main(void)
     test_memory_matches_file();
     test_with_gps();
     test_without_exif();
+    test_exif_capture_allocation_failure();
     test_failures();
     test_non_regular_and_empty();
     if (failures != 0) {
