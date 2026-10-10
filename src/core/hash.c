@@ -25,6 +25,7 @@
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) &&        \
     !defined(PHOTOC_SHA256_FORCE_SCALAR)
 #define PHOTOC_SHA256_X86 1
+#include <cpuid.h>
 #include <immintrin.h>
 #define PHOTOC_SHA256_TARGET __attribute__((target("sha,ssse3,sse4.1")))
 #endif
@@ -487,8 +488,20 @@ static bool sha256_runtime_acceleration(void)
     if (forced != NULL && forced[0] != '\0')
         return false;
 #if defined(PHOTOC_SHA256_X86)
+#if defined(__clang__)
+    /* Older Clang rejects the "sha" feature string for __builtin_cpu_supports,
+       so read the SHA bit (CPUID.7.0:EBX[29]) directly instead. */
+    unsigned int eax = 0;
+    unsigned int ebx = 0;
+    unsigned int ecx = 0;
+    unsigned int edx = 0;
+    if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) == 0)
+        return false;
+    return (ebx & (1u << 29)) != 0;
+#else
     __builtin_cpu_init();
     return __builtin_cpu_supports("sha") != 0;
+#endif
 #elif defined(PHOTOC_SHA256_ARM) && defined(__APPLE__)
     int value = 0;
     size_t length = sizeof(value);
