@@ -312,12 +312,62 @@ static void test_extended_statistics(void)
     photoc_stats_cleanup(&aggregate);
 }
 
+static void test_many_distinct_values(void)
+{
+    photoc_stats_aggregate aggregate;
+    photoc_stats_init(&aggregate);
+    enum { DISTINCT = 200 };
+    char model[16];
+    for (size_t i = 0; i < DISTINCT; ++i) {
+        snprintf(model, sizeof(model), "Cam%03zu", i);
+        add_photo(&aggregate, model, 1000 + i, true, 0, 0.0, 0.0, NULL);
+    }
+    CHECK(aggregate.camera_models.count == DISTINCT);
+
+    for (size_t i = 0; i < DISTINCT; i += 7) {
+        snprintf(model, sizeof(model), "Cam%03zu", i);
+        add_photo(&aggregate, model, 1000, true, 0, 0.0, 0.0, NULL);
+    }
+    CHECK(aggregate.camera_models.count == DISTINCT);
+    for (size_t i = 0; i < DISTINCT; ++i) {
+        snprintf(model, sizeof(model), "Cam%03zu", i);
+        size_t found = SIZE_MAX;
+        for (size_t j = 0; j < aggregate.camera_models.count; ++j) {
+            if (strcmp(aggregate.camera_models.items[j].value, model) == 0) {
+                found = j;
+                break;
+            }
+        }
+        CHECK(found != SIZE_MAX);
+        if (found != SIZE_MAX) {
+            CHECK(aggregate.camera_models.items[found].count ==
+                  (i % 7 == 0 ? 2u : 1u));
+        }
+    }
+
+    aggregate.camera_models.items[0].count = UINT64_MAX;
+    Photo overflow = {0};
+    CHECK(photo_init(&overflow, "overflow.jpg") == 0);
+    overflow.camera_model = copy_text(aggregate.camera_models.items[0].value);
+    CHECK(overflow.camera_model != NULL);
+    errno = 0;
+    CHECK(photoc_stats_add_photo(&aggregate, &overflow) == -1 &&
+          errno == EOVERFLOW);
+    CHECK(aggregate.camera_models.count == DISTINCT);
+    photo_cleanup(&overflow);
+
+    photoc_stats_sort(&aggregate);
+    CHECK(aggregate.camera_models.count == DISTINCT);
+    photoc_stats_cleanup(&aggregate);
+}
+
 int main(void)
 {
     test_aggregation();
     test_one_photo_and_missing_exif();
     test_errors();
     test_extended_statistics();
+    test_many_distinct_values();
     if (failures != 0) {
         fprintf(stderr, "%d aggregation test failure(s)\n", failures);
         return 1;
