@@ -204,6 +204,23 @@ class CompressMetadataTests(unittest.TestCase):
         self.assertIn("target cannot be reached", result.stderr)
         self.check_preserved(source, output)
 
+    def test_target_reuses_the_chosen_encode(self):
+        source = self.copy("all_metadata.jpg")
+        self.invoke("compress", source, "--quality", "60")
+        baseline = source.with_name(source.stem + ".compressed.jpg")
+        target = baseline.stat().st_size
+        baseline.unlink()
+        result = self.invoke("compress", source, "--target", target)
+        output = source.with_name(source.stem + ".compressed.jpg")
+        reused = output.read_bytes()
+        output.unlink()
+        quality = int(next(line.split(": ")[1] for line in result.stdout.splitlines()
+                           if line.startswith("Quality:")))
+        reference = self.copy("all_metadata.jpg", "reference.jpg")
+        self.invoke("compress", reference, "--quality", str(quality))
+        expected = reference.with_name("reference.compressed.jpg").read_bytes()
+        self.assertEqual(reused, expected)
+
     def test_malformed_icc_sequences_fail_without_publishing(self):
         cases = [ICC[:-1], ICC[:-1] + b"X\x01\x01data", ICC, ICC + b"\x01", ICC + b"\0\x01data", ICC + b"\x01\0data",
                  ICC + b"\x02\x01data", ICC + b"\x01\x02data", ICC + b"\x01\x01"]

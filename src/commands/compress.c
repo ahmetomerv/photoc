@@ -28,33 +28,77 @@ typedef struct {
     photoc_progress *progress;   /* Borrowed; caller thread only. */
 } compress_walk;
 
+enum { PROBE_CACHE_CAPACITY = 12 };
+
+typedef struct {
+    int quality;
+    photoc_jpeg_buffer buffer;
+} probe_cache_entry;
+
 typedef struct {
     const photoc_image *image;
     uint64_t metadata_overhead;
     photoc_image_result error;
     bool grayscale;
+    probe_cache_entry cache[PROBE_CACHE_CAPACITY];
+    size_t cache_count;
 } quality_probe_context;
+
+static photoc_jpeg_buffer *probe_cache_lookup(quality_probe_context *context,
+                                              int quality)
+{
+    for (size_t i = 0; i < context->cache_count; ++i) {
+        if (context->cache[i].quality == quality) {
+            return &context->cache[i].buffer;
+        }
+    }
+    return NULL;
+}
+
+static void probe_cache_clear(quality_probe_context *context)
+{
+    for (size_t i = 0; i < context->cache_count; ++i) {
+        photoc_jpeg_buffer_cleanup(&context->cache[i].buffer);
+    }
+    context->cache_count = 0;
+}
 
 static int probe_quality(int quality, uint64_t *size, void *user_data)
 {
     quality_probe_context *context = user_data;
-    photoc_jpeg_buffer encoded = {0};
-    context->error =
-        context->grayscale
-            ? photoc_image_encode_jpeg_grayscale(context->image, quality,
-                                                 &encoded)
-            : photoc_image_encode_jpeg(context->image, quality, &encoded);
-    if (context->error != PHOTOC_IMAGE_OK) {
-        errno = EIO;
-        return -1;
+    photoc_jpeg_buffer *cached = probe_cache_lookup(context, quality);
+    if (cached == NULL) {
+        photoc_jpeg_buffer encoded = {0};
+        context->error =
+            context->grayscale
+                ? photoc_image_encode_jpeg_grayscale(context->image, quality,
+                                                     &encoded)
+                : photoc_image_encode_jpeg(context->image, quality, &encoded);
+        if (context->error != PHOTOC_IMAGE_OK) {
+            errno = EIO;
+            return -1;
+        }
+        if (encoded.size > UINT64_MAX - context->metadata_overhead) {
+            photoc_jpeg_buffer_cleanup(&encoded);
+            errno = EOVERFLOW;
+            return -1;
+        }
+        if (context->cache_count >= PROBE_CACHE_CAPACITY) {
+            *size = (uint64_t)encoded.size + context->metadata_overhead;
+            photoc_jpeg_buffer_cleanup(&encoded);
+            return 0;
+        }
+        probe_cache_entry *entry = &context->cache[context->cache_count++];
+        entry->quality = quality;
+        entry->buffer = encoded;
+        *size = (uint64_t)entry->buffer.size + context->metadata_overhead;
+        return 0;
     }
-    if (encoded.size > UINT64_MAX - context->metadata_overhead) {
-        photoc_jpeg_buffer_cleanup(&encoded);
+    if (cached->size > UINT64_MAX - context->metadata_overhead) {
         errno = EOVERFLOW;
         return -1;
     }
-    *size = (uint64_t)encoded.size + context->metadata_overhead;
-    photoc_jpeg_buffer_cleanup(&encoded);
+    *size = (uint64_t)cached->size + context->metadata_overhead;
     return 0;
 }
 
@@ -209,12 +253,14 @@ static int compress_file(const char *path, const char *destination,
         return -1;
     }
     bool grayscale = photoc_jpeg_metadata_has_grayscale_icc(metadata);
+    quality_probe_context context = {
+        .image = &image, .error = PHOTOC_IMAGE_OK, .grayscale = grayscale};
     choice->quality = options->quality;
     choice->target_met = true;
+    photoc_jpeg_buffer encoded = {0};
     if (options->target_bytes != 0) {
-        uint64_t overhead = photoc_jpeg_metadata_output_overhead(metadata);
-        quality_probe_context context = {&image, overhead, PHOTOC_IMAGE_OK,
-                                         grayscale};
+        context.metadata_overhead =
+            photoc_jpeg_metadata_output_overhead(metadata);
         if (photoc_quality_search(options->target_bytes, options->min_quality,
                                   probe_quality, &context, choice) != 0) {
             photoc_progress_before_diagnostic(progress);
@@ -226,16 +272,27 @@ static int compress_file(const char *path, const char *destination,
                                                     : PHOTOC_ERR_IO,
                                     path, "quality search failed", errno);
             }
+            probe_cache_clear(&context);
             photoc_image_cleanup(&image);
             photoc_jpeg_metadata_free(metadata);
             return -1;
         }
+        photoc_jpeg_buffer *winning =
+            probe_cache_lookup(&context, choice->quality);
+        if (winning != NULL) {
+            encoded = *winning;
+            *winning = (photoc_jpeg_buffer){0};
+        }
     }
-    photoc_jpeg_buffer encoded = {0};
-    image_result =
-        grayscale ? photoc_image_encode_jpeg_grayscale(&image, choice->quality,
-                                                       &encoded)
-                  : photoc_image_encode_jpeg(&image, choice->quality, &encoded);
+    image_result = PHOTOC_IMAGE_OK;
+    if (encoded.data == NULL) {
+        image_result =
+            grayscale
+                ? photoc_image_encode_jpeg_grayscale(&image, choice->quality,
+                                                     &encoded)
+                : photoc_image_encode_jpeg(&image, choice->quality, &encoded);
+    }
+    probe_cache_clear(&context);
     photoc_image_cleanup(&image);
     if (image_result != PHOTOC_IMAGE_OK) {
         photoc_progress_before_diagnostic(progress);
