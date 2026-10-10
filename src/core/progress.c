@@ -205,8 +205,14 @@ static void render_phase_change(photoc_progress *progress)
 {
     progress->clock_stride = 1;
     progress->calls_since_clock = 0;
+    /* Discard the previous phase's update-rate estimate so the new phase
+       starts sampling immediately. */
     progress->calls_since_render = 0;
     render(progress);
+    /* A phase change throttled by the display cadence still counts as a
+       render attempt inside render(); drop it so it does not bias the next
+       update-rate estimate. */
+    progress->calls_since_render = 0;
 }
 
 void photoc_progress_set_message(photoc_progress *progress, const char *message)

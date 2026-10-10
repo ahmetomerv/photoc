@@ -215,5 +215,23 @@ int main(void)
     contents(file, buffer, sizeof(buffer));
     assert(strstr(buffer, "Slow phase... 2 / 4 (50%)") != NULL);
     fclose(file);
+
+    /* A phase change throttled by the display cadence must not leave its
+       call behind in the update-rate estimate; the next visible render
+       should measure only the calls that follow it. */
+    file = tmpfile();
+    assert(file != NULL);
+    now = 1000;
+    photoc_progress_init_test(&progress, file, true, PHOTOC_PROGRESS_AUTO,
+                              false, "First...", fake_clock, &now);
+    photoc_progress_start(&progress);
+    now = 1300;
+    photoc_progress_update(&progress, 1); /* First visible render. */
+    assert(progress.visible);
+    now = 1350; /* Within PROGRESS_RENDER_MS of the last render. */
+    photoc_progress_set_message(&progress, "Second...");
+    assert(progress.calls_since_render == 0);
+    assert(progress.clock_stride == 1);
+    fclose(file);
     return 0;
 }
