@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -126,7 +125,6 @@ void photoc_progress_init_test(photoc_progress *progress, FILE *stream,
                                   .message = message,
                                   .clock = clock == NULL ? monotonic_ms : clock,
                                   .clock_data = clock_data,
-                                  .delay_ms = PROGRESS_DELAY_MS,
                                   .enabled = mode == PHOTOC_PROGRESS_AUTO &&
                                              is_tty && !quiet};
 }
@@ -136,16 +134,6 @@ void photoc_progress_init(photoc_progress *progress, photoc_progress_mode mode,
 {
     photoc_progress_init_test(progress, stderr, isatty(STDERR_FILENO) != 0,
                               mode, quiet, message, NULL, NULL);
-    const char *override = getenv("PHOTOC_PROGRESS_DELAY_MS");
-    if (progress == NULL || override == NULL || override[0] < '0' ||
-        override[0] > '9') {
-        return;
-    }
-    char *end = NULL;
-    unsigned long long value = strtoull(override, &end, 10);
-    if (end != NULL && *end == '\0') {
-        progress->delay_ms = (uint64_t)value;
-    }
 }
 
 void photoc_progress_start(photoc_progress *progress)
@@ -164,7 +152,7 @@ static void render(photoc_progress *progress)
         return;
     int saved_errno = errno;
     uint64_t now = progress->clock(progress->clock_data);
-    if (now - progress->started_ms < progress->delay_ms ||
+    if (now - progress->started_ms < PROGRESS_DELAY_MS ||
         (progress->visible &&
          now - progress->last_render_ms < PROGRESS_RENDER_MS)) {
         errno = saved_errno;
