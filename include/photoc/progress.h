@@ -23,6 +23,15 @@ typedef struct {
     uint64_t started_ms;
     uint64_t last_render_ms;
     size_t frame;
+    /* Per-file updates call render, but the monotonic clock is only needed
+       often enough to match the display cadence.  `clock_stride` is the
+       number of update calls between clock reads; `calls_since_clock` counts
+       toward it and `calls_since_render` counts calls between visible renders
+       so the stride can track the update rate.  Starts at one so the first
+       files of a slow command still consult the clock every time. */
+    size_t clock_stride;
+    size_t calls_since_clock;
+    size_t calls_since_render;
     bool enabled;
     bool started;
     bool visible;

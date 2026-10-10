@@ -212,6 +212,20 @@ of decode/analysis buffers per worker. `check`, `compress`, and `contact` are
 still single-threaded. The corpus is synthetic, so use it for before/after
 comparisons rather than as a claim about a specific photo library.
 
+## Progress rendering
+
+`photoc_progress` samples the monotonic clock on TTY runs. The cost is small:
+`clock_gettime(CLOCK_MONOTONIC)` measured about 17 ns/call on the Apple
+Silicon host above, against roughly 20 µs per file for a warm `stats` scan
+(1000 files in 0.021 s), so a per-file clock read is around 0.08% of that
+workload. `src/core/progress.c` still limits the reads: after each visible
+render it derives a stride from the observed update rate so the clock is
+consulted only as often as the 90 ms display cadence needs, capped at eight
+calls, with one for sparse updates. Under a PTY this reduced `compress` redraws
+for a 64-file corpus from 24 to 4 with the same final summary and wall time
+(~0.25 s). The non-TTY benchmark scripts disable progress, so their numbers
+are unchanged within noise.
+
 ## Interpreting changes
 
 When comparing a future run:

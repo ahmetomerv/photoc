@@ -10,6 +10,10 @@
 #include <unistd.h>
 
 enum { PROGRESS_DELAY_MS = 200, PROGRESS_RENDER_MS = 90 };
+/* Largest number of update calls between clock reads.  Bounded so a sudden
+   slowdown, such as compress moving from discovery to encoding, still redraws
+   within a few hundred milliseconds instead of a whole phase. */
+enum { PROGRESS_CLOCK_STRIDE_MAX = 8 };
 static const char *const frames[] = {"⠋", "⠙", "⠹", "⠸", "⠼",
                                      "⠴", "⠦", "⠧", "⠇", "⠏"};
 static const char clear_line[] = "\r\033[K";
@@ -125,6 +129,7 @@ void photoc_progress_init_test(photoc_progress *progress, FILE *stream,
                                   .message = message,
                                   .clock = clock == NULL ? monotonic_ms : clock,
                                   .clock_data = clock_data,
+                                  .clock_stride = 1,
                                   .enabled = mode == PHOTOC_PROGRESS_AUTO &&
                                              is_tty && !quiet};
 }
@@ -143,6 +148,10 @@ void photoc_progress_start(photoc_progress *progress)
     int saved_errno = errno;
     progress->started = true;
     progress->started_ms = progress->clock(progress->clock_data);
+    progress->last_render_ms = progress->started_ms;
+    progress->clock_stride = 1;
+    progress->calls_since_clock = 0;
+    progress->calls_since_render = 0;
     errno = saved_errno;
 }
 
@@ -150,8 +159,13 @@ static void render(photoc_progress *progress)
 {
     if (progress == NULL || !progress->started || !progress->enabled)
         return;
+    ++progress->calls_since_render;
+    if (++progress->calls_since_clock < progress->clock_stride)
+        return;
+    progress->calls_since_clock = 0;
     int saved_errno = errno;
     uint64_t now = progress->clock(progress->clock_data);
+    uint64_t elapsed = now - progress->last_render_ms;
     if (now - progress->started_ms < PROGRESS_DELAY_MS ||
         (progress->visible &&
          now - progress->last_render_ms < PROGRESS_RENDER_MS)) {
@@ -171,6 +185,21 @@ static void render(photoc_progress *progress)
     progress->shown = true;
     progress->last_render_ms = now;
     ++progress->frame;
+    /* The calls and time since the previous visible render estimate the
+       update rate: consult the clock often enough to keep redrawing at the
+       display cadence, but no more.  A slower phase lowers the stride, and
+       the cap bounds staleness if the rate suddenly changes. */
+    size_t stride = PROGRESS_CLOCK_STRIDE_MAX;
+    if (elapsed != 0) {
+        stride = (size_t)((uint64_t)progress->calls_since_render *
+                          PROGRESS_RENDER_MS / elapsed);
+    }
+    if (stride < 1)
+        stride = 1;
+    if (stride > PROGRESS_CLOCK_STRIDE_MAX)
+        stride = PROGRESS_CLOCK_STRIDE_MAX;
+    progress->clock_stride = stride;
+    progress->calls_since_render = 0;
     errno = saved_errno;
 }
 

@@ -10,6 +10,18 @@ static uint64_t fake_clock(void *data)
     return *(uint64_t *)data;
 }
 
+typedef struct {
+    uint64_t now;
+    size_t calls;
+} clock_state;
+
+static uint64_t counting_clock(void *data)
+{
+    clock_state *state = data;
+    ++state->calls;
+    return state->now;
+}
+
 static size_t contents(FILE *file, char *buffer, size_t capacity)
 {
     fflush(file);
@@ -128,6 +140,52 @@ int main(void)
     photoc_progress_init_test(&progress, file, true, PHOTOC_PROGRESS_AUTO, true,
                               "Work", fake_clock, &now);
     assert(!progress.enabled);
+    fclose(file);
+
+    /* A sparse update stream consults the clock on every call and never
+       grows the stride, so slow commands still appear and finish. */
+    file = tmpfile();
+    assert(file != NULL);
+    clock_state slow = {0, 0};
+    photoc_progress_init_test(&progress, file, true, PHOTOC_PROGRESS_AUTO,
+                              false, "Slow...", counting_clock, &slow);
+    photoc_progress_start(&progress);
+    assert(slow.calls == 1);
+    slow.now = 200;
+    photoc_progress_update(&progress, 1);
+    assert(slow.calls == 2);
+    assert(progress.clock_stride == 1);
+    contents(file, buffer, sizeof(buffer));
+    assert(strstr(buffer, "Slow...") != NULL);
+    slow.now = 400;
+    photoc_progress_update(&progress, 2);
+    assert(slow.calls == 3);
+    assert(progress.clock_stride == 1);
+    fclose(file);
+
+    /* A fast update stream reads the clock once per capped stride instead of
+       once per file, while still redrawing at the display cadence. */
+    file = tmpfile();
+    assert(file != NULL);
+    clock_state fast = {0, 0};
+    photoc_progress_init_test(&progress, file, true, PHOTOC_PROGRESS_AUTO,
+                              false, "Fast...", counting_clock, &fast);
+    photoc_progress_start(&progress);
+    assert(fast.calls == 1);
+    for (size_t i = 1; i <= 1000; ++i)
+        photoc_progress_update(&progress, i); /* Clock stays at start. */
+    assert(fast.calls == 1001);
+    assert(progress.clock_stride == 1);
+    fast.now = 200;
+    photoc_progress_update(&progress, 1001);
+    assert(fast.calls == 1002);
+    assert(progress.clock_stride == 8);
+    contents(file, buffer, sizeof(buffer));
+    assert(strstr(buffer, "Fast...") != NULL);
+    size_t sampled = fast.calls;
+    for (size_t i = 0; i < 800; ++i)
+        photoc_progress_update(&progress, 1002 + i);
+    assert(fast.calls - sampled == 100);
     fclose(file);
     return 0;
 }
