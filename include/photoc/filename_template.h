@@ -16,6 +16,29 @@ typedef enum {
     PHOTOC_TEMPLATE_TOO_LONG
 } photoc_template_result;
 
+/* Compiled filename template. Opaque; produced by compile and released with
+   photoc_filename_template_free. A compiled template may be rendered many
+   times. */
+typedef struct photoc_filename_template photoc_filename_template;
+
+/* Parses pattern once into literal chunks and token references, so repeated
+   renders skip re-validation, token-name lookup, and literal sanitization.
+   On success *out owns a compiled template; on failure *out is NULL.
+   error_offset follows photoc_filename_template_validate. */
+photoc_template_result photoc_filename_template_compile(
+    const char *pattern, photoc_filename_template **out, size_t *error_offset);
+
+/* Renders a compiled template for one photo into a single pre-sized buffer.
+   Ownership and error semantics match photoc_filename_template_expand. */
+photoc_template_result
+photoc_filename_template_render(const photoc_filename_template *compiled,
+                                const Photo *photo, uint64_t sequence,
+                                unsigned int sequence_width, char **filename,
+                                size_t *error_offset);
+
+/* Releases a compiled template. NULL is accepted. */
+void photoc_filename_template_free(photoc_filename_template *compiled);
+
 /* Checks placeholder names and brace syntax without requiring a Photo.
    An invalid or unknown placeholder sets error_offset to its opening brace;
    otherwise error_offset is SIZE_MAX. */
