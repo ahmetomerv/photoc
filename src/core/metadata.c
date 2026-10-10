@@ -182,6 +182,8 @@ enum {
 typedef struct {
     unsigned char *data;
     unsigned int length;
+    void *(*allocate)(size_t);
+    bool no_memory;
 } exif_capture;
 
 /* Copies the first EXIF APP1 payload (including its "Exif\0\0" header) so the
@@ -197,9 +199,11 @@ static int capture_exif(unsigned char marker, const unsigned char *payload,
         length > EXIF_CAPTURE_LIMIT) {
         return 0;
     }
-    unsigned char *copy = malloc(length);
+    unsigned char *copy = capture->allocate(length);
     if (copy == NULL) {
-        return 0;
+        capture->no_memory = true;
+        errno = ENOMEM;
+        return -1;
     }
     memcpy(copy, payload, length);
     capture->data = copy;
@@ -222,9 +226,12 @@ static bool load_jpeg_exif(const unsigned char *data, unsigned int length,
     return ok;
 }
 
-photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
+photoc_metadata_result
+photoc_metadata_load_with_exif_allocator(const char *path, Photo *photo,
+                                         void *(*exif_alloc)(size_t))
 {
-    if (path == NULL || path[0] == '\0' || photo == NULL) {
+    if (path == NULL || path[0] == '\0' || photo == NULL ||
+        exif_alloc == NULL) {
         return PHOTOC_METADATA_INVALID_ARGUMENT;
     }
     photoc_photo_format format = photoc_format_from_path(path);
@@ -264,7 +271,7 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
     }
 
     Photo loaded = {0};
-    exif_capture capture = {0};
+    exif_capture capture = {.allocate = exif_alloc};
     photoc_metadata_result result = PHOTOC_METADATA_OK;
     if (photo_init(&loaded, path) != 0) {
         result = PHOTOC_METADATA_NO_MEMORY;
@@ -277,8 +284,12 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
             result = photoc_arw_load_metadata(file, size, &loaded);
         } else if (photoc_jpeg_inspect_app(file, &info, capture_exif,
                                            &capture) != 0) {
-            result = errno == EINVAL ? PHOTOC_METADATA_INVALID_JPEG
-                                     : PHOTOC_METADATA_IO_ERROR;
+            if (capture.no_memory) {
+                result = PHOTOC_METADATA_NO_MEMORY;
+            } else {
+                result = errno == EINVAL ? PHOTOC_METADATA_INVALID_JPEG
+                                         : PHOTOC_METADATA_IO_ERROR;
+            }
         } else {
             loaded.width = info.width;
             loaded.height = info.height;
@@ -303,6 +314,11 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
         errno = saved_errno;
     }
     return result;
+}
+
+photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
+{
+    return photoc_metadata_load_with_exif_allocator(path, photo, malloc);
 }
 
 const char *photo_metadata_result_message(photoc_metadata_result result)
