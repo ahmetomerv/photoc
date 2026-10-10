@@ -5,6 +5,7 @@
 
 #include "photoc/fs.h"
 #include "photoc/jpeg_metadata.h"
+#include "jpeg.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -244,6 +245,82 @@ static void test_memory_limit(const char *path)
     CHECK(metadata == NULL);
 }
 
+static bool build_large_scan(unsigned char **out, size_t *out_length)
+{
+    static const unsigned char header[] = {
+        0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x02,
+        0x00, 0x03, 0x01, 0x01, 0x11, 0x00, 0xff, 0xda, 0x00,
+        0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00};
+    static const size_t carries[] = {4095, 8191, 16383, 32767, 65535};
+    static const unsigned char restart[] = {0xff, 0xd0, 0xff, 0xd1, 0xff, 0xd2,
+                                            0xff, 0xd3, 0xff, 0xd4, 0xff, 0xd5,
+                                            0xff, 0xd6, 0xff, 0xd7};
+    enum { SCAN_BYTES = 140000 };
+    size_t header_length = sizeof(header);
+    size_t total = header_length + SCAN_BYTES + 2;
+    unsigned char *bytes = malloc(total);
+    if (bytes == NULL) {
+        return false;
+    }
+    memcpy(bytes, header, header_length);
+    for (size_t i = 0; i < SCAN_BYTES; ++i) {
+        bytes[header_length + i] = (unsigned char)((i * 7u) % 255u);
+    }
+    for (size_t i = 0; i < sizeof(carries) / sizeof(carries[0]); ++i) {
+        size_t at = header_length + carries[i];
+        bytes[at] = 0xff;
+        bytes[at + 1] = 0x00;
+    }
+    memcpy(bytes + header_length + 66000, restart, sizeof(restart));
+    bytes[header_length + 67000] = 0xff;
+    bytes[header_length + 67001] = 0xff;
+    bytes[header_length + 67002] = 0x00;
+    bytes[header_length + SCAN_BYTES] = 0xff;
+    bytes[header_length + SCAN_BYTES + 1] = 0xd9;
+    *out = bytes;
+    *out_length = total;
+    return true;
+}
+
+static void test_large_scan(const char *path)
+{
+    unsigned char *bytes = NULL;
+    size_t length = 0;
+    CHECK(build_large_scan(&bytes, &length));
+    if (bytes == NULL) {
+        return;
+    }
+    CHECK(write_file(path, bytes, length));
+    free(bytes);
+
+    FILE *file = fopen(path, "rb");
+    CHECK(file != NULL);
+    if (file != NULL) {
+        photoc_jpeg_info info;
+        CHECK(photoc_jpeg_inspect(file, &info) == 0);
+        CHECK(info.width == 3 && info.height == 2);
+        CHECK(info.components == 1 && info.scan_count == 1);
+        CHECK(info.exif_count == 0);
+        CHECK(fclose(file) == 0);
+    }
+
+    FILE *limited = fopen(path, "rb");
+    CHECK(limited != NULL);
+    if (limited != NULL) {
+        photoc_jpeg_info info;
+        errno = 0;
+        CHECK(photoc_jpeg_inspect_app_limited(limited, &info, NULL, NULL,
+                                              (uint64_t)length - 1) == -1);
+        CHECK(fclose(limited) == 0);
+    }
+
+    photoc_jpeg_metadata *metadata = NULL;
+    CHECK(photoc_jpeg_metadata_load_copy(path, &metadata) ==
+          PHOTOC_JPEG_EDIT_OK);
+    CHECK(photoc_jpeg_metadata_output_overhead(metadata) == 0);
+    photoc_jpeg_metadata_free(metadata);
+}
+
 int main(void)
 {
     char directory[] = "photoc-marker-test-XXXXXX";
@@ -275,6 +352,7 @@ int main(void)
         test_output_verification(destination);
         test_truncation_and_lengths(path);
         test_memory_limit(path);
+        test_large_scan(path);
         CHECK(unlink(path) == 0);
     }
     free(path);

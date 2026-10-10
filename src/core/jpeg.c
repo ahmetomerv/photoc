@@ -35,31 +35,54 @@ static int header_marker(FILE *file, uint64_t limit)
     return value == 0x00 ? -1 : value;
 }
 
+enum { SCAN_BUFFER_SIZE = 16384 };
+
 static int scan_marker(FILE *file, uint64_t limit)
 {
     off_t offset = ftello(file);
-    if (offset < 0)
+    if (offset < 0) {
         return -1;
+    }
     uint64_t position = (uint64_t)offset;
-    int value;
-    while (position < limit && (value = fgetc(file)) != EOF) {
-        ++position;
-        if (value != 0xff) {
-            continue;
+    unsigned char buffer[SCAN_BUFFER_SIZE];
+    bool pending_ff = false;
+    while (position < limit) {
+        uint64_t remaining = limit - position;
+        size_t want =
+            remaining < sizeof(buffer) ? (size_t)remaining : sizeof(buffer);
+        size_t got = fread(buffer, 1, want, file);
+        if (got == 0) {
+            return -1;
         }
-        do {
-            if (position >= limit)
+        size_t index = 0;
+        while (index < got) {
+            if (!pending_ff) {
+                const unsigned char *found =
+                    memchr(buffer + index, 0xff, got - index);
+                if (found == NULL) {
+                    break;
+                }
+                index = (size_t)(found - buffer) + 1;
+                pending_ff = true;
+                continue;
+            }
+            unsigned char value = buffer[index++];
+            if (value == 0xff) {
+                continue;
+            }
+            if (value == 0x00 || (value >= 0xd0 && value <= 0xd7)) {
+                pending_ff = false;
+                continue;
+            }
+            if (fseeko(file, (off_t)(position + index), SEEK_SET) != 0) {
                 return -1;
-            value = fgetc(file);
-            ++position;
-        } while (value == 0xff);
-        if (value == EOF) {
-            break;
+            }
+            return (int)value;
         }
-        if (value == 0x00 || (value >= 0xd0 && value <= 0xd7)) {
-            continue;
+        position += got;
+        if (got < want) {
+            return -1;
         }
-        return value;
     }
     return -1;
 }
