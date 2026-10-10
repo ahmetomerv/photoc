@@ -1,52 +1,77 @@
-# photoc 0.6.0
+# photoc 0.7.0
 
-This release adds interactive JPEG review. Browse a shoot in the terminal,
-inspect metadata and sharpness, and save picked or rejected marks without
-changing the photos.
+This release focuses on performance and correctness. Scans, hashing, contact
+sheets, compression, metadata reads, and interactive review all do less work
+for the same results. There are no new commands and no changes to command
+options, exit codes, or JSON schemas.
 
-## Changes since 0.5.0
+## Changes since 0.6.0
 
-- Added `photoc review <directory>` with keyboard navigation, pick (`p`),
-  reject (`x`), unmark (`u`), metadata detail (`i`), help (`?`), and quit (`q`).
-  Letter keys accept either case. The action keys have prominent labels and
-  colors that can be disabled with `NO_COLOR=1`.
-- Added flat or recursive JPEG discovery, deterministic name or capture-date
-  ordering, and `--show all|unmarked|picked|rejected` navigation filters.
-  Counts always cover the full discovered collection.
-- Added a versioned `.photoc-review.json` state file with atomic saves after
-  each changed mark. Review resumes saved selections, retains entries for
-  temporarily absent photos, and refuses malformed or wrong-root state files.
-- Added `--images auto|iterm|none`. Auto mode uses inline JPEG display in a
-  confidently detected direct iTerm2 session and otherwise uses text only.
-  `iterm` forces protocol output but cannot make an unsupported terminal show
-  images; `none` keeps the metadata and controls without an image. Sharpness
-  is computed when first needed and cached for the session.
-- Improved iTerm2 review navigation with bounded in-memory JPEG previews and
-  idle preparation of adjacent photos. Resize bursts redraw after the window
-  settles. ICC-profiled photos retain original-byte display, and source JPEGs
-  remain unchanged.
-- Added review coverage for state safety, unusual filenames, ordering, image
-  encoding, terminal restoration, and interactive navigation. Updated help,
-  the man page, command guide, and shell completions.
+### Performance
+
+- SHA-256 now dispatches at runtime to the CPU's SHA extensions: Intel SHA-NI
+  on x86_64 and ARMv8 SHA-2 on AArch64, with the scalar path as the fallback.
+  Set `PHOTOC_SHA256_FORCE_SCALAR` in the environment (or define it when
+  compiling) to force the scalar path. Digests are unchanged.
+- `duplicates` reads 64-byte prefixes for large same-size cohorts through the
+  thread pool, keeping the full hashes for actual matches.
+- `contact` decodes each source at roughly thumbnail scale instead of up to
+  4096 px, while still admitting TurboJPEG's coarsest 1/8 scale for large
+  sources. Thumbnails are unchanged; large sources still render.
+- `compress` reads the source JPEG once for both metadata and decoding, and
+  reuses the chosen encode from a `--target` search instead of re-encoding.
+- `image` decoding reuses one TurboJPEG handle across a batch instead of
+  creating and destroying one per file.
+- `rename` precompiles the `--format` template once per command and renders
+  each entry from it rather than re-parsing per photo.
+- `stats` uses an indexed lookup for distribution buckets instead of linear
+  scans once a table grows.
+- JPEG metadata inspection reads EXIF in the single file pass, and entropy
+  data is block-scanned rather than read one byte at a time.
+- `focus` scores photos in parallel.
+- The progress display samples the monotonic clock only as often as the
+  90 ms redraw cadence needs, while slow and changing phases still update
+  promptly.
+
+### Fixes
+
+- SHA-256 acceleration now requires every instruction-set feature the
+  accelerated block function uses (SHA, SSSE3, and SSE4.1) before it is
+  selected. This prevents `SIGILL` on CPUs or VMs that expose SHA while
+  masking SSSE3 or SSE4.1.
+- EXIF capture allocation failures are now reported as metadata errors
+  instead of silently dropping fields.
+- The progress update-rate estimate is reset correctly across phase changes.
+
+### Tests and documentation
+
+- Added contact-sheet checks for thumbnail detail, scale, orientation,
+  cropping, and blank tiles at both thumbnail-size extremes and for sources
+  beyond the old decode cap.
+- Added scalar-vs-accelerated hashing coverage, a compress output golden, and
+  deterministic progress rendering in the CLI tests.
+- Documents `compress` peak memory and the probe cache bound.
 
 ## Compatibility and safety
 
-`review` requires a directory and interactive stdin and stdout. It supports
-JPEG files only, does not support `--json`, and never edits, moves, or deletes
-photos. Its only persistent write is the separate review-state JSON file.
-Existing commands, JSON schemas, and runtime dependencies are unchanged.
-Review supports macOS and Linux terminals; inline images use iTerm2's protocol,
-with a text-only fallback elsewhere. See the [review guide](https://github.com/ahmetomerv/photoc/blob/v0.6.0/docs/review.md)
-for controls, state behavior, and terminal limits.
+No command, option, exit code, or JSON schema changed in this release, and the
+runtime dependencies are unchanged. The SHA-256 acceleration is a transparent
+speedup with a scalar fallback, so files hash to the same digests on every CPU.
+
+File-safety behavior is unchanged: `rename` and `sort` preview unless `--apply`
+is given; `compress`, `contact`, and `scrub` write new copies and never
+overwrite unrelated files; `scrub --in-place` still replaces originals with no
+backup; `review` writes only its separate state file and never changes JPEGs.
+See the [file-safety table](https://github.com/ahmetomerv/photoc/blob/v0.7.0/README.md#file-safety).
 
 ## Upgrading
 
 Installed copies do not update automatically. Follow the
-[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.6.0/docs/installation.md#upgrading)
+[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.7.0/docs/installation.md#upgrading)
 to replace an owned release installation. Homebrew users can upgrade after
 the tap formula has been updated for this release. Source installations should
 be rebuilt and reinstalled from the new tag. Verify with `photoc --version`,
-which should print `photoc 0.6.0`.
+which should print `photoc 0.7.0`.
 
 ## Downloads and requirements
 
@@ -70,5 +95,5 @@ platform's archive and executable. Verify downloaded files with
 `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
 `sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that directory.
 
-See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.6.0/docs/installation.md)
+See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.7.0/docs/installation.md)
 for the checksum-verified release installer and safe uninstall flow.
