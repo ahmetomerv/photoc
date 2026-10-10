@@ -1,4 +1,4 @@
-# photoc 0.7.0
+# photoc 0.7.1
 
 This release focuses on performance and correctness. Scans, hashing, contact
 sheets, compression, metadata reads, and interactive review all do less work
@@ -35,6 +35,9 @@ options, exit codes, or JSON schemas.
 
 ### Fixes
 
+- A shared JPEG decode context now re-creates its TurboJPEG handle after a
+  rejected header or decode, so a batch keeps working after one bad file on
+  older libjpeg-turbo releases (for example Ubuntu 22.04's 2.1.2).
 - SHA-256 acceleration now requires every instruction-set feature the
   accelerated block function uses (SHA, SSSE3, and SSE4.1) before it is
   selected. This prevents `SIGILL` on CPUs or VMs that expose SHA while
@@ -62,16 +65,16 @@ File-safety behavior is unchanged: `rename` and `sort` preview unless `--apply`
 is given; `compress`, `contact`, and `scrub` write new copies and never
 overwrite unrelated files; `scrub --in-place` still replaces originals with no
 backup; `review` writes only its separate state file and never changes JPEGs.
-See the [file-safety table](https://github.com/ahmetomerv/photoc/blob/v0.7.0/README.md#file-safety).
+See the [file-safety table](https://github.com/ahmetomerv/photoc/blob/v0.7.1/README.md#file-safety).
 
 ## Upgrading
 
 Installed copies do not update automatically. Follow the
-[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.7.0/docs/installation.md#upgrading)
+[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.7.1/docs/installation.md#upgrading)
 to replace an owned release installation. Homebrew users can upgrade after
 the tap formula has been updated for this release. Source installations should
 be rebuilt and reinstalled from the new tag. Verify with `photoc --version`,
-which should print `photoc 0.7.0`.
+which should print `photoc 0.7.1`.
 
 ## Downloads and requirements
 
@@ -95,5 +98,5 @@ platform's archive and executable. Verify downloaded files with
 `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
 `sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that directory.
 
-See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.7.0/docs/installation.md)
+See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.7.1/docs/installation.md)
 for the checksum-verified release installer and safe uninstall flow.
