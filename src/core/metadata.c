@@ -4,7 +4,6 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "photoc/photo.h"
-#include "photoc/fs.h"
 #include "jpeg.h"
 #include "metadata_internal.h"
 
@@ -174,13 +173,52 @@ bool photoc_metadata_read_exif(ExifData *data, Photo *photo)
     return ok;
 }
 
-static bool load_jpeg_exif(const char *path, Photo *photo)
+enum {
+    EXIF_APP1_MARKER = 0xe1,
+    EXIF_HEADER_LENGTH = 6,
+    EXIF_CAPTURE_LIMIT = 1024 * 1024
+};
+
+typedef struct {
+    unsigned char *data;
+    unsigned int length;
+} exif_capture;
+
+/* Copies the first EXIF APP1 payload (including its "Exif\0\0" header) so the
+   file needs only this single inspection pass. */
+static int capture_exif(unsigned char marker, const unsigned char *payload,
+                        unsigned int length, bool after_scan, void *user_data)
 {
-    ExifData *data = exif_data_new_from_file(path);
-    if (data == NULL)
+    (void)after_scan;
+    exif_capture *capture = user_data;
+    if (capture->data != NULL || marker != EXIF_APP1_MARKER ||
+        length < EXIF_HEADER_LENGTH ||
+        memcmp(payload, "Exif\0\0", EXIF_HEADER_LENGTH) != 0 ||
+        length > EXIF_CAPTURE_LIMIT) {
+        return 0;
+    }
+    unsigned char *copy = malloc(length);
+    if (copy == NULL) {
+        return 0;
+    }
+    memcpy(copy, payload, length);
+    capture->data = copy;
+    capture->length = length;
+    return 0;
+}
+
+static bool load_jpeg_exif(const unsigned char *data, unsigned int length,
+                           Photo *photo)
+{
+    if (data == NULL || length == 0) {
         return true; /* A JPEG need not carry EXIF. */
-    bool ok = photoc_metadata_read_exif(data, photo);
-    exif_data_unref(data);
+    }
+    ExifData *exif = exif_data_new_from_data(data, length);
+    if (exif == NULL) {
+        return true;
+    }
+    bool ok = photoc_metadata_read_exif(exif, photo);
+    exif_data_unref(exif);
     return ok;
 }
 
@@ -194,13 +232,13 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
         return PHOTOC_METADATA_UNSUPPORTED_FORMAT;
     }
 
-    uint64_t size;
-    if (photoc_fs_file_size(path, &size) != 0) {
+    int descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
+    if (descriptor < 0) {
+        if (errno == ELOOP) {
+            errno = EINVAL; /* Symlinks are refused, as before. */
+        }
         return PHOTOC_METADATA_IO_ERROR;
     }
-    int descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
-    if (descriptor < 0)
-        return PHOTOC_METADATA_IO_ERROR;
     struct stat file_info;
     if (fstat(descriptor, &file_info) != 0) {
         int saved_errno = errno;
@@ -209,11 +247,14 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
         return PHOTOC_METADATA_IO_ERROR;
     }
     if (!S_ISREG(file_info.st_mode) || file_info.st_size < 0) {
+        int error = S_ISDIR(file_info.st_mode) ? EISDIR
+                    : file_info.st_size < 0    ? EOVERFLOW
+                                               : EINVAL;
         close(descriptor);
-        errno = EINVAL;
+        errno = error;
         return PHOTOC_METADATA_IO_ERROR;
     }
-    size = (uint64_t)file_info.st_size;
+    uint64_t size = (uint64_t)file_info.st_size;
     FILE *file = fdopen(descriptor, "rb");
     if (file == NULL) {
         int saved_errno = errno;
@@ -223,6 +264,7 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
     }
 
     Photo loaded = {0};
+    exif_capture capture = {0};
     photoc_metadata_result result = PHOTOC_METADATA_OK;
     if (photo_init(&loaded, path) != 0) {
         result = PHOTOC_METADATA_NO_MEMORY;
@@ -233,7 +275,8 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
         photoc_jpeg_info info;
         if (format == PHOTOC_FORMAT_SONY_ARW) {
             result = photoc_arw_load_metadata(file, size, &loaded);
-        } else if (photoc_jpeg_inspect(file, &info) != 0) {
+        } else if (photoc_jpeg_inspect_app(file, &info, capture_exif,
+                                           &capture) != 0) {
             result = errno == EINVAL ? PHOTOC_METADATA_INVALID_JPEG
                                      : PHOTOC_METADATA_IO_ERROR;
         } else {
@@ -249,9 +292,10 @@ photoc_metadata_result photo_load_metadata(const char *path, Photo *photo)
         saved_errno = errno;
     }
     if (result == PHOTOC_METADATA_OK && format == PHOTOC_FORMAT_JPEG &&
-        !load_jpeg_exif(path, &loaded)) {
+        !load_jpeg_exif(capture.data, capture.length, &loaded)) {
         result = PHOTOC_METADATA_NO_MEMORY;
     }
+    free(capture.data);
     if (result == PHOTOC_METADATA_OK) {
         *photo = loaded;
     } else {
