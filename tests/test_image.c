@@ -101,6 +101,54 @@ int main(void)
         CHECK(memcmp(from_buffer.pixels, image.pixels, image.pixel_bytes) == 0);
     }
     photoc_image_cleanup(&from_buffer);
+
+    /* A reusable decode context must match the plain decoders and stay usable
+       after a failed decode, so a batch can share one handle. */
+    photoc_image_decoder *decoder = photoc_image_decoder_create();
+    CHECK(decoder != NULL);
+    photoc_image context_image = {0};
+    CHECK(photoc_image_decode_jpeg_with(decoder, source, &context_image) ==
+          PHOTOC_IMAGE_OK);
+    CHECK(context_image.width == image.width &&
+          context_image.height == image.height);
+    CHECK(context_image.pixels != NULL && image.pixels != NULL);
+    if (context_image.pixels != NULL && image.pixels != NULL) {
+        CHECK(memcmp(context_image.pixels, image.pixels, image.pixel_bytes) ==
+              0);
+    }
+    photoc_image context_rejected = {0};
+    CHECK(photoc_image_decode_jpeg_scaled_bounded_with(decoder, source, 4096, 1,
+                                                       &context_rejected) ==
+          PHOTOC_IMAGE_TOO_LARGE);
+    CHECK(context_rejected.pixels == NULL);
+    photoc_image context_scaled = {0};
+    CHECK(photoc_image_decode_jpeg_scaled_bounded_with(
+              decoder, source, 4096, 67108864, &context_scaled) ==
+          PHOTOC_IMAGE_OK);
+    CHECK(context_scaled.width == image.width &&
+          context_scaled.height == image.height);
+    photoc_image context_buffer = {0};
+    CHECK(photoc_image_decode_jpeg_buffer_with(
+              decoder, bytes, length, &context_buffer) == PHOTOC_IMAGE_OK);
+    CHECK(context_buffer.pixels != NULL);
+    photoc_image context_failed = {0};
+    CHECK(photoc_image_decode_jpeg_with(decoder, invalid, &context_failed) ==
+          PHOTOC_IMAGE_INVALID_JPEG);
+    CHECK(context_failed.pixels == NULL);
+    photoc_image context_after = {0};
+    CHECK(photoc_image_decode_jpeg_with(decoder, source, &context_after) ==
+          PHOTOC_IMAGE_OK);
+    /* A NULL context falls back to a temporary handle. */
+    photoc_image context_null = {0};
+    CHECK(photoc_image_decode_jpeg_with(NULL, source, &context_null) ==
+          PHOTOC_IMAGE_OK);
+    photoc_image_cleanup(&context_null);
+    photoc_image_cleanup(&context_after);
+    photoc_image_cleanup(&context_buffer);
+    photoc_image_cleanup(&context_scaled);
+    photoc_image_cleanup(&context_image);
+    photoc_image_decoder_destroy(decoder);
+    photoc_image_decoder_destroy(NULL);
     free(bytes);
 
     photoc_image rejected = {0};
