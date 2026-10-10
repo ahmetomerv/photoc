@@ -20,8 +20,8 @@ newer formula version with `brew upgrade`.
 Follow [Releasing photoc](releasing.md) from a clean photoc checkout. In short:
 
 1. Bump `VERSION` and update `docs/release-notes.md` and any dependency notices.
-2. Build and run CTest, commit and push to `main`, then confirm CI passed for
-   that exact commit.
+2. Build and run CTest, merge the release pull request into `main`, then
+   confirm CI passed for that exact merged commit.
 3. Create and push the matching annotated `vX.Y.Z` tag.
 4. Wait for the Release workflow to publish the GitHub release. Confirm it is
    neither a draft nor a prerelease, that its builds succeeded, and that the
