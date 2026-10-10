@@ -179,13 +179,16 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
     return result;
 }
 
-static photoc_image_result decode_jpeg_bytes(tjhandle handle,
+static photoc_image_result decode_jpeg_bytes(photoc_image_decoder *decoder,
                                              const unsigned char *bytes,
                                              unsigned long length,
                                              uint32_t max_dimension,
                                              photoc_image *out)
 {
     *out = (photoc_image){0};
+    if (decoder->handle == NULL)
+        return PHOTOC_IMAGE_CODEC_ERROR;
+    tjhandle handle = decoder->handle;
     int width = 0;
     int height = 0;
     photoc_image_result result =
@@ -259,6 +262,13 @@ static photoc_image_result decode_jpeg_bytes(tjhandle handle,
     }
     if (result != PHOTOC_IMAGE_OK) {
         free(pixels);
+        /* Older TurboJPEG releases leave a handle permanently failed after a
+           rejected header or decode. Re-create it so a batch context survives
+           one bad file; other failures leave the handle usable. */
+        if (result == PHOTOC_IMAGE_INVALID_JPEG) {
+            tjDestroy(decoder->handle);
+            decoder->handle = tjInitDecompress();
+        }
         return result;
     }
     *out = (photoc_image){(uint32_t)width, (uint32_t)height, stride,
@@ -291,8 +301,7 @@ static photoc_image_result decode_jpeg_using(photoc_image_decoder *decoder,
     photoc_image_result result =
         read_file(path, &bytes, &length, max_file_bytes);
     if (result == PHOTOC_IMAGE_OK) {
-        result = decode_jpeg_bytes(decoder->handle, bytes, length,
-                                   max_dimension, out);
+        result = decode_jpeg_bytes(decoder, bytes, length, max_dimension, out);
         free(bytes);
     }
     photoc_image_decoder_destroy(temporary);
@@ -323,7 +332,7 @@ static photoc_image_result decode_buffer_using(photoc_image_decoder *decoder,
         decoder = temporary;
     }
     photoc_image_result result =
-        decode_jpeg_bytes(decoder->handle, bytes, jpeg_length, 0, out);
+        decode_jpeg_bytes(decoder, bytes, jpeg_length, 0, out);
     photoc_image_decoder_destroy(temporary);
     return result;
 }
