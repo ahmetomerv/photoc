@@ -133,21 +133,23 @@ memory instead of streaming it. For a single file the peak is roughly:
 | Source JPEG bytes | the whole compressed input, with no size cap |
 | Decoded RGB pixels | `3 * width * height` bytes |
 | Preserved metadata snapshot | up to **64 MiB**, including segment bookkeeping |
-| Final encoded JPEG | roughly the source size, and larger at high quality |
-| Target-search probe buffers | up to **12** encoded JPEGs (see below) |
+| Encoded JPEG buffers | one in fixed-quality mode; in target mode, one retained winner plus one candidate briefly during a probe |
 
 The source buffer is released after decoding, and the RGB buffer is released
 before the output is written, so these parts do not all peak at once; the table
 is a conservative upper bound. Directory mode processes files sequentially, so
 the peak applies to one file, not the whole directory.
 
-In `--target` mode the quality search encodes candidate qualities and keeps
-each result so the chosen quality is not encoded again. That cache holds at
-most **12** buffers; once full, later probes are sized and released without
-being kept. Because the RGB buffer and the probe buffers can each exceed the
-source, a large or high-quality image can need well over its own file size in
-memory. Fixed `--quality` mode has no probe cache, so the peak is the source,
-the RGB buffer, the metadata snapshot, and the one encoded output.
+In `--target` mode the quality search retains the minimum-quality encode as a
+fallback, then replaces it whenever a higher quality fits the target. It frees
+non-fitting candidates and superseded winners promptly. At most **one**
+completed probe is retained between encodes; while a new candidate is being
+evaluated, it can briefly coexist with the retained one. The chosen encode is
+then used as the final output without encoding it again. Because the RGB buffer
+and either encoded buffer can each exceed the source, a large or high-quality
+image can need well over its own file size in memory. Fixed `--quality` mode
+has no probe cache, so the peak is the source, the RGB buffer, the metadata
+snapshot, and the one encoded output.
 
 ## Metadata preservation
 

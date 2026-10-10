@@ -119,6 +119,7 @@ add_executable(photoc
     src/core/cli.c
     src/commands/check.c
     src/commands/compress.c
+    src/commands/compress_probe.c
     src/commands/contact.c
     src/commands/duplicates.c
     src/commands/exif.c
@@ -376,6 +377,16 @@ if(BUILD_TESTING)
     target_link_libraries(test_quality_search PRIVATE photoc_core)
     add_test(NAME quality_search COMMAND test_quality_search)
 
+    add_executable(test_compress_probe
+        tests/test_compress_probe.c
+        src/commands/compress_probe.c)
+    photoc_configure_c_target(test_compress_probe)
+    target_include_directories(test_compress_probe PRIVATE src/commands)
+    target_link_libraries(test_compress_probe PRIVATE photoc_core)
+    target_compile_definitions(test_compress_probe PRIVATE
+        PHOTOC_COMPRESS_PROBE_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg/sharp.jpg")
+    add_test(NAME compress_probe_memory COMMAND test_compress_probe)
+
     add_executable(test_filename_template tests/test_filename_template.c)
     photoc_configure_c_target(test_filename_template)
     target_link_libraries(test_filename_template PRIVATE photoc_core)
@@ -609,7 +620,7 @@ if(BUILD_TESTING)
         )
     endforeach()
 
-    foreach(case IN ITEMS reachable reachable_exif unreachable max_fits
+    foreach(case IN ITEMS reachable reachable_exif reachable_gray unreachable max_fits
                           collision quality_conflict min_without_target
                           invalid_target invalid_min missing_target
                           duplicate_target directory)

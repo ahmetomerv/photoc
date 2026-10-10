@@ -237,8 +237,9 @@ Important details:
   [metadata preservation](docs/compress.md#metadata-preservation).
 - **Compress memory** scales with one file at a time: the source JPEG, the
   decoded RGB image (`3 * width * height` bytes), a metadata snapshot up to
-  64 MiB, the encoded output, and up to 12 cached encodings during a `--target`
-  search. Large images use proportionally more memory. See
+  64 MiB, and the encoded output. A `--target` search retains one winning
+  encode between probes; a new candidate can briefly coexist with it. Large
+  images use proportionally more memory. See
   [memory use](docs/compress.md#memory-use).
 - **Scrub** copies JPEG image data without recompression. `--gps` removes EXIF
   GPS only; `--privacy` removes supported location and identifier fields;

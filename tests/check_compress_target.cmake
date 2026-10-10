@@ -9,6 +9,8 @@ file(MAKE_DIRECTORY "${root}")
 set(fixture "${FIXTURE_DIR}/no_exif.jpg")
 if(CASE STREQUAL "reachable_exif")
     set(fixture "${FIXTURE_DIR}/with_gps.jpeg")
+elseif(CASE STREQUAL "reachable_gray")
+    set(fixture "${CMAKE_CURRENT_LIST_DIR}/fixtures/jpeg_metadata/gray_icc.jpg")
 endif()
 set(source "${root}/photo.jpg")
 set(output "${root}/photo.compressed.jpg")
@@ -19,7 +21,8 @@ set(expected_exit 0)
 set(expected_error "")
 set(expect_output TRUE)
 set(arguments compress "${source}")
-if(CASE STREQUAL "reachable" OR CASE STREQUAL "reachable_exif")
+if(CASE STREQUAL "reachable" OR CASE STREQUAL "reachable_exif" OR
+   CASE STREQUAL "reachable_gray")
     file(COPY_FILE "${fixture}" "${root}/baseline.jpg")
     execute_process(COMMAND "${PHOTOC}" compress "${root}/baseline.jpg" --quality 60
         RESULT_VARIABLE baseline_exit ERROR_VARIABLE baseline_error)
@@ -140,7 +143,25 @@ if(expect_output)
         message(FATAL_ERROR "Missing achieved size or quality: ${stdout}")
     endif()
     set(achieved_quality "${CMAKE_MATCH_1}")
-    if(CASE STREQUAL "reachable" OR CASE STREQUAL "reachable_exif")
+    if(CASE STREQUAL "reachable" OR CASE STREQUAL "reachable_exif" OR
+       CASE STREQUAL "reachable_gray" OR CASE STREQUAL "unreachable" OR
+       CASE STREQUAL "max_fits")
+        file(COPY_FILE "${fixture}" "${root}/direct.jpg")
+        execute_process(COMMAND "${PHOTOC}" compress "${root}/direct.jpg"
+                        --quality "${achieved_quality}"
+            RESULT_VARIABLE direct_exit ERROR_VARIABLE direct_error)
+        if(NOT direct_exit EQUAL 0 OR NOT direct_error STREQUAL "")
+            message(FATAL_ERROR "Direct quality encode failed: ${direct_error}")
+        endif()
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E compare_files "${output}"
+                                "${root}/direct.compressed.jpg"
+            RESULT_VARIABLE compare_exit)
+        if(NOT compare_exit EQUAL 0)
+            message(FATAL_ERROR "Target output differs from direct quality ${achieved_quality} encode")
+        endif()
+    endif()
+    if(CASE STREQUAL "reachable" OR CASE STREQUAL "reachable_exif" OR
+       CASE STREQUAL "reachable_gray")
         if(actual_size GREATER target_size OR achieved_quality LESS 60 OR
            NOT stdout MATCHES "Target met: yes")
             message(FATAL_ERROR "Search missed reachable target: ${stdout}")
