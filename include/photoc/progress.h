@@ -22,7 +22,6 @@ typedef struct {
     size_t total;
     uint64_t started_ms;
     uint64_t last_render_ms;
-    uint64_t delay_ms; /* Show delay before the first frame. */
     size_t frame;
     bool enabled;
     bool started;
