@@ -23,6 +23,8 @@
    a large same-size cohort does not allocate megabytes of prefix storage. */
 enum { DUPLICATE_PREFIX_BYTES = 64 };
 enum { PATH_ARENA_CHUNK = 65536 };
+/* Below this cohort size a prefix read batch is not worth pool startup. */
+enum { PREFIX_PARALLEL_MIN = 8 };
 
 /* SHA-256 of an empty message (FIPS 180-4). */
 static const unsigned char empty_sha256[PHOTOC_SHA256_DIGEST_SIZE] = {
@@ -274,6 +276,31 @@ static int read_file_prefix(const char *path, unsigned char *buffer,
     return 0;
 }
 
+typedef struct {
+    find_context *context;
+    size_t start;
+    size_t prefix_cap;
+    unsigned char *prefix_bytes;
+    prefix_entry *entries;
+    int *errors; /* Per index; 0 after a successful read. */
+} prefix_batch;
+
+static void read_prefix_task(size_t index, void *user_data)
+{
+    prefix_batch *batch = user_data;
+    file_record *file = &batch->context->files[batch->start + index];
+    unsigned char *prefix = batch->prefix_bytes + index * batch->prefix_cap;
+    size_t length = 0;
+    if (read_file_prefix(file->path, prefix, batch->prefix_cap, &length) != 0) {
+        batch->errors[index] = errno;
+        return;
+    }
+    batch->entries[index] = (prefix_entry){.index = batch->start + index,
+                                           .prefix = prefix,
+                                           .length = length,
+                                           .path = file->path};
+}
+
 static void mark_empty_hashes(find_context *context, size_t start, size_t end)
 {
     for (size_t i = start; i < end; ++i) {
@@ -291,7 +318,8 @@ static void mark_for_hashing(find_context *context, size_t start, size_t end)
     }
 }
 
-static void hash_size_group(find_context *context, size_t start, size_t end)
+static void hash_size_group(find_context *context, size_t start, size_t end,
+                            size_t workers, photoc_thread_pool **pool)
 {
     uint64_t size = context->files[start].size;
     size_t count = end - start;
@@ -308,26 +336,62 @@ static void hash_size_group(find_context *context, size_t start, size_t end)
                             : (size_t)DUPLICATE_PREFIX_BYTES;
     prefix_entry *entries = calloc(count, sizeof(*entries));
     unsigned char *prefix_bytes = malloc(count * prefix_cap);
-    if (entries == NULL || prefix_bytes == NULL) {
+    int *errors = calloc(count, sizeof(*errors));
+    if (entries == NULL || prefix_bytes == NULL || errors == NULL) {
         free(entries);
         free(prefix_bytes);
+        free(errors);
         mark_for_hashing(context, start, end);
         return;
     }
 
+    /* Large same-size cohorts read their prefixes through the pool; tiny
+       cohorts stay serial to avoid thread startup. Each task owns one slot. */
+    bool parallel = workers != 1 && count >= PREFIX_PARALLEL_MIN;
+    if (parallel) {
+        if (*pool == NULL)
+            *pool = photoc_thread_pool_create(workers);
+        if (*pool == NULL)
+            parallel = false;
+    }
+    if (parallel) {
+        prefix_batch batch = {.context = context,
+                              .start = start,
+                              .prefix_cap = prefix_cap,
+                              .prefix_bytes = prefix_bytes,
+                              .entries = entries,
+                              .errors = errors};
+        if (photoc_thread_pool_run(*pool, count, read_prefix_task, &batch) != 0)
+            parallel = false;
+    }
+    if (!parallel) {
+        /* A failed pool run can leave a partial batch; reread every slot. */
+        memset(entries, 0, count * sizeof(*entries));
+        memset(errors, 0, count * sizeof(*errors));
+        for (size_t i = 0; i < count; ++i) {
+            file_record *file = &context->files[start + i];
+            unsigned char *prefix = prefix_bytes + i * prefix_cap;
+            size_t length = 0;
+            if (read_file_prefix(file->path, prefix, prefix_cap, &length) !=
+                0) {
+                errors[i] = errno;
+                continue;
+            }
+            entries[i] = (prefix_entry){.index = start + i,
+                                        .prefix = prefix,
+                                        .length = length,
+                                        .path = file->path};
+        }
+    }
+
+    /* Warnings are reported on the caller thread in input order. */
     size_t readable = 0;
     for (size_t i = 0; i < count; ++i) {
-        file_record *file = &context->files[start + i];
-        unsigned char *prefix = prefix_bytes + i * prefix_cap;
-        size_t length = 0;
-        if (read_file_prefix(file->path, prefix, prefix_cap, &length) != 0) {
-            warn_file(context, file->path, errno);
-            continue;
+        if (entries[i].path != NULL) {
+            entries[readable++] = entries[i];
+        } else if (errors[i] != 0) {
+            warn_file(context, context->files[start + i].path, errors[i]);
         }
-        entries[readable++] = (prefix_entry){.index = start + i,
-                                             .prefix = prefix,
-                                             .length = length,
-                                             .path = file->path};
     }
 
     if (readable > 1) {
@@ -362,12 +426,14 @@ static void hash_size_group(find_context *context, size_t start, size_t end)
         group_start = group_end;
     }
 
+    free(errors);
     free(prefix_bytes);
     free(entries);
 }
 
-static void hash_same_size_files(find_context *context)
+static void hash_same_size_files(find_context *context, size_t workers)
 {
+    photoc_thread_pool *pool = NULL;
     for (size_t start = 0; start < context->count;) {
         if (photoc_progress_interrupted())
             break;
@@ -376,9 +442,10 @@ static void hash_same_size_files(find_context *context)
                context->files[end].size == context->files[start].size) {
             ++end;
         }
-        hash_size_group(context, start, end);
+        hash_size_group(context, start, end, workers, &pool);
         start = end;
     }
+    photoc_thread_pool_destroy(pool);
 }
 
 static void hash_one(file_record *file)
@@ -606,7 +673,7 @@ static int find_with_progress(const char *directory, bool recursive,
             qsort(context.files, context.count, sizeof(*context.files),
                   compare_size);
         }
-        hash_same_size_files(&context);
+        hash_same_size_files(&context, workers);
         if (!photoc_progress_interrupted())
             hash_candidates(&context, workers);
         if (photoc_progress_interrupted()) {

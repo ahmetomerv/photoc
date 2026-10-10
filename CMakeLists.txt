@@ -332,6 +332,12 @@ if(BUILD_TESTING)
     photoc_configure_c_target(test_hash)
     target_link_libraries(test_hash PRIVATE photoc_core)
     add_test(NAME file_hashing COMMAND test_hash)
+    # Run the same known vectors with the scalar fallback forced in a separate
+    # process, so both the accelerated and scalar paths must match.
+    add_test(
+        NAME file_hashing_scalar
+        COMMAND "${CMAKE_COMMAND}" -E env PHOTOC_SHA256_FORCE_SCALAR=1
+                $<TARGET_FILE:test_hash>)
 
     add_executable(test_photo tests/test_photo.c)
     photoc_configure_c_target(test_photo)
