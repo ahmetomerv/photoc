@@ -461,6 +461,7 @@ if(BUILD_TESTING)
     add_executable(test_jpeg_metadata tests/test_jpeg_metadata.c)
     photoc_configure_c_target(test_jpeg_metadata)
     target_link_libraries(test_jpeg_metadata PRIVATE photoc_core)
+    target_include_directories(test_jpeg_metadata PRIVATE src/core)
     target_compile_definitions(test_jpeg_metadata PRIVATE
         PHOTOC_SEGMENT_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg_metadata")
     add_test(NAME jpeg_metadata_segments COMMAND test_jpeg_metadata)
