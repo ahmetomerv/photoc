@@ -4,6 +4,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "photoc/photo.h"
+#include "metadata_internal.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -208,9 +209,61 @@ static void test_non_regular_and_empty(void)
     photo_cleanup(&photo);
 }
 
+static int same_text(const char *left, const char *right)
+{
+    if (left == NULL || right == NULL) {
+        return left == right;
+    }
+    return strcmp(left, right) == 0;
+}
+
+static void test_memory_matches_file(void)
+{
+    char *path = fixture("with_exif.jpg");
+    CHECK(path != NULL);
+    if (path == NULL) {
+        return;
+    }
+    ExifData *reference = exif_data_new_from_file(path);
+    CHECK(reference != NULL);
+    Photo from_file = {0};
+    if (reference != NULL) {
+        CHECK(photoc_metadata_read_exif(reference, &from_file));
+        exif_data_unref(reference);
+    }
+    Photo from_memory = {0};
+    CHECK(photo_load_metadata(path, &from_memory) == PHOTOC_METADATA_OK);
+
+    CHECK(same_text(from_file.camera_make, from_memory.camera_make));
+    CHECK(same_text(from_file.camera_model, from_memory.camera_model));
+    CHECK(same_text(from_file.lens_model, from_memory.lens_model));
+    CHECK(
+        same_text(from_file.capture_timestamp, from_memory.capture_timestamp));
+    CHECK(from_file.has_iso == from_memory.has_iso);
+    CHECK(from_file.iso == from_memory.iso);
+    CHECK(from_file.has_aperture == from_memory.has_aperture);
+    CHECK(near(from_file.aperture, from_memory.aperture));
+    CHECK(from_file.has_exposure_time == from_memory.has_exposure_time);
+    CHECK(near(from_file.exposure_time, from_memory.exposure_time));
+    CHECK(from_file.has_focal_length == from_memory.has_focal_length);
+    CHECK(from_file.focal_length == from_memory.focal_length);
+    CHECK(from_file.has_focal_length_35mm == from_memory.has_focal_length_35mm);
+    CHECK(from_file.focal_length_35mm == from_memory.focal_length_35mm);
+    CHECK(from_file.has_orientation == from_memory.has_orientation);
+    CHECK(from_file.orientation == from_memory.orientation);
+    CHECK(from_file.has_gps == from_memory.has_gps);
+    CHECK(near(from_file.latitude, from_memory.latitude));
+    CHECK(near(from_file.longitude, from_memory.longitude));
+
+    photo_cleanup(&from_file);
+    photo_cleanup(&from_memory);
+    free(path);
+}
+
 int main(void)
 {
     test_with_exif();
+    test_memory_matches_file();
     test_with_gps();
     test_without_exif();
     test_failures();
