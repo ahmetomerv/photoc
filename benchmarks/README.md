@@ -226,6 +226,18 @@ for a 64-file corpus from 24 to 4 with the same final summary and wall time
 (~0.25 s). The non-TTY benchmark scripts disable progress, so their numbers
 are unchanged within noise.
 
+## Image decoding
+
+The `photoc_image_decode_jpeg*` entry points created and destroyed a TurboJPEG
+handle per file. A reusable `photoc_image_decoder` context now owns one handle
+that a batch can share, and the serial `contact` renderer keeps a single
+context across all pages. Creating and destroying a handle costs roughly
+1-4 µs depending on the path, against about 600 µs for a scaled decode of a
+1280x960 source, so the saving is under 1% of decode and below the noise floor
+of the end-to-end `contact` row. Contexts are not thread-safe (TurboJPEG
+handles are not), so a pooled caller should create one per worker; the plain
+decode functions still create a temporary handle and are unchanged.
+
 ## Interpreting changes
 
 When comparing a future run:

@@ -78,6 +78,34 @@ photoc_image_result photoc_image_decode_jpeg_buffer(const unsigned char *bytes,
                                                     size_t length,
                                                     photoc_image *out);
 
+/* Reusable JPEG decode context. A TurboJPEG handle is not thread-safe, so use
+   one context per worker or thread; a single context may decode any number of
+   files in a batch, avoiding a handle create/destroy per file. Create before
+   the batch and destroy when it ends. */
+typedef struct photoc_image_decoder photoc_image_decoder;
+
+/* Allocates a context with its own decoder handle. Returns NULL with no
+   allocation retained on failure. */
+photoc_image_decoder *photoc_image_decoder_create(void);
+
+/* Releases a context and its handle. NULL is accepted. */
+void photoc_image_decoder_destroy(photoc_image_decoder *decoder);
+
+/* Context-aware variants of the decode functions above. Each behaves
+   identically except that a non-NULL decoder reuses its handle; a NULL
+   decoder creates and releases a temporary one, matching the functions
+   without the `_with` suffix. Output ownership is unchanged. */
+photoc_image_result photoc_image_decode_jpeg_with(photoc_image_decoder *decoder,
+                                                  const char *path,
+                                                  photoc_image *out);
+photoc_image_result photoc_image_decode_jpeg_scaled_bounded_with(
+    photoc_image_decoder *decoder, const char *path, uint32_t max_dimension,
+    uint64_t max_file_bytes, photoc_image *out);
+photoc_image_result
+photoc_image_decode_jpeg_buffer_with(photoc_image_decoder *decoder,
+                                     const unsigned char *bytes, size_t length,
+                                     photoc_image *out);
+
 /* Encode RGB pixels as JPEG. quality is an integer from 1 to 100. out must
    be zero-initialized or cleaned first. On success out owns data; on error
    out remains empty. This function never writes a file. */

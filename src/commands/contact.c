@@ -393,7 +393,7 @@ static void metadata_lines(const contact_photo *photo, char *first,
 
 static int render_page(const contact_collection *collection, size_t first,
                        size_t count, const photoc_contact_options *options,
-                       const char *destination)
+                       const char *destination, photoc_image_decoder *decoder)
 {
     uint32_t columns =
         options->columns < count ? options->columns : (uint32_t)count;
@@ -445,8 +445,9 @@ static int render_page(const contact_collection *collection, size_t first,
         }
         photoc_image decoded = {0};
         photoc_image_result image_result =
-            photoc_image_decode_jpeg_scaled_bounded(
-                photo->path, decode_limit, CONTACT_MAX_SOURCE_BYTES, &decoded);
+            photoc_image_decode_jpeg_scaled_bounded_with(
+                decoder, photo->path, decode_limit, CONTACT_MAX_SOURCE_BYTES,
+                &decoded);
         if (image_result != PHOTOC_IMAGE_OK) {
             photoc_progress_before_diagnostic(collection->progress);
             outcome = photoc_error_image("contact", PHOTOC_ERR_NOTE_NONE,
@@ -575,6 +576,9 @@ int photoc_command_contact_with_output(const char *directory,
         return PHOTOC_EXIT_FAILURE;
     }
     size_t written = 0;
+    /* One decoder for the whole batch; NULL falls back to a temporary
+       handle per file inside the decode call. */
+    photoc_image_decoder *decoder = photoc_image_decoder_create();
     for (size_t page = 0; page < pages; ++page) {
         if (photoc_progress_interrupted())
             break;
@@ -585,12 +589,14 @@ int photoc_command_contact_with_output(const char *directory,
         photoc_output_verbose(output, "contact",
                               "page %zu/%zu: %zu thumbnails -> '%s'\n",
                               page + 1, pages, count, paths[page]);
-        if (render_page(&collection, first, count, options, paths[page]) != 0)
+        if (render_page(&collection, first, count, options, paths[page],
+                        decoder) != 0)
             break;
         ++written;
         photoc_output_info(output, "Contact sheet: %s (%zu photos)\n",
                            paths[page], count);
     }
+    photoc_image_decoder_destroy(decoder);
     if (written == pages)
         photoc_progress_finish(progress, "Created contact sheets");
     else

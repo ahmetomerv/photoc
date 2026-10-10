@@ -28,6 +28,33 @@ void photoc_jpeg_buffer_cleanup(photoc_jpeg_buffer *buffer)
     }
 }
 
+struct photoc_image_decoder {
+    tjhandle handle; /* Owned; not thread-safe, one context per worker. */
+};
+
+photoc_image_decoder *photoc_image_decoder_create(void)
+{
+    photoc_image_decoder *decoder = malloc(sizeof(*decoder));
+    if (decoder == NULL) {
+        return NULL;
+    }
+    decoder->handle = tjInitDecompress();
+    if (decoder->handle == NULL) {
+        free(decoder);
+        return NULL;
+    }
+    return decoder;
+}
+
+void photoc_image_decoder_destroy(photoc_image_decoder *decoder)
+{
+    if (decoder == NULL) {
+        return;
+    }
+    tjDestroy(decoder->handle);
+    free(decoder);
+}
+
 static photoc_image_result read_file(const char *path, unsigned char **bytes,
                                      unsigned long *length,
                                      uint64_t max_file_bytes)
@@ -152,16 +179,13 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
     return result;
 }
 
-static photoc_image_result decode_jpeg_bytes(const unsigned char *bytes,
+static photoc_image_result decode_jpeg_bytes(tjhandle handle,
+                                             const unsigned char *bytes,
                                              unsigned long length,
                                              uint32_t max_dimension,
                                              photoc_image *out)
 {
     *out = (photoc_image){0};
-    tjhandle handle = tjInitDecompress();
-    if (handle == NULL) {
-        return PHOTOC_IMAGE_CODEC_ERROR;
-    }
     int width = 0;
     int height = 0;
     photoc_image_result result =
@@ -233,7 +257,6 @@ static photoc_image_result decode_jpeg_bytes(const unsigned char *bytes,
                       TJPF_RGB, 0) != 0) {
         result = PHOTOC_IMAGE_INVALID_JPEG;
     }
-    tjDestroy(handle);
     if (result != PHOTOC_IMAGE_OK) {
         free(pixels);
         return result;
@@ -243,29 +266,42 @@ static photoc_image_result decode_jpeg_bytes(const unsigned char *bytes,
     return PHOTOC_IMAGE_OK;
 }
 
-static photoc_image_result decode_jpeg(const char *path, uint32_t max_dimension,
-                                       uint64_t max_file_bytes,
-                                       photoc_image *out)
+/* Runs the shared byte decode with decoder, or a temporary handle when
+   decoder is NULL, so context-aware and plain callers share one path. */
+static photoc_image_result decode_jpeg_using(photoc_image_decoder *decoder,
+                                             const char *path,
+                                             uint32_t max_dimension,
+                                             uint64_t max_file_bytes,
+                                             photoc_image *out)
 {
     if (path == NULL || path[0] == '\0' || out == NULL) {
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
     }
     *out = (photoc_image){0};
+    photoc_image_decoder *temporary = NULL;
+    if (decoder == NULL) {
+        temporary = photoc_image_decoder_create();
+        if (temporary == NULL) {
+            return PHOTOC_IMAGE_CODEC_ERROR;
+        }
+        decoder = temporary;
+    }
     unsigned char *bytes = NULL;
     unsigned long length = 0;
     photoc_image_result result =
         read_file(path, &bytes, &length, max_file_bytes);
-    if (result != PHOTOC_IMAGE_OK) {
-        return result;
+    if (result == PHOTOC_IMAGE_OK) {
+        result = decode_jpeg_bytes(decoder->handle, bytes, length,
+                                   max_dimension, out);
+        free(bytes);
     }
-    result = decode_jpeg_bytes(bytes, length, max_dimension, out);
-    free(bytes);
+    photoc_image_decoder_destroy(temporary);
     return result;
 }
 
-photoc_image_result photoc_image_decode_jpeg_buffer(const unsigned char *bytes,
-                                                    size_t length,
-                                                    photoc_image *out)
+static photoc_image_result decode_buffer_using(photoc_image_decoder *decoder,
+                                               const unsigned char *bytes,
+                                               size_t length, photoc_image *out)
 {
     if (bytes == NULL || out == NULL) {
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
@@ -278,13 +314,46 @@ photoc_image_result photoc_image_decode_jpeg_buffer(const unsigned char *bytes,
     if (jpeg_length != length) {
         return PHOTOC_IMAGE_TOO_LARGE;
     }
-    return decode_jpeg_bytes(bytes, jpeg_length, 0, out);
+    photoc_image_decoder *temporary = NULL;
+    if (decoder == NULL) {
+        temporary = photoc_image_decoder_create();
+        if (temporary == NULL) {
+            return PHOTOC_IMAGE_CODEC_ERROR;
+        }
+        decoder = temporary;
+    }
+    photoc_image_result result =
+        decode_jpeg_bytes(decoder->handle, bytes, jpeg_length, 0, out);
+    photoc_image_decoder_destroy(temporary);
+    return result;
+}
+
+photoc_image_result photoc_image_decode_jpeg_buffer(const unsigned char *bytes,
+                                                    size_t length,
+                                                    photoc_image *out)
+{
+    return decode_buffer_using(NULL, bytes, length, out);
+}
+
+photoc_image_result
+photoc_image_decode_jpeg_buffer_with(photoc_image_decoder *decoder,
+                                     const unsigned char *bytes, size_t length,
+                                     photoc_image *out)
+{
+    return decode_buffer_using(decoder, bytes, length, out);
 }
 
 photoc_image_result photoc_image_decode_jpeg(const char *path,
                                              photoc_image *out)
 {
-    return decode_jpeg(path, 0, 0, out);
+    return decode_jpeg_using(NULL, path, 0, 0, out);
+}
+
+photoc_image_result photoc_image_decode_jpeg_with(photoc_image_decoder *decoder,
+                                                  const char *path,
+                                                  photoc_image *out)
+{
+    return decode_jpeg_using(decoder, path, 0, 0, out);
 }
 
 photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
@@ -294,7 +363,7 @@ photoc_image_result photoc_image_decode_jpeg_scaled(const char *path,
     if (max_dimension == 0) {
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
     }
-    return decode_jpeg(path, max_dimension, 0, out);
+    return decode_jpeg_using(NULL, path, max_dimension, 0, out);
 }
 
 photoc_image_result photoc_image_decode_jpeg_scaled_bounded(
@@ -303,7 +372,16 @@ photoc_image_result photoc_image_decode_jpeg_scaled_bounded(
 {
     if (max_dimension == 0 || max_file_bytes == 0)
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
-    return decode_jpeg(path, max_dimension, max_file_bytes, out);
+    return decode_jpeg_using(NULL, path, max_dimension, max_file_bytes, out);
+}
+
+photoc_image_result photoc_image_decode_jpeg_scaled_bounded_with(
+    photoc_image_decoder *decoder, const char *path, uint32_t max_dimension,
+    uint64_t max_file_bytes, photoc_image *out)
+{
+    if (max_dimension == 0 || max_file_bytes == 0)
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    return decode_jpeg_using(decoder, path, max_dimension, max_file_bytes, out);
 }
 
 static photoc_image_result encode_jpeg(const photoc_image *image, int quality,
