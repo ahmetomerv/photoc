@@ -16,13 +16,109 @@ void photoc_stats_init(photoc_stats_aggregate *aggregate)
     }
 }
 
+enum { STATS_INDEX_THRESHOLD = 8, STATS_INDEX_MIN_CAPACITY = 16 };
+
+static void discard_index(photoc_stats_counts *counts)
+{
+    free(counts->index);
+    counts->index = NULL;
+    counts->index_capacity = 0;
+}
+
 static void cleanup_counts(photoc_stats_counts *counts)
 {
     for (size_t i = 0; i < counts->count; ++i) {
         free(counts->items[i].value);
     }
     free(counts->items);
+    discard_index(counts);
     *counts = (photoc_stats_counts){0};
+}
+
+static uint64_t value_hash(const char *value)
+{
+    uint64_t hash = UINT64_C(14695981039346656037);
+    for (const unsigned char *p = (const unsigned char *)value; *p != '\0';
+         ++p) {
+        hash ^= (uint64_t)*p;
+        hash *= UINT64_C(1099511628211);
+    }
+    return hash;
+}
+
+/* Returns the item index for value, or SIZE_MAX when absent. The index is used
+   once built; before that the table is small enough for a linear scan. */
+static size_t find_count(const photoc_stats_counts *counts, const char *value)
+{
+    if (counts->index == NULL) {
+        for (size_t i = 0; i < counts->count; ++i) {
+            if (strcmp(counts->items[i].value, value) == 0) {
+                return i;
+            }
+        }
+        return SIZE_MAX;
+    }
+    size_t mask = counts->index_capacity - 1;
+    size_t slot = (size_t)value_hash(value) & mask;
+    while (counts->index[slot] != 0) {
+        size_t item = counts->index[slot] - 1;
+        if (strcmp(counts->items[item].value, value) == 0) {
+            return item;
+        }
+        slot = (slot + 1) & mask;
+    }
+    return SIZE_MAX;
+}
+
+static void rebuild_index(photoc_stats_counts *counts)
+{
+    if (counts->count > SIZE_MAX / 2) {
+        discard_index(counts);
+        return;
+    }
+    size_t capacity = counts->index_capacity == 0 ? STATS_INDEX_MIN_CAPACITY
+                                                  : counts->index_capacity;
+    while (counts->count * 2 >= capacity) {
+        if (capacity > SIZE_MAX / 2) {
+            discard_index(counts);
+            return;
+        }
+        capacity *= 2;
+    }
+    size_t *slots = calloc(capacity, sizeof(*slots));
+    if (slots == NULL) {
+        discard_index(counts);
+        return;
+    }
+    for (size_t i = 0; i < counts->count; ++i) {
+        size_t slot =
+            (size_t)value_hash(counts->items[i].value) & (capacity - 1);
+        while (slots[slot] != 0) {
+            slot = (slot + 1) & (capacity - 1);
+        }
+        slots[slot] = i + 1;
+    }
+    free(counts->index);
+    counts->index = slots;
+    counts->index_capacity = capacity;
+}
+
+static void index_new_item(photoc_stats_counts *counts)
+{
+    if (counts->count <= STATS_INDEX_THRESHOLD) {
+        return;
+    }
+    if (counts->index != NULL && counts->count * 2 < counts->index_capacity) {
+        size_t mask = counts->index_capacity - 1;
+        size_t slot =
+            (size_t)value_hash(counts->items[counts->count - 1].value) & mask;
+        while (counts->index[slot] != 0) {
+            slot = (slot + 1) & mask;
+        }
+        counts->index[slot] = counts->count;
+        return;
+    }
+    rebuild_index(counts);
 }
 
 void photoc_stats_cleanup(photoc_stats_aggregate *aggregate)
@@ -51,15 +147,14 @@ void photoc_stats_cleanup(photoc_stats_aggregate *aggregate)
 static int add_count(photoc_stats_counts *counts, const char *value,
                      double numeric_value, uint32_t width, uint32_t height)
 {
-    for (size_t i = 0; i < counts->count; ++i) {
-        if (strcmp(counts->items[i].value, value) == 0) {
-            if (counts->items[i].count == UINT64_MAX) {
-                errno = EOVERFLOW;
-                return -1;
-            }
-            ++counts->items[i].count;
-            return 0;
+    size_t existing = find_count(counts, value);
+    if (existing != SIZE_MAX) {
+        if (counts->items[existing].count == UINT64_MAX) {
+            errno = EOVERFLOW;
+            return -1;
         }
+        ++counts->items[existing].count;
+        return 0;
     }
 
     size_t length = strlen(value);
@@ -96,6 +191,7 @@ static int add_count(photoc_stats_counts *counts, const char *value,
                              .count = 1,
                              .width = width,
                              .height = height};
+    index_new_item(counts);
     return 0;
 }
 
@@ -114,12 +210,10 @@ static int format_numeric_label(double value, char *label, size_t label_size)
 static int reject_full_bucket(const photoc_stats_counts *counts,
                               const char *value)
 {
-    for (size_t i = 0; i < counts->count; ++i) {
-        if (strcmp(counts->items[i].value, value) == 0 &&
-            counts->items[i].count == UINT64_MAX) {
-            errno = EOVERFLOW;
-            return -1;
-        }
+    size_t existing = find_count(counts, value);
+    if (existing != SIZE_MAX && counts->items[existing].count == UINT64_MAX) {
+        errno = EOVERFLOW;
+        return -1;
     }
     return 0;
 }
@@ -413,6 +507,17 @@ void photoc_stats_sort(photoc_stats_aggregate *aggregate)
         if (samples[i]->count > 1)
             qsort(samples[i]->items, samples[i]->count,
                   sizeof(*samples[i]->items), compare_samples);
+    photoc_stats_counts *tables[] = {
+        &aggregate->camera_models,  &aggregate->iso_values,
+        &aggregate->apertures,      &aggregate->focal_lengths,
+        &aggregate->lens_models,    &aggregate->focal_lengths_35mm,
+        &aggregate->shutter_speeds, &aggregate->orientations,
+        &aggregate->resolutions,    &aggregate->years,
+        &aggregate->months,         &aggregate->days,
+        &aggregate->hours};
+    for (size_t i = 0; i < sizeof(tables) / sizeof(tables[0]); ++i) {
+        discard_index(tables[i]);
+    }
     summarize_sessions(aggregate);
 }
 

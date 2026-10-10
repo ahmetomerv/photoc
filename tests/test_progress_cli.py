@@ -13,6 +13,9 @@ import unittest
 
 BINARY = os.environ["PHOTOC_PROGRESS_TEST_BINARY"]
 FIXTURE = Path(__file__).resolve().parent / "fixtures/jpeg/with_exif.jpg"
+# Render immediately instead of waiting out the display delay, so the test does
+# not depend on the scan outlasting a fixed threshold on a fast host.
+os.environ["PHOTOC_PROGRESS_DELAY_MS"] = "0"
 
 
 def invoke_tty(*args, interrupt_signal=None):

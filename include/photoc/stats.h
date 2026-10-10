@@ -19,6 +19,10 @@ typedef struct {
     photoc_stats_count *items;
     size_t count;
     size_t capacity;
+    /* Private aggregation index; owned by the table and never read by callers.
+       Invalid after photoc_stats_sort. */
+    size_t *index;
+    size_t index_capacity;
 } photoc_stats_counts;
 
 typedef struct {

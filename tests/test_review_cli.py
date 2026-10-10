@@ -250,9 +250,20 @@ class ReviewTests(unittest.TestCase):
         self.addCleanup(session.close)
         session.wait_screen()
         before = len(session.output)
+        # Drain while signalling so the app never blocks on the PTY write and
+        # each gap stays well under the resize settle, keeping the burst one
+        # settled redraw instead of several scheduler-delayed ones.
         for _ in range(6):
             os.kill(session.process.pid, signal.SIGWINCH)
-            time.sleep(0.12)
+            deadline = time.monotonic() + 0.12
+            while time.monotonic() < deadline:
+                ready, _, _ = select.select([session.master], [], [], 0.02)
+                if not ready:
+                    continue
+                try:
+                    session.output += os.read(session.master, 65536)
+                except OSError:
+                    break
         session.wait_screen()
         time.sleep(0.25)
         while select.select([session.master], [], [], 0)[0]:
