@@ -36,12 +36,16 @@ class ReleasePackagingTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             release.package(self.tag, platform or self.platform, BINARY, output or self.output)
 
-    def package_with_metadata(self, platform=None, output=None):
+    def package_with_metadata(self, platform=None, output=None, binary_digest=None):
         platform = platform or self.platform
         dependency_manifest = self.root / f"{platform}-dependencies-input.json"
         sbom = self.root / f"{platform}-sbom-input.json"
         dependency_manifest.write_text(
-            json.dumps({"schemaVersion": 1, "release": {"tag": self.tag, "platform": platform}}),
+            json.dumps({
+                "schemaVersion": 1,
+                "release": {"tag": self.tag, "platform": platform},
+                "build": {"binary": {"sha256": binary_digest or release.sha256(BINARY)}},
+            }),
             encoding="utf-8",
         )
         sbom.write_text(
@@ -122,6 +126,11 @@ class ReleasePackagingTests(unittest.TestCase):
             json.loads((self.output / sbom).read_text(encoding="utf-8"))["spdxVersion"],
             "SPDX-2.3",
         )
+
+    def test_dependency_manifest_must_match_packaged_binary(self):
+        with self.assertRaisesRegex(ValueError, "binary digest"):
+            self.package_with_metadata(binary_digest="0" * 64)
+        self.assertFalse(self.output.exists())
 
     def test_tag_validation(self):
         for tag in ("0.1.0", "v1.2", "v1.2.3-rc.1", "v01.2.3", "v1.2.3/../bad"):

@@ -293,6 +293,11 @@ def package(tag, platform, binary, output, dependency_manifest=None, sbom=None):
         if dependency_data.get("schemaVersion") != 1 or dependency_data.get("release") != {
                 "tag": tag, "platform": platform}:
             raise ValueError("dependency manifest does not match the release tag and platform")
+        build_data = dependency_data.get("build")
+        binary_data = build_data.get("binary") if isinstance(build_data, dict) else None
+        recorded_digest = binary_data.get("sha256") if isinstance(binary_data, dict) else None
+        if recorded_digest != sha256(binary):
+            raise ValueError("dependency manifest binary digest does not match release binary")
         sbom_data = _read_json_file(sbom, "SBOM")
         if (sbom_data.get("spdxVersion") != "SPDX-2.3" or
                 sbom_data.get("SPDXID") != "SPDXRef-DOCUMENT"):
