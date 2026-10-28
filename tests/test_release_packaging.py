@@ -36,22 +36,34 @@ class ReleasePackagingTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             release.package(self.tag, platform or self.platform, BINARY, output or self.output)
 
-    def package_with_metadata(self, platform=None, output=None, binary_digest=None):
+    def package_with_metadata(self, platform=None, output=None, binary_digest=None,
+                              sbom_digest=None, include_sbom_subject=True):
         platform = platform or self.platform
         dependency_manifest = self.root / f"{platform}-dependencies-input.json"
         sbom = self.root / f"{platform}-sbom-input.json"
+        digest = binary_digest or release.sha256(BINARY)
         dependency_manifest.write_text(
             json.dumps({
                 "schemaVersion": 1,
                 "release": {"tag": self.tag, "platform": platform},
-                "build": {"binary": {"sha256": binary_digest or release.sha256(BINARY)}},
+                "build": {"binary": {"sha256": digest}},
             }),
             encoding="utf-8",
         )
-        sbom.write_text(
-            json.dumps({"spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT"}),
-            encoding="utf-8",
-        )
+        sbom_document = {"spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT"}
+        if include_sbom_subject:
+            subject_digest = digest if sbom_digest is None else sbom_digest
+            sbom_document["packages"] = [{
+                "SPDXID": "SPDXRef-DocumentRoot-File-photoc",
+                "name": "photoc",
+                "checksums": [{"algorithm": "SHA256", "checksumValue": subject_digest}],
+            }]
+            sbom_document["relationships"] = [{
+                "spdxElementId": "SPDXRef-DOCUMENT",
+                "relatedSpdxElement": "SPDXRef-DocumentRoot-File-photoc",
+                "relationshipType": "DESCRIBES",
+            }]
+        sbom.write_text(json.dumps(sbom_document), encoding="utf-8")
         with contextlib.redirect_stdout(io.StringIO()):
             release.package(
                 self.tag, platform, BINARY, output or self.output,
@@ -128,8 +140,18 @@ class ReleasePackagingTests(unittest.TestCase):
         )
 
     def test_dependency_manifest_must_match_packaged_binary(self):
-        with self.assertRaisesRegex(ValueError, "binary digest"):
+        with self.assertRaisesRegex(ValueError, "dependency manifest binary digest"):
             self.package_with_metadata(binary_digest="0" * 64)
+        self.assertFalse(self.output.exists())
+
+    def test_sbom_subject_must_match_packaged_binary(self):
+        with self.assertRaisesRegex(ValueError, "SBOM subject digest"):
+            self.package_with_metadata(sbom_digest="0" * 64)
+        self.assertFalse(self.output.exists())
+
+    def test_sbom_without_subject_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "DESCRIBES subject|exactly one subject"):
+            self.package_with_metadata(include_sbom_subject=False)
         self.assertFalse(self.output.exists())
 
     def test_tag_validation(self):

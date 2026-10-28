@@ -281,6 +281,52 @@ def _read_json_file(path, description):
     return value
 
 
+def _sbom_subject_sha256(sbom_data):
+    """Return the SHA-256 digest of the package or file the SPDX document DESCRIBES."""
+    document_id = sbom_data.get("SPDXID")
+    relationships = sbom_data.get("relationships")
+    if not isinstance(document_id, str) or not isinstance(relationships, list):
+        raise ValueError("SBOM is missing a DESCRIBES subject relationship")
+    subject_ids = []
+    for relationship in relationships:
+        if not isinstance(relationship, dict):
+            continue
+        if (relationship.get("spdxElementId") == document_id and
+                relationship.get("relationshipType") == "DESCRIBES"):
+            related = relationship.get("relatedSpdxElement")
+            if isinstance(related, str) and related:
+                subject_ids.append(related)
+    if len(subject_ids) != 1:
+        raise ValueError("SBOM must describe exactly one subject")
+
+    elements = []
+    for key in ("packages", "files"):
+        entries = sbom_data.get(key)
+        if isinstance(entries, list):
+            elements.extend(entry for entry in entries if isinstance(entry, dict))
+    matches = [entry for entry in elements if entry.get("SPDXID") == subject_ids[0]]
+    if len(matches) != 1:
+        raise ValueError("SBOM subject is missing")
+    checksums = matches[0].get("checksums")
+    if not isinstance(checksums, list):
+        raise ValueError("SBOM subject is missing a SHA-256 checksum")
+    digests = []
+    for checksum in checksums:
+        if not isinstance(checksum, dict):
+            continue
+        algorithm = checksum.get("algorithm")
+        if not isinstance(algorithm, str):
+            continue
+        if algorithm.upper().replace("-", "") != "SHA256":
+            continue
+        value = checksum.get("checksumValue")
+        if isinstance(value, str) and re.fullmatch(r"[0-9a-fA-F]{64}", value):
+            digests.append(value.lower())
+    if len(digests) != 1:
+        raise ValueError("SBOM subject is missing a SHA-256 checksum")
+    return digests[0]
+
+
 def package(tag, platform, binary, output, dependency_manifest=None, sbom=None):
     version = release_version(tag)
     raw_name, archive_name, manifest_name = asset_names(tag, platform)
@@ -289,6 +335,7 @@ def package(tag, platform, binary, output, dependency_manifest=None, sbom=None):
         raise ValueError("dependency manifest and SBOM must be provided together")
     metadata = dependency_manifest is not None
     if metadata:
+        binary_digest = sha256(binary)
         dependency_data = _read_json_file(dependency_manifest, "dependency manifest")
         if dependency_data.get("schemaVersion") != 1 or dependency_data.get("release") != {
                 "tag": tag, "platform": platform}:
@@ -296,12 +343,14 @@ def package(tag, platform, binary, output, dependency_manifest=None, sbom=None):
         build_data = dependency_data.get("build")
         binary_data = build_data.get("binary") if isinstance(build_data, dict) else None
         recorded_digest = binary_data.get("sha256") if isinstance(binary_data, dict) else None
-        if recorded_digest != sha256(binary):
+        if recorded_digest != binary_digest:
             raise ValueError("dependency manifest binary digest does not match release binary")
         sbom_data = _read_json_file(sbom, "SBOM")
         if (sbom_data.get("spdxVersion") != "SPDX-2.3" or
                 sbom_data.get("SPDXID") != "SPDXRef-DOCUMENT"):
             raise ValueError("SBOM must be an SPDX 2.3 JSON document")
+        if _sbom_subject_sha256(sbom_data) != binary_digest:
+            raise ValueError("SBOM subject digest does not match release binary")
     check_binary(binary, version)
     output.mkdir(parents=True, exist_ok=True)
     output_names = [raw_name, archive_name, manifest_name]
