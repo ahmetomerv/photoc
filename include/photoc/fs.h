@@ -51,9 +51,12 @@ int photoc_fs_join(const char *base, const char *child, char **joined);
 int photoc_fs_mkdirs(const char *path);
 
 /* Atomically renames a path only when destination does not exist. Never
-   falls back to ordinary rename(), which could overwrite a file. Returns
-   -1 with errno (including EEXIST or an unsupported-filesystem error) when
-   the operation cannot be completed. Both paths must be nonempty. */
+   falls back to ordinary rename(), which could overwrite a file. macOS
+   before 10.12 has no atomic primitive, so for deployment target below 10.12
+   a link()/unlink() pair is used: destination is still never replaced,
+   but a crash between the calls leaves both names. Returns -1 with errno
+   (including EEXIST or an unsupported-filesystem error) when the operation
+   cannot be completed. Both paths must be nonempty. */
 int photoc_fs_rename_noreplace(const char *source, const char *destination);
 
 /* Descriptor-relative variant. Source and destination names must be nonempty
