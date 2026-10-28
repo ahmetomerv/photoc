@@ -287,6 +287,24 @@ publish releases. The sanitizer build can be reproduced locally with
 `sh scripts/build-and-test-sanitizers.sh`; leak detection depends on platform
 support.
 
+### GitHub Actions dependencies
+
+Third-party actions in `.github/workflows/` are pinned to full commit SHAs with
+the corresponding release tag in a comment. Dependabot checks these references
+monthly and groups available GitHub Actions updates into a pull request. Do not
+auto-merge that pull request: verify each new SHA belongs to the action's
+official repository and tagged release, review its release notes and diff, keep
+workflow permissions least-privileged, and merge only after the normal pull
+request checks pass.
+
+For an urgent action security advisory, first determine which workflows and
+secrets are exposed. If a verified fixed release exists, pin its full commit SHA
+in a focused pull request and run the normal checks. If no trustworthy fix is
+available, disable the affected step or workflow instead of switching back to a
+mutable tag. Rotate any secret that may have been exposed, record the temporary
+mitigation in the pull request, and replace it with a reviewed permanent update
+as soon as one is available.
+
 ## Install and uninstall script checks
 
 The release installer is POSIX shell and installs only checksum-verified release
