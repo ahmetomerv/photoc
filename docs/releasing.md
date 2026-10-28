@@ -79,13 +79,18 @@ license texts against the dependency versions used by the release builds.
 5. Watch the [Release workflow](https://github.com/ahmetomerv/photoc/actions/workflows/release.yml).
    It checks the tag against `VERSION` and requires passing main-branch CI for
    the tagged commit. All three native builds compile with warnings enabled
-   and run CTest before packaging. Packaging also checks the executable version.
-   The publish job verifies checksums, uploads all assets, and publishes the
-   draft only when those steps succeed.
+   and run CTest before packaging. Packaging also checks the executable version,
+   records the resolved build environment, creates an SPDX SBOM, and generates
+   GitHub build-provenance and SBOM attestations. The publish job verifies
+   checksums, uploads all assets, and publishes the draft only when those steps
+   succeed.
 
 6. Open the release and verify its notes and downloads. A successful release
-   has three executables, three archives, three platform checksum files, and
-   one combined `SHA256SUMS`. Check the real installer in a temporary directory:
+   has three executables, three archives, three dependency manifests, three
+   SPDX SBOMs, three platform checksum files, and one combined `SHA256SUMS`.
+   Verify the checksum and attestations as described in
+   [Provenance and SBOM](#provenance-and-sbom), then check the real installer in
+   a temporary directory:
 
    ```sh
    release_test_dir=$(mktemp -d)
@@ -130,12 +135,19 @@ For tag `v<version>`, each platform produces:
 - `photoc-<version>-<platform>.tar.gz`, where `<platform>` is `darwin-arm64`,
   `darwin-x86_64`, or `linux-x86_64`.
 - `photoc-<platform>`, the raw executable consumed by `scripts/install.sh`.
-- `SHA256SUMS-<platform>`, covering both the archive and raw executable.
+- `SHA256SUMS-<platform>`, covering the archive, raw executable, dependency
+  manifest, and SBOM.
+- `photoc-<version>-<platform>.dependencies.json`, recording the source,
+  workflow/action commits, runner image, toolchain, package-manager revisions,
+  `pkg-config` resolution, and linked-library paths.
+- `photoc-<version>-<platform>.spdx.json`, the SPDX 2.3 SBOM generated from the
+  native executable.
 
-The publish job verifies all six files against their platform manifests and
-generates **`SHA256SUMS`** with all six digests, sorted by filename. Archives,
-executables, individual manifests, and the combined manifest are attached to
-the GitHub release. Asset names agree with the
+Each platform checksum file covers its executable, archive, dependency
+manifest, and SBOM. The publish job verifies all twelve covered files and
+generates **`SHA256SUMS`** with their digests sorted by filename. Archives,
+executables, dependency manifests, SBOMs, individual checksum files, and the
+combined checksum file are attached to the GitHub release. Asset names agree with the
 [release installer contract](installation.md#release-asset-contract).
 
 Each archive has one `photoc-<version>-<platform>/` directory containing:
@@ -152,18 +164,60 @@ builds and changing system dependencies are not promised to be reproducible.
 The release body includes the dependency notices for raw executable downloads.
 Review these against the installed dependency versions before each release.
 
+## Provenance and SBOM
+
+The release workflow uses GitHub's
+[artifact attestation](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
+mechanism. The public repository and GitHub-hosted runner obtain a short-lived
+OIDC identity and Sigstore signing certificate; no long-lived signing key is
+stored in the repository. Each platform checksum file identifies the executable,
+archive, dependency manifest, and SBOM covered by the build-provenance
+attestation. A second attestation associates the SPDX SBOM with that platform's
+executable and archive.
+
+Download the release assets, then verify the provenance for an executable:
+
+```sh
+gh attestation verify photoc-darwin-arm64 -R ahmetomerv/photoc
+```
+
+Verify its SPDX SBOM attestation separately:
+
+```sh
+gh attestation verify photoc-darwin-arm64 -R ahmetomerv/photoc \
+  --predicate-type https://spdx.dev/Document/v2.3
+```
+
+Repeat this for the other platform executables or archives. The dependency
+manifest is also checksum-covered and build-attested, so it can be inspected
+without rerunning the build. It records full Ubuntu package revisions rather
+than applying upstream-version floors. Ubuntu backports security patches while
+retaining the release's upstream base version; compare the recorded revision
+with the [Ubuntu CVE tracker and security notices](https://documentation.ubuntu.com/security/security-updates/).
+For Homebrew builds, compare the recorded formula revisions with current
+Homebrew and upstream advisories.
+
+Attestations establish origin and integrity; they do not prove that an artifact
+is vulnerability-free, make the native build bit-for-bit reproducible, or sign
+and notarize the macOS executable. The workflow follows the trust model in
+GitHub's artifact-attestation documentation and does not claim a higher SLSA
+level.
+
 ## Publication and retries
 
-Build jobs have read-only repository permissions. Only the publish job has
-`contents: write`, using the workflow's `GITHUB_TOKEN`; no personal token is
-needed. It runs after all builds succeed, creates a draft, uploads assets, and
-publishes the draft after successful upload. A failed upload leaves a draft
-that can be retried. On retry, only a draft's matching assets can be replaced.
-An already published release is refused. Per-tag concurrency prevents two
-runs for the same tag from publishing at once. If validation ran before CI
-finished, wait for CI to pass and rerun the failed Release workflow on the same
-tag. For a build or upload failure, inspect the job logs and rerun after resolving
-the cause. If the source itself needs a fix, prepare a new version and tag.
+Build jobs retain read-only repository access and receive only the additional
+`id-token: write`, `attestations: write`, and `artifact-metadata: write`
+permissions needed for GitHub attestations and artifact records. Only the
+publish job has `contents: write`, using the workflow's
+`GITHUB_TOKEN`; no personal token is needed. It runs after all builds succeed,
+creates a draft, uploads assets, and publishes the draft after successful
+upload. A failed upload leaves a draft that can be retried. On retry, only a
+draft's matching assets can be replaced. An already published release is
+refused. Per-tag concurrency prevents two runs for the same tag from publishing
+at once. If validation ran before CI finished, wait for CI to pass and rerun
+the failed Release workflow on the same tag. For a build or upload failure,
+inspect the job logs and rerun after resolving the cause. If the source itself
+needs a fix, prepare a new version and tag.
 
 Do not move tags associated with published releases. Keep release publishing
 limited to trusted maintainers who can push version tags. This workflow does
@@ -190,4 +244,7 @@ python3 scripts/package-release.py checksums --tag "v$version" --directory dist
 
 Packaging and checksum generation use only Python's standard library. CTest
 includes packaging tests when Python 3 is available. GitHub-hosted builds and
-actual release publication are exercised by pushing a version tag.
+actual release publication are exercised by pushing a version tag. The local
+commands above deliberately omit hosted dependency manifests, SBOM generation,
+and attestations; they are a packaging check, not a complete release-workflow
+simulation.

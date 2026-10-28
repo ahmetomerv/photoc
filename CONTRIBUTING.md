@@ -365,7 +365,8 @@ Follow the numbered [release guide](docs/releasing.md) for the complete process:
    formatting, and the Linux sanitizer job.
 5. Create and push an annotated `v<version>` tag. The release workflow enforces
    the version and CI checks before building and testing all three platforms.
-6. Verify the published notes, assets, checksums, and a real installer download.
+6. Verify the published notes, assets, checksums, dependency manifests, SPDX
+   SBOMs, GitHub attestations, and a real installer download.
 
 Never move a published tag or replace published assets; fixes require a new
 version. For asset names, runtime requirements, and retry behavior, see the
