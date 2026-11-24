@@ -96,8 +96,10 @@ remaining GPS directory or removed identifier.
 Sony MakerNotes and private (SR2) data are opaque and may contain serial
 numbers or other identifiers, so `--privacy` always warns for ARW. Metadata
 inside embedded preview JPEGs is not edited; if any is present, the copy is
-flagged with the same warning. Malformed, non-Sony, or DNG files fail without a
-copy. See [Sony ARW support](raw.md#scrubbing-arw-copies).
+flagged with the same warning. Malformed files, files with an explicit non-Sony
+Make, and DNG files fail without a copy. A missing Make is not rejected on its
+own; a scrubbed copy does not authenticate the file as Sony RAW. See
+[Sony ARW support](raw.md#scrubbing-arw-copies).
 
 ## Safety and privacy limits
 
