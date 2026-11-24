@@ -1,80 +1,96 @@
-# photoc 0.7.1
+# photoc 0.8.0
 
-This release focuses on performance and correctness. Scans, hashing, contact
-sheets, compression, metadata reads, and interactive review all do less work
-for the same results. There are no new commands and no changes to command
-options, exit codes, or JSON schemas.
+This release brings Sony ARW RAW files to every command except `compress`.
+`query`, `focus`, `review`, `contact`, `check`, and `scrub` now handle ARW
+alongside JPEG, and ARW metadata from real Sony cameras loads correctly. photoc
+still never decodes RAW sensor data: commands that need pixels use the JPEG
+preview the camera embeds in every ARW, and no new runtime dependency is
+required.
 
-## Changes since 0.6.0
+## Changes since 0.7.1
 
-### Performance
+### Sony ARW support
 
-- SHA-256 now dispatches at runtime to the CPU's SHA extensions: Intel SHA-NI
-  on x86_64 and ARMv8 SHA-2 on AArch64, with the scalar path as the fallback.
-  Set `PHOTOC_SHA256_FORCE_SCALAR` in the environment (or define it when
-  compiling) to force the scalar path. Digests are unchanged.
-- `duplicates` reads 64-byte prefixes for large same-size cohorts through the
-  thread pool, keeping the full hashes for actual matches.
-- `contact` decodes each source at roughly thumbnail scale instead of up to
-  4096 px, while still admitting TurboJPEG's coarsest 1/8 scale for large
-  sources. Thumbnails are unchanged; large sources still render.
-- `compress` reads the source JPEG once for both metadata and decoding, and
-  reuses the chosen encode from a `--target` search instead of re-encoding.
-- `image` decoding reuses one TurboJPEG handle across a batch instead of
-  creating and destroying one per file.
-- `rename` precompiles the `--format` template once per command and renders
-  each entry from it rather than re-parsing per photo.
-- `stats` uses an indexed lookup for distribution buckets instead of linear
-  scans once a table grows.
-- JPEG metadata inspection reads EXIF in the single file pass, and entropy
-  data is block-scanned rather than read one byte at a time.
-- `focus` scores photos in parallel.
-- The progress display samples the monotonic clock only as often as the
-  90 ms redraw cadence needs, while slow and changing phases still update
-  promptly.
+- **`query`** searches ARW metadata with the same filters as JPEG. JSON
+  matches include `format` (`jpeg` or `sony_arw`).
+- **`focus`** scores an ARW from its embedded preview, area-averaged to the
+  size its full-resolution image would be analyzed at, so ARW and JPEG scores
+  of the same shot are comparable. On sample files, ARW scores came within
+  roughly 8–18% of full-resolution JPEGs of the same shots, with the same
+  ordering.
+- **`review`** shows an ARW's embedded preview with its orientation applied,
+  along with metadata and a sharpness score. ARW bytes are never streamed to
+  the terminal; an ARW without a usable preview is shown as unavailable.
+- **`contact`** draws ARW thumbnails from the embedded preview. The 64 MiB
+  source cap applies to the preview, not to the whole ARW.
+- **`check`** audits ARW structure without decoding sensor data: the container
+  and metadata, sensor data location and size, every embedded JPEG range, and
+  a full decode of the preview. Truncated copies, missing sensor data, and
+  damaged previews are errors; a missing preview or unrecognized sensor layout
+  is a warning. New codes are documented in the
+  [check guide](https://github.com/ahmetomerv/photoc/blob/v0.8.0/docs/check.md).
+- **`scrub --gps`** and **`scrub --privacy`** write `DSC00001.scrubbed.ARW`
+  copies. Edits are size-preserving, so no sensor data, preview, or MakerNote
+  offset moves: GPS and identifier entries are dropped, their values zeroed,
+  and private XMP properties removed with the packet padded to its original
+  size. Each copy is verified byte for byte before publication. `--in-place`
+  and `--all-metadata` are refused for ARW, and privacy mode warns that Sony
+  MakerNotes may retain identifiers.
+- **`compress`** remains JPEG-only. Directory runs report
+  `Sony ARW files skipped: N`, and a single ARW is refused with a clear
+  message.
 
 ### Fixes
 
-- A shared JPEG decode context now re-creates its TurboJPEG handle after a
-  rejected header or decode, so a batch keeps working after one bad file on
-  older libjpeg-turbo releases (for example Ubuntu 22.04's 2.1.2).
-- SHA-256 acceleration now requires every instruction-set feature the
-  accelerated block function uses (SHA, SSSE3, and SSE4.1) before it is
-  selected. This prevents `SIGILL` on CPUs or VMs that expose SHA while
-  masking SSSE3 or SSE4.1.
-- EXIF capture allocation failures are now reported as metadata errors
-  instead of silently dropping fields.
-- The progress update-rate estimate is reset correctly across phase changes.
+- ARW files whose RAW directory stores TIFF tags out of ascending order, as
+  real Sony cameras do, were rejected as "invalid or truncated ARW metadata".
+  This affected `exif`, `stats`, `timeline`, `rename`, and `sort` on camera
+  files. Tags may now appear in any order; a tag repeated within one directory
+  is still rejected.
 
 ### Tests and documentation
 
-- Added contact-sheet checks for thumbnail detail, scale, orientation,
-  cropping, and blank tiles at both thumbnail-size extremes and for sources
-  beyond the old decode cap.
-- Added scalar-vs-accelerated hashing coverage, a compress output golden, and
-  deterministic progress rendering in the CLI tests.
-- Documents `compress` peak memory and the probe cache bound.
+- Added generated ARW fixtures with embedded previews, thumbnails, and sensor
+  strips, and tests for every ARW-capable command, including malformed
+  previews, truncation, scrub verification and refusals, and big-endian files.
+  An optional private camera file can be tested through
+  `PHOTOC_ARW_REAL_FIXTURE`.
+- The README, man page, command guides, help text, and shell completions
+  describe ARW behavior. [Sony ARW support](https://github.com/ahmetomerv/photoc/blob/v0.8.0/docs/raw.md)
+  covers previews, the structural check, and ARW scrubbing.
 
 ## Compatibility and safety
 
-No command, option, exit code, or JSON schema changed in this release, and the
-runtime dependencies are unchanged. The SHA-256 acceleration is a transparent
-speedup with a scalar fallback, so files hash to the same digests on every CPU.
+Exit codes and runtime dependencies are unchanged. During `0.x`, these output
+changes may affect scripts:
 
-File-safety behavior is unchanged: `rename` and `sort` preview unless `--apply`
-is given; `compress`, `contact`, and `scrub` write new copies and never
-overwrite unrelated files; `scrub --in-place` still replaces originals with no
-backup; `review` writes only its separate state file and never changes JPEGs.
-See the [file-safety table](https://github.com/ahmetomerv/photoc/blob/v0.7.1/README.md#file-safety).
+- **JSON (additive):** `check` file rows and `query` matches gain a `format`
+  field. The `query` summary adds `arw_files_found` and
+  `metadata_files_found`, and `query` metadata `width`/`height` are `null` for
+  an ARW without recorded dimensions.
+- **Human output:** the `focus` heading is now `Sharpness (lowest scores
+  first)`; verbose counts for `focus`, `check`, and `scrub` say
+  `photos discovered`; usage and unsupported-input messages mention ARW; and
+  `compress` adds an ARW skip line to its summary.
+- **Directory scans** of `query`, `focus`, `review`, `contact`, `check`, and
+  `scrub` now include `.arw` files, so a camera RAW+JPEG pair appears as two
+  photos.
+
+File safety is unchanged and extends to ARW: no command modifies an ARW file.
+`rename` and `sort` preview unless `--apply` is given; `compress`, `contact`,
+and `scrub` write new copies and never overwrite unrelated files; `scrub
+--in-place` still replaces original JPEGs with no backup; `review` writes only
+its separate state file. See the
+[file-safety table](https://github.com/ahmetomerv/photoc/blob/v0.8.0/README.md#file-safety).
 
 ## Upgrading
 
 Installed copies do not update automatically. Follow the
-[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.7.1/docs/installation.md#upgrading)
-to replace an owned release installation. Homebrew users can upgrade after
-the tap formula has been updated for this release. Source installations should
-be rebuilt and reinstalled from the new tag. Verify with `photoc --version`,
-which should print `photoc 0.7.1`.
+[upgrade steps](https://github.com/ahmetomerv/photoc/blob/v0.8.0/docs/installation.md#upgrading)
+to replace an owned release installation. Homebrew users can run `brew update`
+and `brew upgrade photoc` after the tap formula has been updated for this
+release. Source installations should be rebuilt and reinstalled from the new
+tag. Verify with `photoc --version`, which should print `photoc 0.8.0`.
 
 ## Downloads and requirements
 
@@ -92,11 +108,15 @@ are not developer-signed or notarized. Other CPUs and Linux systems without
 glibc should build from source.
 
 Archives contain `bin/photoc`, its man page, shell completions, documentation,
-the MIT license, and third-party notices and license texts. `SHA256SUMS` covers
-all archives and raw executables; `SHA256SUMS-<platform>` covers that
-platform's archive and executable. Verify downloaded files with
-`shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
-`sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that directory.
+the MIT license, and third-party notices and license texts. Each platform also
+has a dependency manifest (`.dependencies.json`) and an SPDX SBOM
+(`.spdx.json`). `SHA256SUMS` covers every asset; `SHA256SUMS-<platform>`
+covers that platform's executable, archive, manifest, and SBOM. Verify
+downloaded files with `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
+`sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that
+directory. Build provenance can be checked with
+`gh attestation verify photoc-<platform> -R ahmetomerv/photoc`; see
+[Provenance and SBOM](https://github.com/ahmetomerv/photoc/blob/v0.8.0/docs/releasing.md#provenance-and-sbom).
 
-See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.7.1/docs/installation.md)
+See the [installation guide](https://github.com/ahmetomerv/photoc/blob/v0.8.0/docs/installation.md)
 for the checksum-verified release installer and safe uninstall flow.
