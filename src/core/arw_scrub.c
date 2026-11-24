@@ -452,8 +452,10 @@ static int compare_patches(const void *left, const void *right)
     return a->offset < b->offset ? -1 : a->offset > b->offset ? 1 : 0;
 }
 
-/* Patches must not overlap each other, and zeroing must never touch bytes a
-   kept entry, directory, preview, or sensor strip still references. */
+/* Patches must not overlap each other, and must not touch bytes a kept entry,
+   directory, preview, or sensor strip still references. A replacement may
+   rewrite exactly one kept span (the IFD table being rebuilt); any other
+   overlap with retained data is unsafe. */
 static bool plan_is_safe(edit_plan *plan)
 {
     if (plan->patch_count > 1)
@@ -464,12 +466,15 @@ static bool plan_is_safe(edit_plan *plan)
         uint64_t end = current->offset + current->length;
         if (i + 1 < plan->patch_count && plan->patches[i + 1].offset < end)
             return false;
-        if (current->bytes != NULL)
-            continue;
         for (size_t k = 0; k < plan->kept_count; ++k) {
-            if (current->offset < plan->kept[k].end &&
-                plan->kept[k].start < end)
-                return false;
+            if (current->offset >= plan->kept[k].end ||
+                plan->kept[k].start >= end)
+                continue;
+            if (current->bytes != NULL &&
+                plan->kept[k].start == current->offset &&
+                plan->kept[k].end == end)
+                continue; /* IFD rebuild of this exact directory span. */
+            return false;
         }
     }
     return true;

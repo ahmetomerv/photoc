@@ -447,6 +447,21 @@ class ARWCLI(unittest.TestCase):
         overlapping = self.raw(name="overlap.ARW", data=bytes(data))
         result = self.run_cli("scrub", overlapping, "--gps", code=1)
         self.assertIn(b"overlaps data that must be kept", result.stderr)
+        # An XMP replacement that overlaps a kept Model value is refused too.
+        xmp = (b"<?xpacket begin='\xef\xbb\xbf' id='W5M0MpCehiHzreSzNTczkc9d'?>"
+               b"<x:xmpmeta xmlns:x='adobe:ns:meta/'><rdf:RDF "
+               b"xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>"
+               b"<rdf:Description rdf:about='' "
+               b"xmlns:photoshop='http://ns.adobe.com/photoshop/1.0/'>"
+               b"<photoshop:City>Augsburg</photoshop:City>"
+               b"</rdf:Description></rdf:RDF></x:xmpmeta>")
+        xmp += b" " * (512 - len(xmp) - 19) + b"<?xpacket end='w'?>"
+        data = bytearray(make_arw(root_extra=((0x02bc, 1, len(xmp), xmp),)))
+        xmp_at, _ = self.entry_value(bytes(data), 8, 0x02bc)
+        struct.pack_into("<I", data, entries(data)[0x0110] + 8, xmp_at + 32)
+        result = self.run_cli("scrub", self.raw(name="xmp-overlap.ARW", data=bytes(data)),
+                              "--privacy", code=1)
+        self.assertIn(b"overlaps data that must be kept", result.stderr)
         broken = self.raw(name="broken.ARW", data=b"not a raw file")
         self.run_cli("scrub", broken, "--privacy", code=1)
         self.assertEqual(sorted(p.name for p in self.directory.glob("*.scrubbed.*")), [])
