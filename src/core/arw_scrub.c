@@ -724,11 +724,13 @@ photoc_jpeg_edit_result photoc_arw_scrub_copy(const char *source_path,
     photoc_jpeg_edit_result result = PHOTOC_JPEG_EDIT_OK;
     int saved_errno = 0;
     unsigned char header[2];
-    if (fstat(fileno(context.file), &before) != 0) {
+    if (fstat(fileno(context.file), &before) != 0 || before.st_size < 0) {
         result = PHOTOC_JPEG_EDIT_IO_ERROR;
     } else if (!read_at(context.file, 0, header, 2)) {
         result = PHOTOC_JPEG_EDIT_INVALID_ARW;
     } else {
+        /* Copy, verify, and same_source all use this size snapshot. */
+        context.size = (uint64_t)before.st_size;
         context.order =
             header[0] == 'M' ? EXIF_BYTE_ORDER_MOTOROLA : EXIF_BYTE_ORDER_INTEL;
         Photo photo = {0};
