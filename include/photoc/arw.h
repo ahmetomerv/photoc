@@ -39,8 +39,9 @@ photoc_image_result photoc_arw_read_preview(const char *path,
    properties are removed with the packet padded back to its original size.
 
    Every edit is size-preserving: no image data, MakerNote, or other offset
-   moves. Edits overlapping data that is kept fail with UNSAFE_ARW_LAYOUT and
-   an XMP packet that cannot shrink back fails with UNSUPPORTED_XMP. The copy
+   moves. Invalid strip/tile arrays or edits that overlap kept data fail with
+   UNSAFE_ARW_LAYOUT; an XMP packet that cannot shrink back fails with
+   UNSUPPORTED_XMP. The copy
    is written beside the destination, verified byte for byte and re-parsed,
    checked against source changes (UNSAFE_SOURCE), then published atomically.
    When nothing needs removing, report->changed is false and no file is

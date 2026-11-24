@@ -1796,8 +1796,8 @@ const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result)
     case PHOTOC_JPEG_EDIT_INVALID_ARW:
         return "invalid, truncated, or unsupported ARW file";
     case PHOTOC_JPEG_EDIT_UNSAFE_ARW_LAYOUT:
-        return "ARW metadata to remove overlaps data that must be kept; scrub "
-               "refused";
+        return "unsafe ARW layout for scrub (invalid segment arrays or "
+               "metadata overlaps kept data); scrub refused";
     default:
         return "unknown JPEG editing error";
     }
