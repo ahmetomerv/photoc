@@ -88,11 +88,12 @@ Verbosity never changes JSON fields or the underlying operations.
 Sony cameras store a JPEG preview in every ARW, typically 1616 x 1080, plus a
 160 x 120 thumbnail. `review`, `contact`, `focus`, and `check` read the
 largest embedded JPEG (TIFF JPEGInterchangeFormat/Length) outside the CFA/RAW
-directories. The preview must lie within the file, start with a JPEG SOI
-marker, and be at most 64 MiB; otherwise the command reports "ARW has no
-usable embedded JPEG preview". Size caps in `review` and `contact` apply to
-the preview, never to the whole ARW. Preview pixels are stored unrotated, so
-the ARW's EXIF orientation is applied exactly as for JPEGs.
+directories. A missing preview reports "ARW has no usable embedded JPEG
+preview". A claimed preview that is out of range or not a JPEG SOI is treated
+as an invalid ARW. Previews larger than 64 MiB are refused. Size caps in
+`review` and `contact` apply to the preview, never to the whole ARW. Preview
+pixels are stored unrotated, so the ARW's EXIF orientation is applied exactly
+as for JPEGs.
 
 The preview reflects in-camera processing (picture style, sharpening, lens
 corrections) at reduced resolution. `focus` therefore scores it at the size the

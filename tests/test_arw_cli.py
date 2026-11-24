@@ -270,6 +270,8 @@ class ARWCLI(unittest.TestCase):
                                                     sensor_bytes=32 * 24 * 2 - 2))
         self.raw(name="bad-preview.ARW", data=make_arw(preview=b"\xff\xd8" + b"\0" * 64,
                                                        sensor=(32, 24)))
+        self.raw(name="not-jpeg-preview.ARW",
+                 data=make_arw(preview=b"\x00\x00" + b"\0" * 64, sensor=(32, 24)))
         self.raw(name="nikon.ARW", data=make_arw(maker=b"NIKON\0", preview=preview,
                                                  sensor=(32, 24)))
         rows, summary = self.check_rows(self.directory, code=1)
@@ -279,6 +281,7 @@ class ARWCLI(unittest.TestCase):
                     "no-preview.ARW": ("warning", "missing_preview"),
                     "odd-size.ARW": ("warning", "sensor_layout_warning"),
                     "bad-preview.ARW": ("error", "preview_decode_failed"),
+                    "not-jpeg-preview.ARW": ("error", "invalid_arw"),
                     "nikon.ARW": ("error", "unsupported_arw")}
         self.assertEqual({name: (row["status"], row["code"]) for name, row in rows.items()},
                          expected)

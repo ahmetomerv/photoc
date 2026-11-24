@@ -116,7 +116,7 @@ static void test_read_preview(void)
             char *path =
                 write_temporary("not-jpeg.arw", changed, source_length);
             CHECK(photoc_arw_read_preview(path, 0, &preview, &length) ==
-                  PHOTOC_IMAGE_NO_PREVIEW);
+                  PHOTOC_IMAGE_INVALID_ARW);
             unlink(path);
             free(path);
             memcpy(changed, source, source_length);
@@ -125,7 +125,7 @@ static void test_read_preview(void)
             changed[offset_entry + 10] = 0xff;
             path = write_temporary("past-end.arw", changed, source_length);
             CHECK(photoc_arw_read_preview(path, 0, &preview, &length) ==
-                  PHOTOC_IMAGE_NO_PREVIEW);
+                  PHOTOC_IMAGE_INVALID_ARW);
             unlink(path);
             free(path);
             free(changed);

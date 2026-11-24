@@ -268,8 +268,12 @@ photoc_image_result photoc_arw_read_preview(const char *path,
         finish_preview_directory(&search);
         uint64_t offset = search.best_offset;
         uint64_t bytes = search.best_length;
-        if (bytes == 0 || offset < 8 || offset > size || bytes > size - offset)
+        /* Absent tags → NO_PREVIEW; a claimed range that is unusable is
+           INVALID_ARW so check can treat corruption as an error. */
+        if (bytes == 0)
             result = PHOTOC_IMAGE_NO_PREVIEW;
+        else if (offset < 8 || offset > size || bytes > size - offset)
+            result = PHOTOC_IMAGE_INVALID_ARW;
         else if (bytes > max_bytes || bytes > SIZE_MAX)
             result = PHOTOC_IMAGE_TOO_LARGE;
     }
@@ -288,7 +292,7 @@ photoc_image_result photoc_arw_read_preview(const char *path,
             result = PHOTOC_IMAGE_IO_ERROR;
         } else if (search.best_length < 2 || data[0] != 0xff ||
                    data[1] != 0xd8) {
-            result = PHOTOC_IMAGE_NO_PREVIEW;
+            result = PHOTOC_IMAGE_INVALID_ARW;
         }
     }
     int saved_errno = errno;

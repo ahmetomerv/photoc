@@ -134,13 +134,13 @@ counts cover all checked files even when `files` is filtered by `--only-errors`.
 | `unsupported_jpeg` | JPEG process/precision or conversion unsupported by the linked decoder. |
 | `file_changed` | File size or modification/change timestamps changed during reading. |
 | `internal_error` | Audit setup or allocation failure. |
-| `invalid_arw` | ARW container or metadata is invalid or truncated, or an embedded JPEG range lies outside the file. |
+| `invalid_arw` | ARW container or metadata is invalid or truncated, an embedded JPEG range lies outside the file, or a claimed preview does not start with JPEG SOI. |
 | `unsupported_arw` | BigTIFF, DNG, or a non-Sony make; not checked. |
 | `missing_sensor_data` | No CFA sensor directory, strips/tiles, or a zero-length segment. |
 | `truncated_sensor_data` | Sensor data extends past the end of the file or is shorter than its dimensions require. |
 | `invalid_sensor_data` | Lossless-compressed sensor tiles do not start with a JPEG SOI. |
 | `sensor_layout_warning` | Sensor data size or compression is not a recognized layout; not verified further. |
-| `missing_preview` | No usable embedded JPEG preview. |
+| `missing_preview` | No embedded JPEG preview tags are present. |
 | `preview_decode_failed` | The embedded preview is damaged and cannot be decoded. |
 | `preview_warning` | The embedded preview decoded with a recoverable warning. |
 

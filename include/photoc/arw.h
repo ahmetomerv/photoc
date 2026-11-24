@@ -21,8 +21,9 @@
 
    On success *jpeg owns malloc'd bytes the caller frees with free(), and
    *length is their count. On failure *jpeg is NULL: INVALID_ARW for a
-   malformed container, NO_PREVIEW when no usable JPEG is embedded, TOO_LARGE
-   over the cap, or IO_ERROR with errno preserved. */
+   malformed container or a claimed preview that is out of range or not JPEG
+   SOI, NO_PREVIEW when no preview tags are present, TOO_LARGE over the cap,
+   or IO_ERROR with errno preserved. */
 photoc_image_result photoc_arw_read_preview(const char *path,
                                             uint64_t max_bytes,
                                             unsigned char **jpeg,
