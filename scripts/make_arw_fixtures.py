@@ -32,14 +32,15 @@ def sensor_strip(width, height, endian="<"):
 
 def make_arw(endian="<", missing=False, exif_dimensions=True, raw_dimensions=True,
              maker=b"SONY\0", orientation=6, dng=False, preview=None, thumbnail=None,
-             sensor=None, sensor_bytes=None, root_extra=(), exif_extra=(), gps=True):
+             sensor=None, sensor_bytes=None, root_extra=(), exif_extra=(),
+             raw_extra=(), gps=True):
     """Optional parts:
 
     preview: JPEG bytes referenced from IFD0 (JPEGInterchangeFormat/Length).
     thumbnail: JPEG bytes referenced from IFD1, linked as IFD0's next directory.
     sensor: (width, height) uncompressed 14-bit CFA strip in the RAW SubIFD;
         sensor_bytes overrides the strip length recorded in StripByteCounts.
-    root_extra/exif_extra: extra (tag, type, count, bytes) entries.
+    root_extra/exif_extra/raw_extra: extra (tag, type, count, bytes) entries.
     """
     def short(value):
         return struct.pack(endian + "H", value)
@@ -93,9 +94,11 @@ def make_arw(endian="<", missing=False, exif_dimensions=True, raw_dimensions=Tru
                                   (0x0103, 3, 1, short(1)), (0x0106, 3, 1, short(32803)),
                                   (0x0111, 4, 1, Blob(strip, last=True)), (0x0115, 3, 1, short(1)),
                                   (0x0116, 4, 1, long(height)), (0x0117, 4, 1, long(count))]
-        elif raw_dimensions:
+            directories["raw"] += list(raw_extra)
+        elif raw_dimensions or raw_extra:
             directories["raw"] = [(0x00fe, 4, 1, long(0)), (0x0100, 4, 1, long(5504)),
                                   (0x0101, 4, 1, long(3664)), (0x0106, 3, 1, short(32803))]
+            directories["raw"] += list(raw_extra)
     if thumbnail is not None:
         directories["ifd1"] = [(0x00fe, 4, 1, long(1)), (0x0103, 3, 1, short(6)),
                                (0x0201, 4, 1, Blob(thumbnail)),

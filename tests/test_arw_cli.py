@@ -405,6 +405,27 @@ class ARWCLI(unittest.TestCase):
         self.assertEqual(self.exif(self.directory / "DSC00001.scrubbed.ARW")["camera"]["model"],
                          "DSC-RX100M7A")
 
+    def test_scrub_privacy_scrubs_each_xmp_packet(self):
+        def packet(city):
+            body = (b"<?xpacket begin='\xef\xbb\xbf' id='W5M0MpCehiHzreSzNTczkc9d'?>"
+                    b"<x:xmpmeta xmlns:x='adobe:ns:meta/'><rdf:RDF "
+                    b"xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>"
+                    b"<rdf:Description rdf:about='' "
+                    b"xmlns:photoshop='http://ns.adobe.com/photoshop/1.0/'>"
+                    b"<photoshop:City>" + city + b"</photoshop:City>"
+                    b"</rdf:Description></rdf:RDF></x:xmpmeta>")
+            return body + b" " * (512 - len(body) - 19) + b"<?xpacket end='w'?>"
+
+        first, second = packet(b"Augsburg"), packet(b"Munich")
+        raw = self.raw(data=make_arw(
+            sensor=(32, 24), root_extra=((0x02bc, 1, len(first), first),),
+            raw_extra=((0x02bc, 1, len(second), second),)))
+        result = self.run_cli("scrub", raw, "--privacy")
+        self.assertIn(b"Metadata removed:", result.stdout)
+        copy = (self.directory / "DSC00001.scrubbed.ARW").read_bytes()
+        self.assertNotIn(b"Augsburg", copy)
+        self.assertNotIn(b"Munich", copy)
+
     def test_scrub_refuses_unsupported_arw_modes_and_layouts(self):
         raw = self.raw(data=make_arw(preview=(JPEG / "sharp.jpg").read_bytes()))
         original = raw.read_bytes()

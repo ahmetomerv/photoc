@@ -31,6 +31,7 @@ typedef struct {
     uint16_t type;
     photoc_tiff_directory_kind kind;
     bool removed;
+    bool rewritten; /* Value bytes replaced by a patch; do not keep. */
 } scan_entry;
 
 typedef struct {
@@ -66,7 +67,6 @@ typedef struct {
     ExifByteOrder order;
     entry_list list;
     edit_plan plan;
-    const scan_entry *xmp; /* Edited in place; never a kept range. */
 } scrub_context;
 
 static bool grow(void **items, size_t *capacity, size_t count, size_t unit)
@@ -240,7 +240,7 @@ static const char *find_text(const unsigned char *bytes, size_t length,
 /* Remove private XMP properties, then pad with spaces to the original packet
    size, before the xpacket trailer when present. */
 static photoc_jpeg_edit_result scrub_xmp_packet(scrub_context *context,
-                                                const scan_entry *entry,
+                                                scan_entry *entry,
                                                 photoc_scrub_report *report)
 {
     if (entry->size > SCRUB_MAX_XMP_BYTES)
@@ -281,7 +281,7 @@ static photoc_jpeg_edit_result scrub_xmp_packet(scrub_context *context,
     memcpy(padded + head + padding, xml + head, xml_length - head);
     free(xml);
     report->xmp_fields = true;
-    context->xmp = entry;
+    entry->rewritten = true;
     return add_patch(&context->plan, entry->value, entry->size, padded)
                ? PHOTOC_JPEG_EDIT_OK
                : PHOTOC_JPEG_EDIT_NO_MEMORY;
@@ -422,10 +422,10 @@ static photoc_jpeg_edit_result plan_edits(scrub_context *context, bool privacy,
     }
 
     for (size_t i = 0; i < list->count && result == PHOTOC_JPEG_EDIT_OK; ++i) {
-        const scan_entry *entry = &list->entries[i];
+        scan_entry *entry = &list->entries[i];
         if (privacy && entry->kind == PHOTOC_TIFF_IMAGE &&
             entry->tag == 0x02bc && (entry->type == 1 || entry->type == 7) &&
-            entry->size != 0 && context->xmp == NULL)
+            entry->size != 0)
             result = scrub_xmp_packet(context, entry, report);
     }
 
@@ -437,7 +437,7 @@ static photoc_jpeg_edit_result plan_edits(scrub_context *context, bool privacy,
         if (erase) {
             if (!add_patch(&context->plan, entry->value, entry->size, NULL))
                 result = PHOTOC_JPEG_EDIT_NO_MEMORY;
-        } else if (entry != context->xmp &&
+        } else if (!entry->rewritten &&
                    !keep(&context->plan, entry->value, entry->size)) {
             result = PHOTOC_JPEG_EDIT_NO_MEMORY;
         }
