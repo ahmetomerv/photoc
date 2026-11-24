@@ -321,16 +321,39 @@ class ARWCLI(unittest.TestCase):
         self.run_cli("scrub", raw, "--gps", code=1)
         self.assertEqual(copy.read_bytes(), scrubbed)
         plain = self.raw(name="plain.ARW", data=make_arw(gps=False))
-        self.assertIn(b"no EXIF GPS tags", self.run_cli("scrub", plain, "--gps").stdout)
+        gps_plain = self.run_cli("scrub", plain, "--gps")
+        self.assertIn(b"no EXIF GPS tags", gps_plain.stdout)
+        self.assertNotIn(b"may retain private information", gps_plain.stderr)
         self.assertFalse((self.directory / "plain.scrubbed.ARW").exists())
         big = self.raw(name="big.arw", data=make_arw(endian=">", sensor=(32, 24),
                                                       preview=(JPEG / "sharp.jpg").read_bytes()))
-        self.run_cli("scrub", big, "--gps")
+        gps_big = self.run_cli("scrub", big, "--gps")
+        self.assertNotIn(b"may retain private information", gps_big.stderr)
         big_copy = self.directory / "big.scrubbed.arw"
         self.assertFalse(self.exif(big_copy)["location"]["has_gps"])
         self.assertEqual(self.exif(big_copy)["exposure"], self.exif(big)["exposure"])
         rows, _ = self.check_rows(big_copy)
         self.assertEqual(rows[str(big_copy)]["code"], "readable")
+
+    def test_scrub_privacy_always_warns_for_arw(self):
+        # No MakerNote and a preview without APP metadata: privacy still warns.
+        raw = self.raw(name="bare-privacy.ARW",
+                       data=make_arw(preview=(JPEG / "sharp.jpg").read_bytes(),
+                                     sensor=(32, 24)))
+        result = self.run_cli("scrub", raw, "--privacy")
+        self.assertIn(b"Metadata removed:", result.stdout)
+        self.assertIn(b"may retain private information", result.stderr)
+        quiet = self.run_cli("scrub",
+                             self.raw(name="quiet-privacy.ARW",
+                                      data=make_arw(gps=False)),
+                             "--privacy", "-q")
+        self.assertNotIn(b"may retain private information", quiet.stderr)
+        unchanged = self.run_cli("scrub",
+                                 self.raw(name="unchanged-privacy.ARW",
+                                          data=make_arw(gps=False)),
+                                 "--privacy")
+        self.assertIn(b"no supported metadata to remove", unchanged.stdout)
+        self.assertIn(b"may retain private information", unchanged.stderr)
 
     def test_scrub_privacy_removes_identifiers_and_private_xmp(self):
         xmp = (b"<?xpacket begin='\xef\xbb\xbf' id='W5M0MpCehiHzreSzNTczkc9d'?>"

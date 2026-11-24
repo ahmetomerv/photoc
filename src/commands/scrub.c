@@ -114,8 +114,8 @@ static void scrub_arw_file(const char *path, bool in_place, int mode,
     photoc_jpeg_edit_result result =
         photoc_arw_scrub_copy(path, destination, mode == 1, &report);
     int saved_errno = errno;
-    bool privacy_remains =
-        (mode == 1 && report.maker_note) || report.unhandled_metadata;
+    /* Privacy always warns for ARW; --gps warns only for preview metadata. */
+    bool privacy_remains = mode == 1 || report.unhandled_metadata;
     if (result != PHOTOC_JPEG_EDIT_OK) {
         ++counts->failed;
         photoc_progress_before_diagnostic(progress);
