@@ -62,17 +62,37 @@ static uint32_t read_long_le(const unsigned char *bytes)
            (uint32_t)bytes[2] << 16 | (uint32_t)bytes[3] << 24;
 }
 
-/* Offset of an IFD0 entry with tag in a little-endian fixture, or 0. */
-static size_t root_entry(const unsigned char *bytes, uint16_t tag)
+/* Offset of an IFD entry with tag in a little-endian fixture, or 0. */
+static size_t ifd_entry(const unsigned char *bytes, size_t ifd, uint16_t tag)
 {
-    size_t root = read_long_le(bytes + 4);
-    unsigned int count = (unsigned int)bytes[root] | bytes[root + 1] << 8;
+    unsigned int count = (unsigned int)bytes[ifd] | bytes[ifd + 1] << 8;
     for (unsigned int i = 0; i < count; ++i) {
-        size_t entry = root + 2 + i * 12u;
+        size_t entry = ifd + 2 + i * 12u;
         if (((unsigned int)bytes[entry] | bytes[entry + 1] << 8) == tag)
             return entry;
     }
     return 0;
+}
+
+/* Offset of an IFD0 entry with tag in a little-endian fixture, or 0. */
+static size_t root_entry(const unsigned char *bytes, uint16_t tag)
+{
+    return ifd_entry(bytes, read_long_le(bytes + 4), tag);
+}
+
+/* Next-IFD pointer after a little-endian IFD, or 0. */
+static size_t next_ifd(const unsigned char *bytes, size_t ifd)
+{
+    unsigned int count = (unsigned int)bytes[ifd] | bytes[ifd + 1] << 8;
+    return read_long_le(bytes + ifd + 2 + count * 12u);
+}
+
+static void zero_long(unsigned char *bytes, size_t entry)
+{
+    bytes[entry + 8] = 0;
+    bytes[entry + 9] = 0;
+    bytes[entry + 10] = 0;
+    bytes[entry + 11] = 0;
 }
 
 static void test_read_preview(void)
@@ -128,12 +148,18 @@ static void test_read_preview(void)
                   PHOTOC_IMAGE_INVALID_ARW);
             unlink(path);
             free(path);
-            /* Present tags with offset 0 are invalid, not a missing preview. */
+            /* Present tags with offset 0 are invalid, not a missing preview.
+               Zero both IFD0 and IFD1 so a leftover thumbnail cannot win. */
+            size_t root = read_long_le(source + 4);
+            size_t ifd1 = next_ifd(source, root);
+            size_t ifd1_offset =
+                ifd1 == 0 ? 0 : ifd_entry(source, ifd1, 0x0201);
+            size_t ifd1_length =
+                ifd1 == 0 ? 0 : ifd_entry(source, ifd1, 0x0202);
+            CHECK(ifd1_offset != 0 && ifd1_length != 0);
             memcpy(changed, source, source_length);
-            changed[offset_entry + 8] = 0;
-            changed[offset_entry + 9] = 0;
-            changed[offset_entry + 10] = 0;
-            changed[offset_entry + 11] = 0;
+            zero_long(changed, offset_entry);
+            zero_long(changed, ifd1_offset);
             path = write_temporary("offset-zero.arw", changed, source_length);
             CHECK(photoc_arw_read_preview(path, 0, &preview, &length) ==
                   PHOTOC_IMAGE_INVALID_ARW);
@@ -143,10 +169,8 @@ static void test_read_preview(void)
             size_t length_entry = root_entry(source, 0x0202);
             CHECK(length_entry != 0);
             memcpy(changed, source, source_length);
-            changed[length_entry + 8] = 0;
-            changed[length_entry + 9] = 0;
-            changed[length_entry + 10] = 0;
-            changed[length_entry + 11] = 0;
+            zero_long(changed, length_entry);
+            zero_long(changed, ifd1_length);
             path = write_temporary("zero-length.arw", changed, source_length);
             CHECK(photoc_arw_read_preview(path, 0, &preview, &length) ==
                   PHOTOC_IMAGE_INVALID_ARW);
