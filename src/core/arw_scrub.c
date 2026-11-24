@@ -366,9 +366,9 @@ static photoc_jpeg_edit_result keep_image_data(scrub_context *context,
                 continue;
             }
             photoc_jpeg_info info;
-            if (photoc_jpeg_inspect_app_limited(
-                    context->file, &info, preview_meta_visitor, report,
-                    (uint64_t)offset + length) != 0)
+            if (photoc_jpeg_inspect_app_limited(context->file, &info,
+                                                preview_meta_visitor, report,
+                                                (uint64_t)offset + length) != 0)
                 report->unhandled_metadata = true;
         }
     }
