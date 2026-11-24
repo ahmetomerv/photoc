@@ -128,6 +128,30 @@ static void test_read_preview(void)
                   PHOTOC_IMAGE_INVALID_ARW);
             unlink(path);
             free(path);
+            /* Present tags with offset 0 are invalid, not a missing preview. */
+            memcpy(changed, source, source_length);
+            changed[offset_entry + 8] = 0;
+            changed[offset_entry + 9] = 0;
+            changed[offset_entry + 10] = 0;
+            changed[offset_entry + 11] = 0;
+            path = write_temporary("offset-zero.arw", changed, source_length);
+            CHECK(photoc_arw_read_preview(path, 0, &preview, &length) ==
+                  PHOTOC_IMAGE_INVALID_ARW);
+            unlink(path);
+            free(path);
+            /* A present zero-length pair is invalid, not a missing preview. */
+            size_t length_entry = root_entry(source, 0x0202);
+            CHECK(length_entry != 0);
+            memcpy(changed, source, source_length);
+            changed[length_entry + 8] = 0;
+            changed[length_entry + 9] = 0;
+            changed[length_entry + 10] = 0;
+            changed[length_entry + 11] = 0;
+            path = write_temporary("zero-length.arw", changed, source_length);
+            CHECK(photoc_arw_read_preview(path, 0, &preview, &length) ==
+                  PHOTOC_IMAGE_INVALID_ARW);
+            unlink(path);
+            free(path);
             free(changed);
         }
         /* A prefix that cuts into the preview fails cleanly; a longer one

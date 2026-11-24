@@ -195,23 +195,37 @@ photoc_metadata_result photoc_arw_load_metadata(FILE *file, uint64_t size,
     return result;
 }
 
-/* JPEGInterchangeFormat/Length pairs per image directory; the largest valid
-   pair outside CFA/linear RAW directories is the preview. */
+/* JPEGInterchangeFormat/Length pairs per image directory; the largest usable
+   pair outside CFA/linear RAW directories is the preview. Tag presence is
+   tracked separately from values so a claimed but unusable pair is not
+   confused with a missing preview. */
 typedef struct {
     uint32_t directory;
     uint32_t offset;
     uint32_t length;
     uint32_t photometric;
+    bool has_offset; /* Tag 0x0201 seen in this directory. */
+    bool has_length; /* Tag 0x0202 seen in this directory. */
     uint32_t best_offset;
     uint32_t best_length;
+    bool found_pair; /* Eligible directory claimed a preview pair. */
+    bool found_usable;
 } preview_search;
 
 static void finish_preview_directory(preview_search *search)
 {
-    if (search->offset != 0 && search->length > search->best_length &&
-        search->photometric != 32803 && search->photometric != 34892) {
+    if (search->photometric == 32803 || search->photometric == 34892)
+        return;
+    if (!search->has_offset && !search->has_length)
+        return;
+    search->found_pair = true;
+    if (!search->has_offset || !search->has_length || search->offset == 0 ||
+        search->length == 0)
+        return; /* Present but unusable (incomplete, offset 0, or empty). */
+    if (search->length > search->best_length) {
         search->best_offset = search->offset;
         search->best_length = search->length;
+        search->found_usable = true;
     }
 }
 
@@ -227,11 +241,17 @@ static bool find_preview(photoc_tiff_reader *reader,
         search->offset = 0;
         search->length = 0;
         search->photometric = 0;
+        search->has_offset = false;
+        search->has_length = false;
     }
-    if (entry->tag == 0x0201)
+    if (entry->tag == 0x0201) {
+        search->has_offset = true;
         return photoc_tiff_scalar(reader, entry, &search->offset);
-    if (entry->tag == 0x0202)
+    }
+    if (entry->tag == 0x0202) {
+        search->has_length = true;
         return photoc_tiff_scalar(reader, entry, &search->length);
+    }
     if (entry->tag == 0x0106)
         return photoc_tiff_scalar(reader, entry, &search->photometric);
     return true;
@@ -268,11 +288,11 @@ photoc_image_result photoc_arw_read_preview(const char *path,
         finish_preview_directory(&search);
         uint64_t offset = search.best_offset;
         uint64_t bytes = search.best_length;
-        /* Absent tags → NO_PREVIEW; a claimed range that is unusable is
-           INVALID_ARW so check can treat corruption as an error. */
-        if (bytes == 0)
+        /* Absent tags → NO_PREVIEW; a claimed but unusable pair → INVALID_ARW. */
+        if (!search.found_pair)
             result = PHOTOC_IMAGE_NO_PREVIEW;
-        else if (offset < 8 || offset > size || bytes > size - offset)
+        else if (!search.found_usable || offset < 8 || offset > size ||
+                 bytes > size - offset)
             result = PHOTOC_IMAGE_INVALID_ARW;
         else if (bytes > max_bytes || bytes > SIZE_MAX)
             result = PHOTOC_IMAGE_TOO_LARGE;
