@@ -111,10 +111,10 @@ Archives contain `bin/photoc`, its man page, shell completions, documentation,
 the MIT license, and third-party notices and license texts. Each platform also
 has a dependency manifest (`.dependencies.json`) and an SPDX SBOM
 (`.spdx.json`). `SHA256SUMS` covers every asset; `SHA256SUMS-<platform>`
-covers that platform's executable, archive, manifest, and SBOM. Verify
-downloaded files with `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
-`sha256sum -c SHA256SUMS-<platform>` (Linux), with both files in that
-directory. Build provenance can be checked with
+covers that platform's executable, archive, manifest, and SBOM. Download
+all four listed assets and the checksum file into the same directory, then
+verify with `shasum -a 256 -c SHA256SUMS-<platform>` (macOS) or
+`sha256sum -c SHA256SUMS-<platform>` (Linux). Build provenance can be checked with
 `gh attestation verify photoc-<platform> -R ahmetomerv/photoc`; see
 [Provenance and SBOM](https://github.com/ahmetomerv/photoc/blob/v0.8.0/docs/releasing.md#provenance-and-sbom).
 
