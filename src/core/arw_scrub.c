@@ -344,20 +344,29 @@ static photoc_jpeg_edit_result keep_image_data(scrub_context *context,
                 return PHOTOC_JPEG_EDIT_NO_MEMORY;
             if (p != 0)
                 continue;
-            /* Embedded JPEG: look for APP1 (EXIF/XMP) or APP13 (IPTC). */
+            /* Embedded JPEG: APP1 (EXIF/XMP), APP13 (IPTC), and COM are not
+               edited; an unfinished header walk is treated as uncertain. */
             uint64_t position = (uint64_t)offset + 2;
-            for (int segment = 0; segment < 64; ++segment) {
+            int segment = 0;
+            for (; segment < 64; ++segment) {
                 unsigned char marker[4];
                 if (position + 4 > (uint64_t)offset + length ||
                     !read_at(context->file, position, marker, 4) ||
-                    marker[0] != 0xff || marker[1] == 0xda)
+                    marker[0] != 0xff) {
+                    report->unhandled_metadata = true;
                     break;
-                if (marker[1] == 0xe1 || marker[1] == 0xed) {
+                }
+                if (marker[1] == 0xda)
+                    break;
+                if (marker[1] == 0xe1 || marker[1] == 0xed ||
+                    marker[1] == 0xfe) {
                     report->unhandled_metadata = true;
                     break;
                 }
                 position += 2 + (((uint64_t)marker[2] << 8) | marker[3]);
             }
+            if (segment >= 64)
+                report->unhandled_metadata = true;
         }
     }
     return PHOTOC_JPEG_EDIT_OK;

@@ -337,6 +337,14 @@ class ARWCLI(unittest.TestCase):
         self.assertEqual(self.exif(big_copy)["exposure"], self.exif(big)["exposure"])
         rows, _ = self.check_rows(big_copy)
         self.assertEqual(rows[str(big_copy)]["code"], "readable")
+        # A COM comment in the embedded preview is retained metadata.
+        base = (JPEG / "sharp.jpg").read_bytes()
+        commented = base[:2] + bytes([0xff, 0xfe, 0, 10]) + b"secret!" + base[2:]
+        with_com = self.raw(name="com-preview.ARW",
+                            data=make_arw(preview=commented, sensor=(32, 24)))
+        gps_com = self.run_cli("scrub", with_com, "--gps")
+        self.assertIn(b"GPS removed:", gps_com.stdout)
+        self.assertIn(b"may retain private information", gps_com.stderr)
 
     def test_scrub_privacy_always_warns_for_arw(self):
         # No MakerNote and a preview without APP metadata: privacy still warns.
