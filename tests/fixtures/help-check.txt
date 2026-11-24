@@ -1,9 +1,9 @@
 Usage: photoc [global options] check <file|directory> [--recursive] [--only-errors] [--json]
        photoc check --help
 
-Audit JPEG structural readability
+Audit JPEG and ARW structural readability
 
-Status: available for JPEG files (read-only)
+Status: available for JPEG and Sony ARW files (read-only)
 
 Example:
   photoc check photo.jpg
@@ -18,3 +18,5 @@ Options:
 
 Read-only; rows are sorted by path. Warnings return 0; errors return 1.
 Checks structural readability, not visual quality or complete metadata validity.
+Sony ARW: checks the container, sensor data layout, and embedded
+preview; RAW sensor data is not decoded.

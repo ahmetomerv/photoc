@@ -8,6 +8,7 @@
 #include "photoc/fs.h"
 #include "jpeg.h"
 #include "jpeg_metadata_internal.h"
+#include "xmp_internal.h"
 
 #include <errno.h>
 #include <ctype.h>
@@ -964,78 +965,6 @@ read_xmp_orientation(const unsigned char *payload, unsigned int length,
     return valid ? PHOTOC_JPEG_EDIT_OK : PHOTOC_JPEG_EDIT_UNSUPPORTED_XMP;
 }
 
-static bool xmp_private_name(const xmlNs *ns, const xmlChar *name)
-{
-    if (ns == NULL || ns->href == NULL || name == NULL)
-        return false;
-    const char *uri = (const char *)ns->href;
-    const char *local = (const char *)name;
-    if (strcmp(uri, "http://ns.adobe.com/exif/1.0/") == 0)
-        return strncmp(local, "GPS", 3) == 0 ||
-               strcmp(local, "BodySerialNumber") == 0 ||
-               strcmp(local, "CameraSerialNumber") == 0 ||
-               strcmp(local, "LensSerialNumber") == 0 ||
-               strcmp(local, "ImageUniqueID") == 0;
-    if (strcmp(uri, "http://ns.adobe.com/exif/1.0/aux/") == 0 ||
-        strcmp(uri, "http://cipa.jp/exif/1.0/") == 0)
-        return strstr(local, "SerialNumber") != NULL ||
-               strcmp(local, "ImageUniqueID") == 0;
-    if (strcmp(uri, "http://ns.adobe.com/tiff/1.0/") == 0)
-        return strcmp(local, "Artist") == 0 ||
-               strcmp(local, "ImageUniqueID") == 0;
-    if (strcmp(uri, "http://ns.adobe.com/photoshop/1.0/") == 0)
-        return strcmp(local, "City") == 0 || strcmp(local, "State") == 0 ||
-               strcmp(local, "Country") == 0 ||
-               strcmp(local, "Location") == 0 || strcmp(local, "Credit") == 0 ||
-               strcmp(local, "CaptionWriter") == 0 ||
-               strcmp(local, "Source") == 0;
-    if (strcmp(uri, "http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/") == 0 ||
-        strcmp(uri, "http://iptc.org/std/Iptc4xmpExt/2008-02-29/") == 0)
-        return strstr(local, "Location") != NULL ||
-               strcmp(local, "City") == 0 ||
-               strcmp(local, "ProvinceState") == 0 ||
-               strcmp(local, "CountryName") == 0 ||
-               strcmp(local, "CountryCode") == 0 ||
-               strcmp(local, "Creator") == 0 ||
-               strcmp(local, "CreatorContactInfo") == 0 ||
-               strstr(local, "SerialNumber") != NULL;
-    if (strcmp(uri, "http://purl.org/dc/elements/1.1/") == 0)
-        return strcmp(local, "creator") == 0;
-    if (strcmp(uri, "http://ns.adobe.com/xap/1.0/rights/") == 0)
-        return strcmp(local, "Owner") == 0;
-    if (strcmp(uri, "http://ns.adobe.com/xap/1.0/mm/") == 0)
-        return strcmp(local, "DocumentID") == 0 ||
-               strcmp(local, "InstanceID") == 0 ||
-               strcmp(local, "OriginalDocumentID") == 0;
-    return false;
-}
-
-static bool remove_xmp_private(xmlNode *node)
-{
-    bool changed = false;
-    for (xmlAttr *attr = node->properties; attr != NULL;) {
-        xmlAttr *following = attr->next;
-        if (xmp_private_name(attr->ns, attr->name)) {
-            xmlRemoveProp(attr);
-            changed = true;
-        }
-        attr = following;
-    }
-    for (xmlNode *child = node->children; child != NULL;) {
-        xmlNode *next = child->next;
-        if (child->type == XML_ELEMENT_NODE &&
-            xmp_private_name(child->ns, child->name)) {
-            xmlUnlinkNode(child);
-            xmlFreeNode(child);
-            changed = true;
-        } else {
-            changed |= remove_xmp_private(child);
-        }
-        child = next;
-    }
-    return changed;
-}
-
 static photoc_jpeg_edit_result scrub_xmp(const unsigned char *payload,
                                          unsigned int length,
                                          unsigned char **replacement,
@@ -1044,35 +973,23 @@ static photoc_jpeg_edit_result scrub_xmp(const unsigned char *payload,
 {
     static const char signature[] = "http://ns.adobe.com/xap/1.0/";
     size_t prefix = sizeof(signature);
-    if (length <= prefix || length - prefix > INT_MAX)
+    if (length <= prefix)
         return PHOTOC_JPEG_EDIT_UNSUPPORTED_XMP;
-    xmlDocPtr doc = xmlReadMemory(
-        (const char *)payload + prefix, (int)(length - prefix), "embedded.xmp",
-        NULL, XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
-    if (doc == NULL)
-        return PHOTOC_JPEG_EDIT_UNSUPPORTED_XMP;
-    if (doc->intSubset != NULL || doc->extSubset != NULL ||
-        xmlDocGetRootElement(doc) == NULL) {
-        xmlFreeDoc(doc);
-        return PHOTOC_JPEG_EDIT_UNSUPPORTED_XMP;
-    }
-    *changed = remove_xmp_private((xmlNode *)doc);
-    if (!*changed) {
-        xmlFreeDoc(doc);
-        return PHOTOC_JPEG_EDIT_OK;
-    }
-    xmlChar *xml = NULL;
-    int xml_length = 0;
-    xmlDocDumpMemoryEnc(doc, &xml, &xml_length, "UTF-8");
-    xmlFreeDoc(doc);
-    if (xml == NULL || xml_length < 0 || prefix + (size_t)xml_length > 65533) {
-        xmlFree(xml);
+    unsigned char *xml = NULL;
+    size_t xml_length = 0;
+    photoc_jpeg_edit_result result =
+        photoc_xmp_remove_private((const char *)payload + prefix,
+                                  length - prefix, &xml, &xml_length, changed);
+    if (result != PHOTOC_JPEG_EDIT_OK || !*changed)
+        return result;
+    if (prefix + xml_length > 65533) {
+        free(xml);
         return PHOTOC_JPEG_EDIT_UNSUPPORTED_XMP;
     }
-    size_t total = 4 + prefix + (size_t)xml_length;
+    size_t total = 4 + prefix + xml_length;
     unsigned char *bytes = malloc(total);
     if (bytes == NULL) {
-        xmlFree(xml);
+        free(xml);
         return PHOTOC_JPEG_EDIT_NO_MEMORY;
     }
     bytes[0] = 0xff;
@@ -1081,8 +998,8 @@ static photoc_jpeg_edit_result scrub_xmp(const unsigned char *payload,
     bytes[2] = (unsigned char)(marker_length >> 8);
     bytes[3] = (unsigned char)marker_length;
     memcpy(bytes + 4, payload, prefix);
-    memcpy(bytes + 4 + prefix, xml, (size_t)xml_length);
-    xmlFree(xml);
+    memcpy(bytes + 4 + prefix, xml, xml_length);
+    free(xml);
     *replacement = bytes;
     *replacement_length = total;
     return PHOTOC_JPEG_EDIT_OK;
@@ -1876,6 +1793,11 @@ const char *photoc_jpeg_edit_result_message(photoc_jpeg_edit_result result)
         return "unsupported or malformed XMP; scrub refused";
     case PHOTOC_JPEG_EDIT_UNSUPPORTED_IPTC:
         return "unsupported or malformed IPTC; scrub refused";
+    case PHOTOC_JPEG_EDIT_INVALID_ARW:
+        return "invalid, truncated, or unsupported ARW file";
+    case PHOTOC_JPEG_EDIT_UNSAFE_ARW_LAYOUT:
+        return "ARW metadata to remove overlaps data that must be kept; scrub "
+               "refused";
     default:
         return "unknown JPEG editing error";
     }

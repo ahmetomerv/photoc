@@ -1,4 +1,4 @@
-JPEG sharpness (lowest scores first)
+Sharpness (lowest scores first)
 Filename	Sharpness score
 @PATH@	0.000	possibly blurry
 

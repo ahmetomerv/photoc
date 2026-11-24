@@ -4,6 +4,7 @@
 
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
+#include "photoc/format.h"
 #include "photoc/fs.h"
 #include "photoc/jpeg_check.h"
 #include "photoc/json.h"
@@ -52,7 +53,7 @@ static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
     if (type != PHOTOC_FS_FILE) {
         return true;
     }
-    if (!photoc_fs_is_jpeg(path)) {
+    if (!photoc_format_is_photo(path)) {
         ++walk->skipped;
         photoc_output_verbose(walk->output, "check",
                               "skipped '%s': unsupported file extension\n",
@@ -97,7 +98,8 @@ static void report_error(const char *name, photoc_check_result result)
     if (result.code == PHOTOC_CHECK_IO_ERROR ||
         result.code == PHOTOC_CHECK_FILE_CHANGED) {
         kind = PHOTOC_ERR_IO;
-    } else if (result.code == PHOTOC_CHECK_UNSUPPORTED_JPEG) {
+    } else if (result.code == PHOTOC_CHECK_UNSUPPORTED_JPEG ||
+               result.code == PHOTOC_CHECK_UNSUPPORTED_ARW) {
         kind = PHOTOC_ERR_UNSUPPORTED;
     } else if (result.code == PHOTOC_CHECK_RESOURCE_LIMIT ||
                result.code == PHOTOC_CHECK_INTERNAL_ERROR) {
@@ -147,6 +149,14 @@ static void print_report(const char *path, bool directory, bool only_errors,
     photoc_output_info(
         output, "Checks cover structural readability, not visual quality "
                 "or complete metadata validity.\n");
+    for (size_t i = 0; i < walk->count; ++i) {
+        if (photoc_fs_is_arw(walk->rows[i].path)) {
+            photoc_output_info(output,
+                               "ARW sensor data is checked for layout and "
+                               "completeness, not decoded.\n");
+            break;
+        }
+    }
 }
 
 static int print_json(const char *path, bool directory, bool only_errors,
@@ -169,7 +179,9 @@ static int print_json(const char *path, bool directory, bool only_errors,
                                   : row->path) != 0) {
             return -1;
         }
-        printf(", \"status\": \"%s\", \"code\": \"%s\", \"message\": ",
+        printf(", \"format\": \"%s\", \"status\": \"%s\", \"code\": \"%s\", "
+               "\"message\": ",
+               photoc_format_name(photoc_format_from_path(row->path)),
                photoc_check_status_name(row->result.status),
                photoc_check_code_name(row->result.code));
         if (photoc_json_write_string(stdout,
@@ -193,10 +205,10 @@ int photoc_command_check_with_output(const char *path, bool recursive,
                                    path, "unable to inspect path", errno);
     }
     if (type == PHOTOC_FS_OTHER ||
-        (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path))) {
+        (type == PHOTOC_FS_FILE && !photoc_format_is_photo(path))) {
         return photoc_error_report(
             "check", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
-            "expected a regular JPEG file or directory", 0);
+            "expected a regular JPEG or Sony ARW file, or a directory", 0);
     }
     if (type == PHOTOC_FS_FILE && recursive) {
         return photoc_error_report("check", PHOTOC_ERR_NOTE_NONE,
@@ -236,7 +248,7 @@ int photoc_command_check_with_output(const char *path, bool recursive,
         qsort(walk.rows, walk.count, sizeof(*walk.rows), compare_rows);
     }
     if (type == PHOTOC_FS_DIRECTORY) {
-        photoc_progress_set_message(progress, "Checking JPEGs...");
+        photoc_progress_set_message(progress, "Checking photos...");
         if (progress != NULL && progress->enabled)
             photoc_progress_set_total(progress, walk.count);
     }
@@ -248,7 +260,9 @@ int photoc_command_check_with_output(const char *path, bool recursive,
         if (photoc_progress_interrupted())
             break;
         check_row *row = &walk.rows[i];
-        row->result = photoc_jpeg_check_file(row->path);
+        row->result = photoc_fs_is_arw(row->path)
+                          ? photoc_arw_check_file(row->path)
+                          : photoc_jpeg_check_file(row->path);
         switch (row->result.status) {
         case PHOTOC_CHECK_OK:
             ++summary.ok;
@@ -274,19 +288,20 @@ int photoc_command_check_with_output(const char *path, bool recursive,
     if (directory) {
         char message[96];
         if (summary.errors != 0) {
-            snprintf(message, sizeof(message), "Checked %zu JPEGs; %zu errors",
+            snprintf(message, sizeof(message), "Checked %zu photos; %zu errors",
                      walk.count, summary.errors);
             photoc_progress_warn(progress, message);
         } else {
-            snprintf(message, sizeof(message), "Checked %zu JPEGs", walk.count);
+            snprintf(message, sizeof(message), "Checked %zu photos",
+                     walk.count);
             photoc_progress_finish(progress, message);
         }
     }
-    photoc_output_verbose(
-        output, "check",
-        "JPEG files discovered: %zu; checked: %zu; skipped: %zu; "
-        "warnings: %zu; errors: %zu\n",
-        walk.count, walk.count, walk.skipped, summary.warnings, summary.errors);
+    photoc_output_verbose(output, "check",
+                          "photos discovered: %zu; checked: %zu; skipped: %zu; "
+                          "warnings: %zu; errors: %zu\n",
+                          walk.count, walk.count, walk.skipped,
+                          summary.warnings, summary.errors);
     int output_result;
     if (json) {
         output_result =

@@ -42,6 +42,19 @@ bool photoc_tiff_read(photoc_tiff_reader *reader, uint64_t offset,
     return true;
 }
 
+bool photoc_tiff_scalar(photoc_tiff_reader *reader,
+                        const photoc_tiff_entry *entry, uint32_t *value)
+{
+    if ((entry->type != 3 && entry->type != 4) || entry->count != 1)
+        return true;
+    unsigned char bytes[4];
+    if (!photoc_tiff_read(reader, entry->offset, bytes, (size_t)entry->size))
+        return false;
+    *value = entry->type == 3 ? exif_get_short(bytes, reader->order)
+                              : exif_get_long(bytes, reader->order);
+    return true;
+}
+
 static bool enqueue(tiff_directory *directories, size_t *count, uint32_t offset,
                     photoc_tiff_directory_kind kind, bool primary)
 {
@@ -138,6 +151,7 @@ int photoc_tiff_walk(FILE *file, uint64_t size, photoc_tiff_visit_fn visit,
         return -1;
     }
     uint32_t total_entries = 0;
+    unsigned char seen[65536 / 8];
     for (size_t i = 0; i < count; ++i) {
         tiff_directory directory = directories[i];
         unsigned char bytes[12];
@@ -155,7 +169,7 @@ int photoc_tiff_walk(FILE *file, uint64_t size, photoc_tiff_visit_fn visit,
             errno = EINVAL;
             return -1;
         }
-        uint16_t previous = 0;
+        memset(seen, 0, sizeof(seen));
         for (uint16_t j = 0; j < entries; ++j) {
             uint64_t offset = start + (uint64_t)j * 12;
             if (!photoc_tiff_read(&reader, offset, bytes, 12))
@@ -164,16 +178,19 @@ int photoc_tiff_walk(FILE *file, uint64_t size, photoc_tiff_visit_fn visit,
                 .tag = exif_get_short(bytes, reader.order),
                 .type = exif_get_short(bytes + 2, reader.order),
                 .count = exif_get_long(bytes + 4, reader.order),
+                .position = offset,
                 .directory_offset = directory.offset,
                 .kind = directory.kind,
                 .primary = directory.primary};
             unsigned int unit = type_size(entry.type);
-            /* TIFF requires unique tags in ascending order within an IFD. */
-            if (unit == 0 || (j != 0 && entry.tag <= previous)) {
+            /* TIFF specifies ascending tags, but Sony RAW SubIFDs store some
+               out of order. Only repeated tags within an IFD are rejected. */
+            unsigned char bit = (unsigned char)(1u << (entry.tag & 7u));
+            if (unit == 0 || (seen[entry.tag >> 3] & bit) != 0) {
                 errno = EINVAL;
                 return -1;
             }
-            previous = entry.tag;
+            seen[entry.tag >> 3] |= bit;
             entry.size = (uint64_t)unit * entry.count;
             entry.offset = entry.size <= 4
                                ? offset + 8

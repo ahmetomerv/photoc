@@ -130,7 +130,8 @@ class QueryCLI(unittest.TestCase):
         outputs = [self.run_query(self.directory, "--recursive") for _ in range(3)]
         self.assertTrue(all(output.stdout == expected for output in outputs))
         data = json.loads(self.run_query(self.directory, "--recursive", "--json").stdout)
-        self.assertEqual(data["summary"], {"files_visited": 4, "jpeg_files_found": 3, "photos_parsed": 3,
+        self.assertEqual(data["summary"], {"files_visited": 4, "jpeg_files_found": 3, "arw_files_found": 0,
+                                           "metadata_files_found": 3, "photos_parsed": 3,
                                            "skipped_files": 1, "errors": 0, "matched": 3})
         self.assertEqual([item["path"] for item in data["matches"]], [str(a), str(nested), str(z)])
 

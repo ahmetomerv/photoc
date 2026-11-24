@@ -22,7 +22,7 @@
 
 ![photoc review in a terminal, showing a photo with metadata and pick, reject, and unmark controls](assets/photoc-demo-terminal.jpeg)
 
-photoc reads **JPEG** files and metadata from **Sony ARW** RAW files. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported yet ([File-type support](#file-type-support)). It does not develop RAW files, edit images, catalog a library, or replace a metadata editor such as [ExifTool](https://exiftool.org/). Windows is not supported yet.
+photoc works with **JPEG** and **Sony ARW** RAW files. For ARW, it reads the metadata and the JPEG preview the camera embeds, so every command except `compress` handles ARW without developing RAW data. Other RAW formats (CR3, NEF, RAF, DNG, …) and HEIC are not supported yet ([File-type support](#file-type-support)). It does not develop RAW files, edit images, catalog a library, or replace a metadata editor such as [ExifTool](https://exiftool.org/). Windows is not supported yet.
 
 Originals stay unchanged unless you pass `--apply` (`rename`, `sort`) or `--in-place` (`scrub`). Read-only commands only read. Commands that create files write new copies next to your originals or in a folder you choose, and never overwrite unrelated output files ([File safety](#file-safety)).
 
@@ -46,7 +46,7 @@ state file; the others shown here only read):
 
 ```sh
 photoc --help                         # list commands
-photoc review ./photos                # interactively mark JPEGs to keep or reject
+photoc review ./photos                # interactively mark photos to keep or reject
 photoc exif photo.jpg                 # one photo's metadata
 photoc stats ./photos --recursive     # summarize a folder and its subfolders
 photoc timeline ./photos              # review a shoot by session
@@ -79,7 +79,7 @@ JSON schema where supported. All guides are listed in the
 
 | Command | Purpose |
 | --- | --- |
-| [`review`](docs/review.md) | Browse JPEGs, inspect metadata and sharpness, and save picked/rejected marks |
+| [`review`](docs/review.md) | Browse JPEG and ARW photos, inspect metadata and sharpness, and save picked/rejected marks |
 
 **Inspect** (read-only):
 
@@ -90,8 +90,8 @@ JSON schema where supported. All guides are listed in the
 | [`timeline`](docs/timeline.md) | Group a shoot by date and session |
 | [`query`](docs/query.md) | Find photos matching metadata filters such as ISO, aperture, camera, or date |
 | [`duplicates`](docs/duplicates.md) | Find byte-identical files and show potential space savings |
-| [`focus`](docs/focus.md) | Rank JPEGs by sharpness score, lowest first, to help culling |
-| [`check`](docs/check.md) | Audit JPEGs for structural and decoding problems |
+| [`focus`](docs/focus.md) | Rank photos by sharpness score, lowest first, to help culling |
+| [`check`](docs/check.md) | Audit JPEG and ARW files for structural, truncation, and decoding problems |
 
 **Organize** (preview by default; add `--apply` to change files):
 
@@ -104,8 +104,8 @@ JSON schema where supported. All guides are listed in the
 
 | Command | Purpose |
 | --- | --- |
-| [`compress`](docs/compress.md) | Write smaller JPEG copies at a chosen quality or target file size |
-| [`contact`](docs/contact.md) | Make paged JPEG contact sheets with filenames and optional exposure data |
+| [`compress`](docs/compress.md) | Write smaller copies of JPEGs at a chosen quality or target file size (ARW is skipped) |
+| [`contact`](docs/contact.md) | Make paged JPEG contact sheets of JPEG and ARW photos with filenames and optional exposure data |
 | [`scrub`](docs/scrub.md) | Write copies without GPS, private fields, or descriptive metadata |
 
 `--json` works with `exif`, `stats`, `timeline`, `query`, `duplicates`,
@@ -116,16 +116,21 @@ JSON schema where supported. All guides are listed in the
 
 | Command | JPEG | Sony ARW | Other RAW files |
 | --- | --- | --- | --- |
-| `review` | Interactive culling; JPEGs unchanged | Unsupported/skipped | Unsupported/skipped |
-| `exif`, `stats`, `timeline`, `rename`, `sort` | Metadata | Common TIFF/EXIF metadata | Unsupported/skipped |
-| `query`, `check`, `compress`, `contact`, `focus`, `scrub` | Supported | Unsupported/skipped | Unsupported/skipped |
+| `exif`, `stats`, `timeline`, `query`, `rename`, `sort` | Metadata | Common TIFF/EXIF metadata | Unsupported/skipped |
+| `review`, `contact` | Decoded image | Embedded JPEG preview | Unsupported/skipped |
+| `focus` | Decoded image | Embedded preview, scored at the full image's analysis size | Unsupported/skipped |
+| `check` | Structure and full decode | Container, sensor data layout, and full preview decode | Unsupported/skipped |
+| `scrub` | `--gps`, `--privacy`, `--all-metadata`; copy or in place | `--gps` and `--privacy` copies only | Unsupported/skipped |
+| `compress` | Re-encoded copy | Skipped | Unsupported/skipped |
 | `duplicates` | Exact bytes | Exact bytes | Exact bytes |
 
-ARW support is **metadata only**: no RAW development, pixel decoding,
-compression, or GPS rewriting. Files are matched by extension (`.jpg`,
-`.jpeg`, `.arw`, case-insensitive). See
-[Sony ARW metadata support](docs/raw.md) for fields and limits. Want your
-camera supported? See [Contributing](#contributing).
+photoc never decodes ARW sensor data. Commands that need pixels use the JPEG
+preview the camera embeds in every ARW, typically about 1616 x 1080, with the
+ARW's orientation applied. ARW files are never modified; `scrub` writes a
+`.scrubbed.ARW` copy whose edits never move image data. Files are matched by
+extension (`.jpg`, `.jpeg`, `.arw`, case-insensitive). See
+[Sony ARW support](docs/raw.md) for fields and limits. Want your camera
+supported? See [Contributing](#contributing).
 
 ## Workflows
 
@@ -218,12 +223,12 @@ photoc stats ./photos --recursive --json > stats.json
 | `rename`, `sort` | Only with `--apply` | Renames or moves in place | Never overwritten; whole plan checked first |
 | `compress` | Never | `photo.compressed.jpg` copies | Skipped (directory) or rejected (single file) |
 | `contact` | Never | `sheet.jpg`, `sheet-001.jpg`, … | Never overwritten |
-| `scrub` | Only with `--in-place` | `photo.scrubbed.jpg` copies | Rejected |
+| `scrub` | Only with `--in-place` (never for ARW) | `photo.scrubbed.jpg` / `DSC1.scrubbed.ARW` copies | Rejected |
 
 Important details:
 
 - **Review** saves only picked/rejected marks in a versioned state file. It
-  never changes JPEG data, filenames, or locations; quitting without a mark
+  never changes photo data, filenames, or locations; quitting without a mark
   creates no state file. See [interactive review](docs/review.md).
 - **Rename and sort** check the whole plan before changing anything. If a
   rename or move fails, photoc tries to undo earlier changes, but another
@@ -245,6 +250,9 @@ Important details:
   GPS only; `--privacy` removes supported location and identifier fields;
   `--all-metadata` removes descriptive metadata but keeps ICC profiles and
   orientation. Information in opaque MakerNotes or unknown formats may remain.
+  For Sony ARW, `--gps` and `--privacy` write `.scrubbed.ARW` copies with
+  size-preserving edits: removed entries and values are zeroed and no image
+  data moves. `--in-place` and `--all-metadata` are refused for ARW.
 - **`scrub --in-place` creates no backup.** It verifies a temporary copy, then
   replaces the original in one atomic step. Symlinks, hard links, and files
   that change during processing are refused. Permission bits and group
@@ -392,8 +400,10 @@ remove the quarantine flag after verifying its checksum:
 <details>
 <summary>My photos are skipped or reported as unsupported</summary>
 
-photoc reads JPEG files and Sony ARW metadata only, matched by file extension.
-See [File-type support](#file-type-support).
+photoc reads JPEG and Sony ARW files only, matched by file extension, and
+`compress` skips ARW files. An ARW without a usable embedded JPEG preview
+cannot be shown by `review`, `contact`, or `focus`. See
+[File-type support](#file-type-support).
 
 </details>
 

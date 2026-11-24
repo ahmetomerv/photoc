@@ -202,10 +202,13 @@ static int render(review_session *session)
                 photoc_metadata_result metadata =
                     metadata_get(session, index, item->path, &photo);
                 if (metadata == PHOTOC_METADATA_IO_ERROR ||
-                    metadata == PHOTOC_METADATA_INVALID_JPEG) {
+                    metadata == PHOTOC_METADATA_INVALID_JPEG ||
+                    metadata == PHOTOC_METADATA_INVALID_ARW) {
                     review_score_fail(score,
                                       metadata == PHOTOC_METADATA_IO_ERROR
                                           ? PHOTOC_IMAGE_IO_ERROR
+                                      : metadata == PHOTOC_METADATA_INVALID_ARW
+                                          ? PHOTOC_IMAGE_INVALID_ARW
                                           : PHOTOC_IMAGE_INVALID_JPEG);
                     fputs("Photo unavailable\n", stdout);
                     fputs("Sharpness: unavailable\n", stdout);
@@ -215,10 +218,13 @@ static int render(review_session *session)
                             const photoc_jpeg_buffer *preview =
                                 review_preview_get(&session->previews, index,
                                                    item->path, photo);
+                            /* An ARW is never streamed to the terminal. */
                             review_image_result image =
                                 preview != NULL
                                     ? review_iterm_render_bytes(
                                           stdout, preview->data, preview->size)
+                                : photoc_fs_is_arw(item->path)
+                                    ? REVIEW_IMAGE_UNAVAILABLE
                                     : review_iterm_render(stdout, item->path);
                             if (image == REVIEW_IMAGE_OUTPUT_ERROR) {
                                 return -1;
@@ -443,7 +449,7 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
                                     : PHOTOC_REVIEW_SORT_NAME,
                           parse_show(show)) != 0) {
         photoc_error_report("review", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO, NULL,
-                            "unable to discover JPEG photos", errno);
+                            "unable to discover photos", errno);
         goto cleanup;
     }
     if (photoc_progress_interrupted())
@@ -466,7 +472,7 @@ int photoc_command_review_with_output(const char *directory, bool recursive,
         goto cleanup;
     }
     if (session.model.count == 0) {
-        photoc_output_info(output, "No JPEG photos to review.\n");
+        photoc_output_info(output, "No JPEG or ARW photos to review.\n");
         result = PHOTOC_EXIT_SUCCESS;
         goto cleanup;
     }

@@ -9,8 +9,8 @@
 
 #include <dirent.h>
 #include <errno.h>
-#if defined(__linux__)
 #include <fcntl.h>
+#if defined(__linux__)
 #include <linux/fs.h>
 #elif defined(__APPLE__)
 #include <sys/stdio.h>
@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static bool valid_path(const char *path)
 {
@@ -156,6 +157,46 @@ int photoc_fs_file_size(const char *path, uint64_t *size)
         errno = EOVERFLOW;
         return -1;
     }
+    *size = (uint64_t)info.st_size;
+    return 0;
+}
+
+int photoc_fs_open_regular(const char *path, FILE **file, uint64_t *size)
+{
+    if (file == NULL || size == NULL || !valid_path(path)) {
+        errno = EINVAL;
+        return -1;
+    }
+    int descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
+    if (descriptor < 0) {
+        if (errno == ELOOP) {
+            errno = EINVAL;
+        }
+        return -1;
+    }
+    struct stat info;
+    if (fstat(descriptor, &info) != 0) {
+        int saved_errno = errno;
+        close(descriptor);
+        errno = saved_errno;
+        return -1;
+    }
+    if (!S_ISREG(info.st_mode) || info.st_size < 0) {
+        int error = S_ISDIR(info.st_mode) ? EISDIR
+                    : info.st_size < 0    ? EOVERFLOW
+                                          : EINVAL;
+        close(descriptor);
+        errno = error;
+        return -1;
+    }
+    FILE *stream = fdopen(descriptor, "rb");
+    if (stream == NULL) {
+        int saved_errno = errno;
+        close(descriptor);
+        errno = saved_errno;
+        return -1;
+    }
+    *file = stream;
     *size = (uint64_t)info.st_size;
     return 0;
 }

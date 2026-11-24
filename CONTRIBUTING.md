@@ -167,9 +167,19 @@ entries through the bounded read-only `tiff.c` directory visitor; no image,
 MakerNote, or private codec parser is invoked. See [ARW support](docs/raw.md)
 for the dependency evaluation, limits, and test provenance.
 
-The default metadata scanner discovers JPEG/ARW. Consumers needing JPEG alone
-must request `PHOTOC_FORMATS_JPEG` via `photoc_scan_directory_filtered` (query)
-or keep their JPEG filesystem/image gates (check/compress/focus/scrub).
+ARW pixels always come from the camera's embedded JPEG preview; no RAW codec
+is linked. `photoc_arw_read_preview` (`arw.c`) finds it with the same bounded
+directory walk, `photoc_photo_decode_scaled_bounded_with` (`photo_image.c`)
+decodes a JPEG or an ARW preview for `review` and `contact`, and
+`photoc_sharpness_score_photo` matches ARW analysis size to the full image for
+`focus`. `arw_check.c` audits ARW structure for `check`, reusing the JPEG audit
+on the preview through `check_internal.h`. `arw_scrub.c` writes size-preserving
+`.scrubbed.ARW` copies for `scrub`, sharing XMP privacy filtering with JPEG
+scrubbing through `xmp_internal.h`.
+
+The default metadata scanner discovers JPEG/ARW. Commands use
+`photoc_format_is_photo` for JPEG/ARW discovery; `compress` alone keeps a JPEG
+gate and reports skipped ARW files.
 Rename/sort share format discovery but retain their existing plans, preflight,
 no-overwrite apply, and rollback code. Future metadata backends must not expand
 image-operation support merely by changing discovery.

@@ -394,6 +394,7 @@ not an independent signature. The release workflow also attaches versioned
 `photoc-<version>-<platform>.tar.gz` archives and individual platform checksum
 manifests. See [releasing.md](releasing.md) for the complete layout and workflow.
 
-Sony ARW support is metadata-only and uses the existing
-libexif dependency; no RAW development library is required. See
-[the command/file-type support matrix](raw.md#supported-commands).
+Sony ARW support uses the existing libexif and libjpeg-turbo dependencies:
+metadata comes from standard TIFF/EXIF tags, and commands that need pixels use
+the JPEG preview the camera embeds in each ARW. No RAW development library is
+required. See [the command/file-type support matrix](raw.md#supported-commands).

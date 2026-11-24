@@ -2,6 +2,8 @@
 
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
+#include "photoc/arw.h"
+#include "photoc/format.h"
 #include "photoc/fs.h"
 #include "photoc/jpeg_write.h"
 
@@ -77,10 +79,93 @@ static void report_edit_error(const char *path, photoc_jpeg_edit_result result,
                            saved_errno);
 }
 
+/* ARW copies support --gps and --privacy only: in-place replacement and
+   all-metadata removal are refused for RAW originals. */
+static bool arw_mode_supported(bool in_place, int mode)
+{
+    return !in_place && mode != 2;
+}
+
+static void scrub_arw_file(const char *path, bool in_place, int mode,
+                           scrub_counts *counts, const photoc_output *output)
+{
+    photoc_progress *progress = output == NULL ? NULL : output->progress;
+    if (!arw_mode_supported(in_place, mode)) {
+        ++counts->skipped;
+        photoc_output_info(output,
+                           "Skipped: %s (Sony ARW supports --gps and "
+                           "--privacy copies only)\n",
+                           path);
+        return;
+    }
+    char *destination = NULL;
+    if (scrubbed_path(path, &destination) != 0) {
+        ++counts->failed;
+        photoc_progress_before_diagnostic(progress);
+        photoc_error_report("scrub", PHOTOC_ERR_NOTE_NONE,
+                            errno == ENOMEM ? PHOTOC_ERR_INTERNAL
+                                            : PHOTOC_ERR_IO,
+                            path, "cannot build output path", errno);
+        return;
+    }
+    photoc_output_verbose(output, "scrub", "input: '%s'; output: '%s'\n", path,
+                          destination);
+    photoc_scrub_report report = {0};
+    photoc_jpeg_edit_result result =
+        photoc_arw_scrub_copy(path, destination, mode == 1, &report);
+    int saved_errno = errno;
+    bool privacy_remains =
+        (mode == 1 && report.maker_note) || report.unhandled_metadata;
+    if (result != PHOTOC_JPEG_EDIT_OK) {
+        ++counts->failed;
+        photoc_progress_before_diagnostic(progress);
+        report_edit_error(destination, result, saved_errno);
+    } else if (!report.changed) {
+        ++counts->skipped;
+        if (mode == 0) {
+            photoc_output_verbose(output, "scrub",
+                                  "skipped '%s': no EXIF GPS tags\n", path);
+            photoc_output_info(output, "Skipped: %s (no EXIF GPS tags)\n",
+                               path);
+        } else {
+            photoc_output_info(
+                output, "Skipped: %s (no supported metadata to remove)\n",
+                path);
+        }
+        if (privacy_remains)
+            photoc_output_metadata_warning(output, "scrub", path,
+                                           PHOTOC_METADATA_PRIVACY_REMAINS, 0);
+    } else {
+        ++counts->processed;
+        if (mode == 0) {
+            ++counts->gps_removed;
+            photoc_output_info(output, "GPS removed: %s -> %s\n", path,
+                               destination);
+        } else {
+            photoc_output_info(output, "Metadata removed: %s -> %s\n", path,
+                               destination);
+            photoc_output_verbose(output, "scrub",
+                                  "removed categories: EXIF GPS=%s, EXIF "
+                                  "identifiers=%s, XMP=%s, IPTC=no\n",
+                                  report.exif_gps ? "yes" : "no",
+                                  report.exif_identifiers ? "yes" : "no",
+                                  report.xmp_fields ? "yes" : "no");
+        }
+        if (privacy_remains)
+            photoc_output_metadata_warning(output, "scrub", destination,
+                                           PHOTOC_METADATA_PRIVACY_REMAINS, 0);
+    }
+    free(destination);
+}
+
 static void scrub_file(const char *path, bool in_place, int mode,
                        scrub_counts *counts, const photoc_output *output)
 {
     photoc_progress *progress = output == NULL ? NULL : output->progress;
+    if (photoc_fs_is_arw(path)) {
+        scrub_arw_file(path, in_place, mode, counts, output);
+        return;
+    }
     if (!photoc_fs_is_jpeg(path)) {
         ++counts->skipped;
         return;
@@ -211,7 +296,7 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
         return false;
     }
     if (type == PHOTOC_FS_FILE) {
-        if (!photoc_fs_is_jpeg(path) || is_scrubbed_output(path)) {
+        if (!photoc_format_is_photo(path) || is_scrubbed_output(path)) {
             ++walk->counts.skipped;
             photoc_output_verbose(
                 walk->output, "scrub",
@@ -268,16 +353,24 @@ static int command_scrub(const char *path, bool recursive, bool in_place,
     if (type == PHOTOC_FS_OTHER) {
         return photoc_error_report(
             "scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
-            "expected a regular JPEG file or directory", 0);
+            "expected a regular JPEG or Sony ARW file, or a directory", 0);
     }
     if (type == PHOTOC_FS_FILE && recursive) {
         fputs("photoc scrub: --recursive requires a directory\n", stderr);
         return PHOTOC_EXIT_USAGE;
     }
-    if (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path)) {
+    if (type == PHOTOC_FS_FILE && !photoc_format_is_photo(path)) {
         return photoc_error_report(
             "scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
-            "expected a regular JPEG file or directory", 0);
+            "expected a regular JPEG or Sony ARW file, or a directory", 0);
+    }
+    if (type == PHOTOC_FS_FILE && photoc_fs_is_arw(path) &&
+        !arw_mode_supported(in_place, mode)) {
+        return photoc_error_report(
+            "scrub", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
+            "Sony ARW supports --gps and --privacy copies only; "
+            "--in-place and --all-metadata are refused for RAW files",
+            0);
     }
 
     scrub_counts counts = {0};
@@ -339,7 +432,7 @@ static int command_scrub(const char *path, bool recursive, bool in_place,
     }
     if (mode == 0) {
         photoc_output_verbose(output, "scrub",
-                              "JPEG files discovered: %zu; processed: %zu; "
+                              "photos discovered: %zu; processed: %zu; "
                               "skipped: %zu; failed: %zu; GPS removed: %zu\n",
                               discovered, counts.processed, counts.skipped,
                               counts.failed, counts.gps_removed);
@@ -351,7 +444,7 @@ static int command_scrub(const char *path, bool recursive, bool in_place,
             counts.gps_removed);
     } else {
         photoc_output_verbose(output, "scrub",
-                              "JPEG files discovered: %zu; processed: %zu; "
+                              "photos discovered: %zu; processed: %zu; "
                               "skipped: %zu; failed: %zu\n",
                               discovered, counts.processed, counts.skipped,
                               counts.failed);

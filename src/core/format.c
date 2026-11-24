@@ -24,6 +24,11 @@ const char *photoc_format_name(photoc_photo_format format)
     return "unknown";
 }
 
+bool photoc_format_is_photo(const char *path)
+{
+    return photoc_format_from_path(path) != PHOTOC_FORMAT_UNKNOWN;
+}
+
 bool photoc_format_is_selected(const char *path, unsigned int formats)
 {
     photoc_photo_format format = photoc_format_from_path(path);

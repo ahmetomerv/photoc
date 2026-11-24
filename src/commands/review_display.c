@@ -12,7 +12,7 @@ photoc_image_result review_score_get(review_score_cache *cache,
                                      const char *path)
 {
     if (!cache->attempted) {
-        cache->result = photoc_sharpness_score_jpeg(
+        cache->result = photoc_sharpness_score_photo(
             path, PHOTOC_SHARPNESS_DEFAULT_MAX_DIMENSION, &cache->score);
         cache->attempted = true;
     }

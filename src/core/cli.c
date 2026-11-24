@@ -162,10 +162,13 @@ static const photoc_help_option focus_options[] = {
 
 static const char *const focus_notes[] = {
     "Rows are sorted by score ascending, then path; summaries include all "
-    "analyzed JPEGs.",
+    "analyzed photos.",
     "Possibly blurry is a review hint, not certainty; no universal cutoff "
     "exists.",
-    "Noise, texture, subject matter, and JPEG artifacts affect scores.", NULL};
+    "Noise, texture, subject matter, and JPEG artifacts affect scores.",
+    "Sony ARW is scored from its embedded preview at the size its full image "
+    "uses.",
+    NULL};
 
 static const char *const scrub_examples[] = {
     "photoc scrub photo.jpg --gps",
@@ -190,7 +193,8 @@ static const char *const check_notes[] = {
     "Read-only; rows are sorted by path. Warnings return 0; errors return 1.",
     "Checks structural readability, not visual quality or complete metadata "
     "validity.",
-    NULL};
+    "Sony ARW: checks the container, sensor data layout, and embedded",
+    "preview; RAW sensor data is not decoded.", NULL};
 
 static const char *const review_examples[] = {
     "photoc review ./shoot", "photoc review ./shoot --images none",
@@ -208,13 +212,14 @@ static const photoc_help_option review_options[] = {
     {NULL, NULL}};
 
 static const char *const review_notes[] = {
-    "Requires one directory; reviews regular .jpg/.jpeg files only.",
+    "Requires one directory; reviews regular .jpg/.jpeg and Sony .arw files.",
+    "ARW files show their embedded JPEG preview; RAW data is never decoded.",
     "Requires a terminal on stdin and stdout; --json is not supported.",
     "Auto shows images only in direct iTerm2; other terminals get text only.",
     "The iterm mode forces protocol output, not terminal support.",
     "Keys: left/h previous, right/l/space next, p pick, x reject, u unmark,",
     "i details, ? help, q quit. Marks are saved atomically before advancing.",
-    "Only review state is written; JPEG files are never changed.",
+    "Only review state is written; photo files are never changed.",
     NULL};
 
 static const photoc_help_option scrub_options[] = {
@@ -259,6 +264,8 @@ static const char *const query_notes[] = {
 static const char *const scrub_notes[] = {
     "Choose exactly one of --gps, --privacy, or --all-metadata.",
     "MakerNotes and unknown marker formats can retain private information.",
+    "Sony ARW: --gps and --privacy write .scrubbed.ARW copies; --in-place and",
+    "--all-metadata are refused for ARW. ARW edits never move image data.",
     "Warning: --in-place replaces original files and creates no backup.",
     "It preserves mode bits; ACLs and extended attributes may change.",
     "Linked, symlinked, changed, or differently owned files are refused.",
@@ -541,7 +548,8 @@ static int run_focus(const photoc_cli_options *options,
         "focus <file|directory> [--recursive] [--threshold <value>] "
         "[--only-blurry] [--json]";
     if (options->argument_count != 1) {
-        usage_error("focus", "expected exactly one JPEG file or directory",
+        usage_error("focus",
+                    "expected exactly one JPEG or ARW file, or a directory",
                     usage);
         return PHOTOC_EXIT_USAGE;
     }
@@ -589,7 +597,8 @@ static int run_check(const photoc_cli_options *options,
     static const char usage[] =
         "check <file|directory> [--recursive] [--only-errors] [--json]";
     if (options->argument_count != 1) {
-        usage_error("check", "expected exactly one JPEG file or directory",
+        usage_error("check",
+                    "expected exactly one JPEG or ARW file, or a directory",
                     usage);
         return PHOTOC_EXIT_USAGE;
     }
@@ -602,7 +611,8 @@ static int run_query(const photoc_cli_options *options,
                      const photoc_output *output)
 {
     if (options->argument_count != 1) {
-        usage_error("query", "expected exactly one JPEG file or directory",
+        usage_error("query",
+                    "expected exactly one JPEG or ARW file, or a directory",
                     "query <file|directory> [filters] [--recursive] "
                     "[--json | --print0]");
         return PHOTOC_EXIT_USAGE;
@@ -680,28 +690,29 @@ static int run_review(const photoc_cli_options *options,
 }
 
 static const photoc_command commands[] = {
-    {"review", "Cull JPEGs in an interactive terminal session",
+    {"review", "Cull JPEG and ARW photos in an interactive terminal session",
      "<directory> [--recursive] [--sort name|date] "
      "[--show all|unmarked|picked|rejected] "
      "[--images auto|iterm|none] [--state <file>]",
      "Status: interactive review with optional iTerm images; writes review "
      "state only",
      review_examples, review_options, review_notes, true, false, run_review},
-    {"query", "Search JPEG metadata and print matching paths",
+    {"query", "Search photo metadata and print matching paths",
      "<file|directory> [filters] [--recursive] [--json | --print0]",
-     "Status: available for JPEG files (read-only)", query_examples,
-     query_options, query_notes, true, true, run_query},
-    {"check", "Audit JPEG structural readability",
+     "Status: available for JPEG and Sony ARW files (read-only)",
+     query_examples, query_options, query_notes, true, true, run_query},
+    {"check", "Audit JPEG and ARW structural readability",
      "<file|directory> [--recursive] [--only-errors] [--json]",
-     "Status: available for JPEG files (read-only)", check_examples,
-     check_options, check_notes, true, true, run_check},
+     "Status: available for JPEG and Sony ARW files (read-only)",
+     check_examples, check_options, check_notes, true, true, run_check},
     {"compress", "Re-encode JPEGs by quality or target size",
      "<file|directory> [--quality <1-100> | --target <size> [--min-quality "
      "<1-100>]] [--recursive] [--output-dir <directory>]",
-     "Status: available for JPEG files; writes .compressed copies",
+     "Status: available for JPEG files; writes .compressed copies; skips "
+     "Sony ARW",
      compress_examples, compress_options, compress_notes, true, false,
      run_compress},
-    {"contact", "Generate paged JPEG contact sheets",
+    {"contact", "Generate paged JPEG contact sheets from JPEG and ARW",
      "<directory> --output <file.jpg> [--recursive] [--columns <1-8>] "
      "[--thumb-size <96-512>] [--quality <1-100>] [--metadata] "
      "[--sort name|date]",
@@ -730,12 +741,12 @@ static const photoc_command commands[] = {
      "<directory> --by date|session [--gap <duration>] [--recursive] [--apply]",
      "Status: dry-run by default; --apply moves files after preflight",
      sort_examples, sort_options, NULL, true, false, run_sort},
-    {"focus", "Compare JPEG sharpness scores",
+    {"focus", "Compare JPEG and ARW sharpness scores",
      "<file|directory> [--recursive] [--threshold <value>] [--only-blurry] "
      "[--json]",
-     "Status: available for JPEG files (read-only)", focus_examples,
-     focus_options, focus_notes, true, true, run_focus},
-    {"scrub", "Remove GPS or descriptive metadata from JPEGs",
+     "Status: available for JPEG and Sony ARW files (read-only)",
+     focus_examples, focus_options, focus_notes, true, true, run_focus},
+    {"scrub", "Remove GPS or descriptive metadata from JPEG and ARW",
      "<file|directory> (--gps|--privacy|--all-metadata) [--recursive] "
      "[--in-place]",
      "Status: writes .scrubbed copies by default; --in-place replaces "
@@ -775,12 +786,11 @@ static void print_global_help(void)
     puts("      --no-progress  Disable interactive progress display");
     puts("      --json       Request JSON output where supported");
     puts("");
-    puts("Exif and stats inspect JPEG/ARW metadata; duplicates compares file "
-         "bytes.");
+    puts("Commands read JPEG and Sony ARW; compress handles JPEG only.");
     puts("Rename and sort preview by default; compress, scrub, and contact "
-         "write JPEGs.");
-    puts("Focus scores JPEG sharpness as a review aid, not a blur verdict.");
-    puts("Review saves marks separately and never changes JPEG files.");
+         "write copies.");
+    puts("Focus scores sharpness as a review aid, not a blur verdict.");
+    puts("Review saves marks separately and never changes photo files.");
     puts("Run 'photoc <command> --help' for usage and examples.");
 }
 

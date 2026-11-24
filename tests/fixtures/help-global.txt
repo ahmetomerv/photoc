@@ -4,19 +4,19 @@ Usage: photoc [global options] <command> [args]
        photoc <command> --help
 
 Commands:
-  review       Cull JPEGs in an interactive terminal session
-  query        Search JPEG metadata and print matching paths
-  check        Audit JPEG structural readability
+  review       Cull JPEG and ARW photos in an interactive terminal session
+  query        Search photo metadata and print matching paths
+  check        Audit JPEG and ARW structural readability
   compress     Re-encode JPEGs by quality or target size
-  contact      Generate paged JPEG contact sheets
+  contact      Generate paged JPEG contact sheets from JPEG and ARW
   exif         Inspect JPEG and Sony ARW metadata
   duplicates   Find exact duplicate files
   stats        Summarize JPEG and Sony ARW collections
   timeline     Summarize shooting dates and sessions
   rename       Preview or apply photo renames
   sort         Preview or apply photo sorting
-  focus        Compare JPEG sharpness scores
-  scrub        Remove GPS or descriptive metadata from JPEGs
+  focus        Compare JPEG and ARW sharpness scores
+  scrub        Remove GPS or descriptive metadata from JPEG and ARW
 
 Global options:
   -h, --help       Show global or command help
@@ -26,8 +26,8 @@ Global options:
       --no-progress  Disable interactive progress display
       --json       Request JSON output where supported
 
-Exif and stats inspect JPEG/ARW metadata; duplicates compares file bytes.
-Rename and sort preview by default; compress, scrub, and contact write JPEGs.
-Focus scores JPEG sharpness as a review aid, not a blur verdict.
-Review saves marks separately and never changes JPEG files.
+Commands read JPEG and Sony ARW; compress handles JPEG only.
+Rename and sort preview by default; compress, scrub, and contact write copies.
+Focus scores sharpness as a review aid, not a blur verdict.
+Review saves marks separately and never changes photo files.
 Run 'photoc <command> --help' for usage and examples.

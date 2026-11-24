@@ -3,7 +3,7 @@ Usage: photoc [global options] compress <file|directory> [--quality <1-100> | --
 
 Re-encode JPEGs by quality or target size
 
-Status: available for JPEG files; writes .compressed copies
+Status: available for JPEG files; writes .compressed copies; skips Sony ARW
 
 Example:
   photoc compress photo.jpg --target 2MB

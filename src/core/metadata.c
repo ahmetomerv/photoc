@@ -4,13 +4,11 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "photoc/photo.h"
+#include "photoc/fs.h"
 #include "jpeg.h"
 #include "metadata_internal.h"
 
 #include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <libexif/exif-data.h>
 #include <libexif/exif-utils.h>
 #include <stdio.h>
@@ -239,34 +237,9 @@ photoc_metadata_load_with_exif_allocator(const char *path, Photo *photo,
         return PHOTOC_METADATA_UNSUPPORTED_FORMAT;
     }
 
-    int descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
-    if (descriptor < 0) {
-        if (errno == ELOOP) {
-            errno = EINVAL; /* Symlinks are refused, as before. */
-        }
-        return PHOTOC_METADATA_IO_ERROR;
-    }
-    struct stat file_info;
-    if (fstat(descriptor, &file_info) != 0) {
-        int saved_errno = errno;
-        close(descriptor);
-        errno = saved_errno;
-        return PHOTOC_METADATA_IO_ERROR;
-    }
-    if (!S_ISREG(file_info.st_mode) || file_info.st_size < 0) {
-        int error = S_ISDIR(file_info.st_mode) ? EISDIR
-                    : file_info.st_size < 0    ? EOVERFLOW
-                                               : EINVAL;
-        close(descriptor);
-        errno = error;
-        return PHOTOC_METADATA_IO_ERROR;
-    }
-    uint64_t size = (uint64_t)file_info.st_size;
-    FILE *file = fdopen(descriptor, "rb");
-    if (file == NULL) {
-        int saved_errno = errno;
-        close(descriptor);
-        errno = saved_errno;
+    FILE *file = NULL;
+    uint64_t size = 0;
+    if (photoc_fs_open_regular(path, &file, &size) != 0) {
         return PHOTOC_METADATA_IO_ERROR;
     }
 

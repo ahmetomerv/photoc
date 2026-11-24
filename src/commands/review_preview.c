@@ -3,7 +3,9 @@
 
 #include "review_preview.h"
 
+#include "photoc/fs.h"
 #include "photoc/jpeg_metadata.h"
+#include "photoc/photo_image.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -115,25 +117,31 @@ const photoc_jpeg_buffer *review_preview_get(review_preview_cache *cache,
         evict(cache, entry);
         break;
     }
-    if (source.st_size < PREVIEW_MIN_SOURCE_BYTES ||
-        (uintmax_t)source.st_size > PREVIEW_MAX_SOURCE_BYTES)
+    /* A RAW file cannot be shown directly, so an ARW always gets a preview
+       from its embedded JPEG; the size cap applies to that JPEG instead. */
+    bool arw = photoc_fs_is_arw(path);
+    if (!arw && (source.st_size < PREVIEW_MIN_SOURCE_BYTES ||
+                 (uintmax_t)source.st_size > PREVIEW_MAX_SOURCE_BYTES))
         return NULL;
 
     /* The encoder drops ICC. Keep the original for photos whose profile
        could change the displayed colors if omitted from a preview. */
-    photoc_jpeg_metadata *jpeg_metadata = NULL;
-    if (photoc_jpeg_metadata_load_copy(path, &jpeg_metadata) !=
-        PHOTOC_JPEG_EDIT_OK)
-        return NULL;
-    bool has_icc = photoc_jpeg_metadata_has_icc(jpeg_metadata);
-    photoc_jpeg_metadata_free(jpeg_metadata);
-    if (has_icc)
-        return remember(cache, item_index, &source, (photoc_jpeg_buffer){0});
+    if (!arw) {
+        photoc_jpeg_metadata *jpeg_metadata = NULL;
+        if (photoc_jpeg_metadata_load_copy(path, &jpeg_metadata) !=
+            PHOTOC_JPEG_EDIT_OK)
+            return NULL;
+        bool has_icc = photoc_jpeg_metadata_has_icc(jpeg_metadata);
+        photoc_jpeg_metadata_free(jpeg_metadata);
+        if (has_icc)
+            return remember(cache, item_index, &source,
+                            (photoc_jpeg_buffer){0});
+    }
 
     photoc_image decoded = {0};
     photoc_jpeg_buffer preview = {0};
-    photoc_image_result result = photoc_image_decode_jpeg_scaled_bounded(
-        path, PREVIEW_MAX_DIMENSION, PREVIEW_MAX_SOURCE_BYTES, &decoded);
+    photoc_image_result result = photoc_photo_decode_scaled_bounded_with(
+        NULL, path, PREVIEW_MAX_DIMENSION, PREVIEW_MAX_SOURCE_BYTES, &decoded);
     if (result == PHOTOC_IMAGE_OK && metadata->has_orientation)
         result =
             photoc_image_apply_orientation(&decoded, metadata->orientation);
@@ -149,7 +157,7 @@ const photoc_jpeg_buffer *review_preview_get(review_preview_cache *cache,
         photoc_jpeg_buffer_cleanup(&preview);
         return NULL;
     }
-    if ((uintmax_t)preview.size * 5 > (uintmax_t)source.st_size * 4) {
+    if (!arw && (uintmax_t)preview.size * 5 > (uintmax_t)source.st_size * 4) {
         photoc_jpeg_buffer_cleanup(&preview);
         return remember(cache, item_index, &source, (photoc_jpeg_buffer){0});
     }

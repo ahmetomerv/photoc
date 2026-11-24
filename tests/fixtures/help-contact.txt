@@ -1,7 +1,7 @@
 Usage: photoc [global options] contact <directory> --output <file.jpg> [--recursive] [--columns <1-8>] [--thumb-size <96-512>] [--quality <1-100>] [--metadata] [--sort name|date]
        photoc contact --help
 
-Generate paged JPEG contact sheets
+Generate paged JPEG contact sheets from JPEG and ARW
 
 Status: writes new JPEG sheet(s); never overwrites
 

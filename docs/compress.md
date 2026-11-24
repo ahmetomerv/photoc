@@ -8,7 +8,9 @@ Re-encode a JPEG or a directory of JPEGs with a chosen quality, or search for
 the highest quality that fits a target file size. This is **lossy compression**.
 The original stays unchanged; the command writes new copies immediately.
 
-JPEG recognition uses `.jpg` and `.jpeg`, case-insensitive. Encoding uses
+JPEG recognition uses `.jpg` and `.jpeg`, case-insensitive. Sony ARW files
+are not compressed: a single ARW is refused with status 1, and directory runs
+skip ARW files and report `Sony ARW files skipped: N` in the summary. Encoding uses
 libjpeg-turbo and 4:2:0 chroma subsampling for RGB inputs. Grayscale inputs with
 ICC profiles stay one-component grayscale. Dimensions are retained; there is
 no resize option.

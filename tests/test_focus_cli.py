@@ -59,7 +59,7 @@ class FocusTests(unittest.TestCase):
     def report(self, *args, expected=0):
         result = self.invoke(*args, expected=expected)
         lines = result.stdout.splitlines()
-        self.assertEqual(lines[:2], ["JPEG sharpness (lowest scores first)",
+        self.assertEqual(lines[:2], ["Sharpness (lowest scores first)",
                                     "Filename\tSharpness score"])
         separator = lines.index("")
         rows = []

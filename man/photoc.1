@@ -20,23 +20,36 @@ is a command-line toolkit for photographers working with local files and
 repeatable shell workflows.
 It inspects metadata, summarizes collections, finds exact duplicates,
 renames and organizes photos, compresses copies, makes contact sheets, interactively
-reviews JPEGs, and removes EXIF GPS tags.
+reviews photos, and removes GPS and other private metadata.
 Normal output goes to standard output; diagnostics go to standard error.
 .PP
 macOS and Linux are the initial supported platforms.
 Metadata inspection, statistics, timeline summaries, renaming, and sorting
 recognize JPEG
 (.jpg/.jpeg) and Sony ARW (.arw), ignoring extension case.
-ARW support reads common TIFF/EXIF metadata only, without developing or
-validating RAW pixels. Other RAW formats are unsupported.
-Query, check, compress, contact, focus, review, and scrub remain JPEG-only; directory scans
-skip ARW for those commands and single-file ARW input fails.
+.B query
+also searches ARW metadata.
+.BR review ,
+.BR contact ,
+.BR focus ,
+and
+.B check
+read the JPEG preview the camera embeds in each ARW; RAW sensor data is never
+decoded.
+.B scrub
+writes .scrubbed.ARW copies for
+.B \-\-gps
+and
+.BR \-\-privacy .
+.B compress
+handles JPEG only and skips ARW. ARW files are never modified.
+Other RAW formats are unsupported.
 The
 .B duplicates
 command compares regular files of any type.
 The
 .B focus
-command compares JPEG sharpness scores as a review aid.
+command compares JPEG and ARW sharpness scores as a review aid.
 .PP
 Directory operations scan one directory level by default.
 .B \-\-recursive
@@ -59,12 +72,14 @@ syntax are not supported.
 .RI [ "\-\-images auto|iterm|none" ]
 .RI [ "\-\-state file" ]
 .PP
-Interactively mark regular .jpg/.jpeg files as picked, rejected, or unmarked.
+Interactively mark regular .jpg/.jpeg and Sony .arw files as picked, rejected,
+or unmarked. An ARW shows its embedded JPEG preview and is never streamed to
+the terminal; without a usable preview it is shown as unavailable.
 Exactly one directory is required; a single file and
 .B \-\-json
 are rejected. Both standard input and standard output must be terminals.
 The default scan is flat; recursive scans do not follow symlinks. The discovered
-list stays fixed for the session. JPEGs are never edited, moved, or deleted.
+list stays fixed for the session. Photos are never edited, moved, or deleted.
 .TP
 .B \-\-sort name|date
 Name (default) sorts by case-sensitive bytewise basename, then relative path.
@@ -122,9 +137,11 @@ No progress spinner is shown. See
 .RB [ \-\-recursive ]
 .RB [ \-\-json " | " \-\-print0 ]
 .PP
-Search JPEG metadata without modifying photographs.
+Search JPEG and Sony ARW metadata without modifying photographs.
 All supplied filters are ANDed; missing or invalid queried fields do not match.
-With no filters, every successfully parsed JPEG matches, even without EXIF.
+With no filters, every successfully parsed photo matches, even without EXIF.
+JSON matches include a format of jpeg or sony_arw, and the summary counts JPEG
+and ARW candidates.
 Directory scans are flat by default and never follow symlinks.
 Recursion requires a directory.
 .TP
@@ -178,14 +195,15 @@ Camera/make filters do not expand wildcards or match substrings.
 Each valued filter may be supplied once; empty string filters are invalid.
 .PP
 JSON contains query (path, recursive, filters, string_matching, date_bounds),
-matches (path and metadata), and summary (files_visited, jpeg_files_found,
-photos_parsed, skipped_files, errors, matched).
+matches (path, format, and metadata), and summary (files_visited,
+jpeg_files_found, arw_files_found, metadata_files_found, photos_parsed,
+skipped_files, errors, matched).
 Metadata includes camera, make, iso, aperture, focal_length_mm,
 capture_timestamp, has_gps, latitude, longitude, width, and height.
 Unavailable values are null; GPS filter is present, absent, or null.
 JSON stdout remains JSON only at every verbosity level.
 .PP
-No matches returns 0. Individual JPEG load failures are reported on stderr,
+No matches returns 0. Individual photo load failures are reported on stderr,
 including in quiet mode, and return 1 with successful directory matches.
 Input, traversal, allocation, and single-file load failures leave stdout empty.
 Invalid usage or conflicting options return 2.
@@ -213,8 +231,14 @@ Use pipefail where supported to detect query failures in pipelines.
 .PP
 Audit JPEG marker structure, decode every pixel scanline, and inspect standard
 EXIF directory/value bounds and libexif corruption diagnostics.
+For a Sony ARW, validate the container and metadata, check that the CFA
+sensor data lies within the file and fits its dimensions and compression,
+check every embedded JPEG range, and fully decode the embedded preview; sensor
+data is not decoded. Truncated sensor data, missing sensor data, and damaged
+previews are errors; a missing preview or unrecognized sensor layout is a
+warning. JSON rows include a format of jpeg or sony_arw.
 Read-only: no repair, recompression, renaming, deletion, or sidecar writing.
-Directory scans include regular .jpg/.jpeg files, case-insensitively.
+Directory scans include regular .jpg/.jpeg/.arw files, case-insensitively.
 Symlinks are never followed; recursion requires a directory.
 Rows are sorted by path, relative to a directory input.
 OK means structure and pixels are readable without a detected issue.
@@ -232,7 +256,7 @@ Quiet retains rows and counts but suppresses the explanatory footer.
 Errors remain on stderr; verbose adds mode, paths, recursion, serial worker
 count, and checked/skipped/warning/error counts on stderr.
 JSON contains summary fields files_checked, ok, warnings, errors, files_skipped,
-and a files array with path, status, code, and message per row.
+and a files array with path, format, status, code, and message per row.
 Codes are stable identifiers; one primary finding is reported per file.
 All JSON stdout remains JSON only.
 Usage, unsupported input paths, and traversal failures leave stdout empty.
@@ -622,12 +646,14 @@ rows. All output paths are checked first; existing files are never overwritten.
 Each page is validated and published through a temporary file. Earlier pages
 remain if a later page fails.
 .PP
+Sony ARW thumbnails come from the JPEG preview embedded in each file.
 EXIF orientation is applied to rendered thumbnails. Source metadata and ICC
 profiles are not copied into sheets; no color-profile conversion is performed.
 Non-sRGB source colors may differ. Labels use an internal bitmap font; long
 names are shortened, and non-ASCII characters display as question marks.
 .PP
-At most 1,000 JPEGs are scanned, each source file may be at most 64 MiB, and
+At most 1,000 photos are scanned, each JPEG source or ARW preview may be at
+most 64 MiB, and
 each RGB canvas may be at most 64 MiB and 8,192 pixels per side. Oversized
 layouts fail without an unbounded allocation. Bad JPEGs and metadata loads
 return status 1; invalid options return status 2. See docs/contact.md for
@@ -640,23 +666,27 @@ details.
 .RI [ \-\-only\-blurry ]
 .RI [ \-\-json ]
 .PP
-Report JPEG sharpness scores, sorted from lowest to highest with path ordering
-for ties. Scores are variance of a Laplacian on grayscale pixels, using scaled
-JPEG decoding with a maximum analysis dimension of 1024.
+Report JPEG and Sony ARW sharpness scores, sorted from lowest to highest with
+path ordering for ties. Scores are variance of a Laplacian on grayscale pixels,
+using scaled JPEG decoding with a maximum analysis dimension of 1024.
+An ARW is scored from its embedded JPEG preview, area-averaged to the size the
+full-resolution image would be analyzed at, so ARW and JPEG scores of the same
+shot are comparable.
 Scores strictly below
 .B \-\-threshold
 (default 100; finite and nonnegative) are labeled "possibly blurry".
 .B \-\-only\-blurry
-filters rows; summary counts and minimum/average/maximum cover all analyzed JPEGs.
+filters rows; summary counts and minimum/average/maximum cover all analyzed photos.
 The threshold is a review hint, not proof of blur or artistic quality.
 Noise, texture, subject matter, and JPEG artifacts affect the score.
-Missing EXIF is valid; directory scans skip non-JPEG files and continue past
-unreadable or invalid JPEGs, returning status 1 if any JPEG fails.
+Missing EXIF is valid; directory scans skip other files and continue past
+unreadable photos, returning status 1 if any photo fails, including an ARW
+without a usable preview.
 JSON contains the input path, threshold, recursion and filtering settings,
 a photos array with path, numeric score, threshold, and possibly_blurry boolean,
 and summary counts and minimum/average/maximum scores.
 Photo paths are relative to the scanned directory, or as supplied for a single
-file. Summary scores are null when no JPEG could be analyzed.
+file. Summary scores are null when no photo could be analyzed.
 Filtering does not change the summary; diagnostics remain on standard error.
 .SS scrub
 .B photoc scrub
@@ -691,6 +721,23 @@ Symlinks, hard-linked files, differently owned files, and changed sources are
 refused.
 POSIX permission bits and group ownership are preserved; ACLs and extended
 attributes are not copied.
+.PP
+For a Sony ARW,
+.B \-\-gps
+and
+.B \-\-privacy
+write a
+.I stem.scrubbed.ARW
+copy; the original is never changed, and
+.B \-\-in-place
+and
+.B \-\-all-metadata
+are refused. Edits are size-preserving: the GPS pointer and identifier entries
+are dropped from their directories, removed values and the GPS directory are
+zeroed, and private XMP properties are removed with the packet padded to its
+original size. No sensor data, preview, or MakerNote offset moves; edits that
+would overlap kept data are refused. Privacy mode warns that Sony MakerNotes
+may retain identifiers. See docs/scrub.md.
 .SH GLOBAL OPTIONS
 Global options may appear before or after the command.
 Long-running directory commands show delayed, throttled progress on standard
@@ -905,7 +952,9 @@ Both TIFF byte orders are supported. Missing values remain unavailable.
 BigTIFF, DNG, other RAW extensions, and explicit non-Sony makes are unsupported.
 With Make absent, .arw selects the backend without verifying the manufacturer.
 Sony MakerNotes, encrypted metadata, XMP sidecars, ICC, and sensor data are not
-interpreted; readable metadata does not prove RAW image integrity.
+interpreted for metadata; readable metadata does not prove RAW image integrity.
+Commands that need pixels use the camera's embedded JPEG preview, which carries
+in-camera processing at reduced resolution.
 .PP
 The bounded reader rejects malformed offsets/lengths, repeated directory
 pointers, duplicate/unsorted tags, and cycles. Limits are UINT32_MAX bytes per

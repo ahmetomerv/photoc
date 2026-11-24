@@ -19,4 +19,7 @@ photoc_photo_format photoc_format_from_path(const char *path);
 const char *photoc_format_name(photoc_photo_format format);
 bool photoc_format_is_selected(const char *path, unsigned int formats);
 
+/* True for any supported photo extension: JPEG or Sony ARW. */
+bool photoc_format_is_photo(const char *path);
+
 #endif

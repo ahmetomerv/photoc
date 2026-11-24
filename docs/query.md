@@ -2,14 +2,16 @@
 
 [Command overview](../README.md#commands) · [Output verbosity](scripting.md#output-verbosity)
 
-Search JPEG metadata without changing photographs. By default, stdout contains
-only matching paths, one per line, sorted in bytewise path order. No filters
-means every successfully parsed JPEG matches, including JPEGs without EXIF.
+Search JPEG and Sony ARW metadata without changing photographs. By default,
+stdout contains only matching paths, one per line, sorted in bytewise path
+order. No filters means every successfully parsed photo matches, including
+JPEGs without EXIF.
 
 ## Usage
 
 ```sh
 photoc query photo.jpg --iso ">800"
+photoc query DSC00001.ARW --has-gps
 photoc query ~/Photos --camera "DSC-RX100M7A"
 photoc query ~/Photos --make "SONY" --aperture "<=4" --focal ">=50"
 photoc query ~/Photos --after 2026-01-01 --before 2026-12-31
@@ -17,9 +19,11 @@ photoc query ~/Photos --recursive --has-gps
 photoc query ~/Photos --recursive --no-gps
 ```
 
-Supply exactly one regular `.jpg`/`.jpeg` file or directory. Extensions are
-case-insensitive. Sony ARW is intentionally not enabled for query in this version. Scans are flat unless `--recursive` is supplied, skip other
-files, and do not follow symlinks. A directly supplied symlink or unsupported
+Supply exactly one regular `.jpg`/`.jpeg`/`.arw` file or directory.
+Extensions are case-insensitive. ARW fields come from the same standard
+TIFF/EXIF tags as [`exif`](exif.md); see [Sony ARW support](raw.md#metadata-fields).
+Scans are flat unless `--recursive` is supplied, skip other files, and do not
+follow symlinks. A directly supplied symlink or unsupported
 extension is refused. `--recursive` requires a directory.
 
 Options may appear before or after the command. Values must be separate
@@ -128,6 +132,7 @@ or a summary on stdout. Quiet and verbose together return usage status 2.
   "matches": [
     {
       "path": "./Photos/photo.jpg",
+      "format": "jpeg",
       "metadata": {
         "camera": "DSC-RX100M7A",
         "make": "SONY",
@@ -146,6 +151,8 @@ or a summary on stdout. Quiet and verbose together return usage status 2.
   "summary": {
     "files_visited": 1,
     "jpeg_files_found": 1,
+    "arw_files_found": 0,
+    "metadata_files_found": 1,
     "photos_parsed": 1,
     "skipped_files": 0,
     "errors": 0,
@@ -155,24 +162,27 @@ or a summary on stdout. Quiet and verbose together return usage status 2.
 ```
 
 Filters retain the supplied strings; unspecified filters are `null`. `gps` is
-`"present"`, `"absent"`, or `null`. Missing metadata fields are `null`; `has_gps`
-is boolean. Coordinates, when available, are decimal degrees. All match paths
+`"present"`, `"absent"`, or `null`. `format` is `jpeg` or `sony_arw`. Missing
+metadata fields are `null`, including `width` and `height` for an ARW without
+recorded dimensions; `has_gps` is boolean. Coordinates, when available, are decimal degrees. All match paths
 use the same ordering and prefix rules as path modes. Valid UTF-8 is preserved;
 invalid byte sequences use the shared JSON helper's U+FFFD replacement. Use
 `--print0` when exact filesystem bytes are required.
 
 Summary counts describe all scanned regular files, excluding directories and
-symlinks. `skipped_files` includes non-JPEG files and JPEG load failures;
-`errors` counts JPEG load failures. `matched` counts only successful loads
+symlinks. `jpeg_files_found` and `arw_files_found` count candidates by
+extension, even if unreadable, and `metadata_files_found` is their total.
+`skipped_files` includes other files and photo load failures; `errors` counts
+photo load failures. `matched` counts only successful loads
 satisfying every filter. JSON stdout remains JSON only at every verbosity level.
 
 ## Exit codes and limits
 
-- **0**: scan completed without JPEG load failures, even with no matches.
-- **1**: input, traversal, allocation, output, or JPEG metadata load failure.
+- **0**: scan completed without photo load failures, even with no matches.
+- **1**: input, traversal, allocation, output, or photo metadata load failure.
 - **2**: invalid usage, filter expression/date, or conflicting options.
 
-Directory scans continue after individual JPEG load failures, report each on
+Directory scans continue after individual photo load failures, report each on
 stderr even in quiet mode, and return 1 with the successful matches. JSON then
 includes partial scan results and error counts. Input/traversal/allocation
 failures leave stdout empty. A failed single-file load also leaves stdout empty.
@@ -181,7 +191,7 @@ Query reuses the metadata scanner with at most two workers and 32 buffered
 regular entries. Only matching metadata records are retained before sorting;
 no pixel decoding or image buffers are added. Memory grows with the number of
 matches. This is a metadata search, not an integrity audit: use `photoc check`
-for full JPEG decoding. Malformed EXIF tags may become unavailable under the
+for full JPEG decoding or the ARW structural audit. Malformed EXIF tags may become unavailable under the
 existing metadata loader rather than causing a load failure. The command
 cannot find metadata that the shared loader does not expose. It never writes
 photographs or sidecars; the OS may update access times while reading.

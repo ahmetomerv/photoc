@@ -2,6 +2,7 @@
 
 #include "photoc/error.h"
 #include "photoc/exit_codes.h"
+#include "photoc/format.h"
 #include "photoc/fs.h"
 #include "photoc/json.h"
 #include "photoc/sharpness.h"
@@ -64,7 +65,7 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
     if (type != PHOTOC_FS_FILE) {
         return true;
     }
-    if (!photoc_fs_is_jpeg(path)) {
+    if (!photoc_format_is_photo(path)) {
         ++walk->skipped;
         photoc_output_verbose(walk->output, "focus",
                               "skipped '%s': unsupported file extension\n",
@@ -107,7 +108,7 @@ static void focus_task(size_t index, void *user_data)
     focus_context *context = user_data;
     focus_row *row = &context->walk->rows[index];
     if (!photoc_progress_interrupted()) {
-        row->result = photoc_sharpness_score_jpeg(
+        row->result = photoc_sharpness_score_photo(
             row->path, PHOTOC_SHARPNESS_DEFAULT_MAX_DIMENSION, &row->score);
         row->system_errno = errno;
     }
@@ -215,7 +216,7 @@ static void print_report(const char *path, bool directory, double threshold,
                          const focus_summary *summary,
                          const photoc_output *output)
 {
-    puts("JPEG sharpness (lowest scores first)");
+    puts("Sharpness (lowest scores first)");
     puts("Filename\tSharpness score");
     for (size_t i = 0; i < walk->count; ++i) {
         const focus_row *row = &walk->rows[i];
@@ -316,10 +317,10 @@ int photoc_command_focus_with_output(const char *path, bool recursive,
                                    path, "unable to inspect path", errno);
     }
     if (type == PHOTOC_FS_OTHER ||
-        (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path))) {
+        (type == PHOTOC_FS_FILE && !photoc_format_is_photo(path))) {
         return photoc_error_report(
             "focus", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
-            "expected a regular JPEG file or directory", 0);
+            "expected a regular JPEG or Sony ARW file, or a directory", 0);
     }
     if (type == PHOTOC_FS_FILE && recursive) {
         fputs("photoc focus: --recursive requires a directory\n", stderr);
@@ -379,7 +380,7 @@ int photoc_command_focus_with_output(const char *path, bool recursive,
         }
     }
     photoc_output_verbose(output, "focus",
-                          "JPEG files discovered: %zu; analyzed: %zu; skipped: "
+                          "photos discovered: %zu; analyzed: %zu; skipped: "
                           "%zu; decode failures: %zu\n",
                           walk.count, summary.analyzed, summary.skipped,
                           summary.failed);

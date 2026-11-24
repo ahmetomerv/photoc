@@ -4,15 +4,19 @@
 
 ## Purpose
 
-Audit a JPEG or a collection for structural readability. The command reads
-marker structure, decodes every image scanline, and inspects EXIF for invalid
-headers, directory/value offsets, and libexif corruption diagnostics. It never
-repairs, recompresses, renames, or deletes photographs or writes sidecars.
+Audit a JPEG, a Sony ARW, or a collection for structural readability. For a
+JPEG, the command reads marker structure, decodes every image scanline, and
+inspects EXIF for invalid headers, directory/value offsets, and libexif
+corruption diagnostics. For an ARW, it validates the container and sensor data
+layout and fully decodes the embedded preview; see [Sony ARW](#sony-arw). It
+never repairs, recompresses, renames, or deletes photographs or writes
+sidecars.
 
 ## Syntax and examples
 
 ```sh
 photoc check photo.jpg
+photoc check DSC00001.ARW
 photoc check ~/Pictures --recursive
 photoc check ~/Pictures --recursive --only-errors
 photoc check ~/Pictures --json
@@ -21,10 +25,10 @@ photoc --verbose check ~/Pictures --recursive
 photoc check -- -photo.jpg
 ```
 
-Exactly one regular `.jpg`/`.jpeg` file or directory is required; extension
-matching is case-insensitive. Directory scans are flat unless `--recursive`
-is supplied. Non-JPEG files and symbolic links are skipped, and links are not
-followed. Directly supplied symlinks and unsupported extensions are refused.
+Exactly one regular `.jpg`/`.jpeg`/`.arw` file or directory is required;
+extension matching is case-insensitive. Directory scans are flat unless
+`--recursive` is supplied. Other files and symbolic links are skipped, and
+links are not followed. Directly supplied symlinks and unsupported extensions are refused.
 `--recursive` with a single file returns usage status 2. Existing compressed
 or scrubbed copies are checked like any other JPEG.
 
@@ -96,6 +100,7 @@ JPEG failure does not stop other files from being checked.
   "files": [
     {
       "path": "photo.jpg",
+      "format": "jpeg",
       "status": "ok",
       "code": "readable",
       "message": "JPEG structure and pixels are readable"
@@ -107,8 +112,9 @@ JPEG failure does not stop other files from being checked.
 `status` is `ok`, `warning`, or `error`. `code` is a stable reason identifier;
 use it rather than matching message text. One primary finding is reported per
 file: errors take priority, followed by pixel/structure warnings and then EXIF
-warnings. Multiple problems are not exhaustively listed. `files_skipped`
-counts regular non-JPEG files; directories and symlinks are excluded. Summary
+warnings. Multiple problems are not exhaustively listed. `format` is `jpeg`
+or `sony_arw`. `files_skipped` counts regular files other than JPEG and ARW;
+directories and symlinks are excluded. Summary
 counts cover all checked files even when `files` is filtered by `--only-errors`.
 
 | Code | Meaning |
@@ -128,6 +134,37 @@ counts cover all checked files even when `files` is filtered by `--only-errors`.
 | `unsupported_jpeg` | JPEG process/precision or conversion unsupported by the linked decoder. |
 | `file_changed` | File size or modification/change timestamps changed during reading. |
 | `internal_error` | Audit setup or allocation failure. |
+| `invalid_arw` | ARW container or metadata is invalid or truncated, or an embedded JPEG range lies outside the file. |
+| `unsupported_arw` | BigTIFF, DNG, or a non-Sony make; not checked. |
+| `missing_sensor_data` | No CFA sensor directory, strips/tiles, or a zero-length segment. |
+| `truncated_sensor_data` | Sensor data extends past the end of the file or is shorter than its dimensions require. |
+| `invalid_sensor_data` | Lossless-compressed sensor tiles do not start with a JPEG SOI. |
+| `sensor_layout_warning` | Sensor data size or compression is not a recognized layout; not verified further. |
+| `missing_preview` | No usable embedded JPEG preview. |
+| `preview_decode_failed` | The embedded preview is damaged and cannot be decoded. |
+| `preview_warning` | The embedded preview decoded with a recoverable warning. |
+
+An OK ARW row uses `readable`, with the message noting that sensor data was
+not decoded.
+
+### Sony ARW
+
+ARW files are checked without decoding RAW sensor data:
+
+1. The classic-TIFF container and metadata must load (Sony make, not DNG).
+2. The largest full-resolution CFA directory must have strips or tiles that
+   lie within the file. Their total size must fit the dimensions and
+   compression: uncompressed data as packed samples or one 16-bit word per
+   sample, Sony compressed data as one byte per pixel, and lossless tiles
+   starting with a JPEG SOI.
+3. Every embedded preview/thumbnail range must lie within the file, and the
+   largest preview is fully decoded with the JPEG audit above.
+4. The file must not change while it is read.
+
+A copy cut short, for example by an interrupted transfer, fails step 2.
+Errors take priority over warnings. An OK result means the structure is
+readable, not that every sensor value is intact. See
+[Sony ARW support](raw.md#structural-check).
 
 JSON stdout stays JSON only in every verbosity mode. Invalid usage, unsupported
 input paths, and traversal failures occur before a report and leave stdout
@@ -150,6 +187,10 @@ storage is limited to 4 MiB before loading. Reaching a decode/resource
 limit gives an ERROR described as an incomplete check, not confirmed corruption.
 JPEG support depends on the installed library; tests cover 8-bit baseline and
 progressive RGB/CMYK, grayscale, and existing EXIF fixtures.
+
+ARW audits read directory tables, strip/tile arrays, and the preview (capped
+at 64 MiB); sensor data itself is only range- and size-checked, so a large ARW
+is checked quickly.
 
 This is not a visual-quality, authenticity, backup, or comprehensive metadata
 validator. It does not verify ICC/XMP contents, MakerNote internals, thumbnails,
