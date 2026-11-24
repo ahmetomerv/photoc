@@ -46,7 +46,9 @@ class CheckTests(unittest.TestCase):
                          {"files_checked", "ok", "warnings", "errors", "files_skipped"})
         for row in payload["files"]:
             self.assertEqual(set(row), {"path", "format", "status", "code", "message"})
-            self.assertIn(row["format"], ("jpeg", "sony_arw"))
+            suffix = Path(row["path"]).suffix.lower()
+            expected = "sony_arw" if suffix == ".arw" else "jpeg"
+            self.assertEqual(row["format"], expected)
             self.assertIn(row["status"], ("ok", "warning", "error"))
         return payload, result
 
