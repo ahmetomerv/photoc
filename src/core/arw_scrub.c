@@ -5,6 +5,7 @@
 
 #include "photoc/arw.h"
 
+#include "jpeg.h"
 #include "metadata_internal.h"
 #include "tiff.h"
 #include "xmp_internal.h"
@@ -313,6 +314,19 @@ static const scan_entry *find_entry(const entry_list *list, uint32_t directory,
     return NULL;
 }
 
+static int preview_meta_visitor(unsigned char marker,
+                                const unsigned char *payload,
+                                unsigned int length, bool after_scan,
+                                void *user_data)
+{
+    (void)payload;
+    (void)length;
+    (void)after_scan;
+    if (marker == 0xe1 || marker == 0xed || marker == 0xfe)
+        ((photoc_scrub_report *)user_data)->unhandled_metadata = true;
+    return 0;
+}
+
 /* Keep preview JPEGs and sensor strips/tiles referenced by offset arrays, and
    note metadata inside embedded JPEGs, which is never edited. */
 static photoc_jpeg_edit_result keep_image_data(scrub_context *context,
@@ -344,28 +358,17 @@ static photoc_jpeg_edit_result keep_image_data(scrub_context *context,
                 return PHOTOC_JPEG_EDIT_NO_MEMORY;
             if (p != 0)
                 continue;
-            /* Embedded JPEG: APP1 (EXIF/XMP), APP13 (IPTC), and COM are not
-               edited; an unfinished header walk is treated as uncertain. */
-            uint64_t position = (uint64_t)offset + 2;
-            int segment = 0;
-            for (; segment < 64; ++segment) {
-                unsigned char marker[4];
-                if (position + 4 > (uint64_t)offset + length ||
-                    !read_at(context->file, position, marker, 4) ||
-                    marker[0] != 0xff) {
-                    report->unhandled_metadata = true;
-                    break;
-                }
-                if (marker[1] == 0xda)
-                    break;
-                if (marker[1] == 0xe1 || marker[1] == 0xed ||
-                    marker[1] == 0xfe) {
-                    report->unhandled_metadata = true;
-                    break;
-                }
-                position += 2 + (((uint64_t)marker[2] << 8) | marker[3]);
+            /* Walk the whole embedded JPEG (including post-SOS markers) with
+               the shared inspector so entropy stuffing is handled. APP1,
+               APP13, and COM are retained unedited. */
+            if (fseeko(context->file, (off_t)offset, SEEK_SET) != 0) {
+                report->unhandled_metadata = true;
+                continue;
             }
-            if (segment >= 64)
+            photoc_jpeg_info info;
+            if (photoc_jpeg_inspect_app_limited(
+                    context->file, &info, preview_meta_visitor, report,
+                    (uint64_t)offset + length) != 0)
                 report->unhandled_metadata = true;
         }
     }
