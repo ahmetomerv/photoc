@@ -17,10 +17,10 @@ notes, and a JSON schema when the command supports JSON. Run
 
 | Guide | Purpose |
 | --- | --- |
-| [`exif`](exif.md) | Show dimensions, camera, exposure, capture time, and GPS for one photo |
-| [`stats`](stats.md) | Summarize storage, capture dates, cameras, lenses, and exposure settings |
-| [`timeline`](timeline.md) | Group a shoot by date and session |
-| [`query`](query.md) | Find photos matching metadata filters |
+| [`exif`](exif.md) | Show dimensions, camera, exposure, capture time, and GPS for one JPEG or ARW |
+| [`stats`](stats.md) | Summarize storage, capture dates, cameras, lenses, and exposure settings for JPEG and ARW |
+| [`timeline`](timeline.md) | Group a JPEG/ARW shoot by date and session |
+| [`query`](query.md) | Find JPEG and ARW photos matching metadata filters |
 | [`duplicates`](duplicates.md) | Find byte-identical files and potential space savings |
 | [`focus`](focus.md) | Rank JPEG and ARW photos by sharpness score to help culling |
 | [`check`](check.md) | Audit JPEG and ARW files for structural, truncation, and decoding problems |
@@ -29,8 +29,8 @@ notes, and a JSON schema when the command supports JSON. Run
 
 | Guide | Purpose |
 | --- | --- |
-| [`rename`](rename.md) | Rename photos from metadata templates |
-| [`sort`](sort.md) | Move photos into date or session folders |
+| [`rename`](rename.md) | Rename JPEG and ARW photos from metadata templates |
+| [`sort`](sort.md) | Move JPEG and ARW photos into date or session folders |
 
 ## Make copies (originals untouched by default)
 
@@ -38,7 +38,7 @@ notes, and a JSON schema when the command supports JSON. Run
 | --- | --- |
 | [`compress`](compress.md) | Write smaller JPEG copies by quality or target size (JPEG only) |
 | [`contact`](contact.md) | Generate paged JPEG contact sheets from JPEG and ARW photos |
-| [`scrub`](scrub.md) | Write copies without GPS, private fields, or descriptive metadata |
+| [`scrub`](scrub.md) | Write copies without GPS, private fields, or descriptive metadata (ARW: `--gps`/`--privacy` copies only) |
 
 ## Reference
 
