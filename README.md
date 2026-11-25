@@ -47,7 +47,8 @@ state file; the others shown here only read):
 ```sh
 photoc --help                         # list commands
 photoc review ./photos                # interactively mark photos to keep or reject
-photoc exif photo.jpg                 # one photo's metadata
+photoc exif photo.jpg                 # one JPEG's metadata
+photoc exif DSC00001.ARW              # one Sony ARW's metadata
 photoc stats ./photos --recursive     # summarize a folder and its subfolders
 photoc timeline ./photos              # review a shoot by session
 ```
@@ -85,20 +86,20 @@ JSON schema where supported. All guides are listed in the
 
 | Command | Purpose |
 | --- | --- |
-| [`exif`](docs/exif.md) | Show dimensions, camera, exposure, capture time, and GPS for one photo |
-| [`stats`](docs/stats.md) | Summarize storage, capture dates, cameras, lenses, and exposure settings |
-| [`timeline`](docs/timeline.md) | Group a shoot by date and session |
-| [`query`](docs/query.md) | Find photos matching metadata filters such as ISO, aperture, camera, or date |
+| [`exif`](docs/exif.md) | Show dimensions, camera, exposure, capture time, and GPS for one JPEG or ARW |
+| [`stats`](docs/stats.md) | Summarize storage, capture dates, cameras, lenses, and exposure settings for JPEG and ARW |
+| [`timeline`](docs/timeline.md) | Group a JPEG/ARW shoot by date and session |
+| [`query`](docs/query.md) | Find JPEG and ARW photos matching metadata filters such as ISO, aperture, camera, or date |
 | [`duplicates`](docs/duplicates.md) | Find byte-identical files and show potential space savings |
-| [`focus`](docs/focus.md) | Rank photos by sharpness score, lowest first, to help culling |
+| [`focus`](docs/focus.md) | Rank JPEG and ARW photos by sharpness score, lowest first, to help culling |
 | [`check`](docs/check.md) | Audit JPEG and ARW files for structural, truncation, and decoding problems |
 
 **Organize** (preview by default; add `--apply` to change files):
 
 | Command | Purpose |
 | --- | --- |
-| [`rename`](docs/rename.md) | Rename photos using metadata templates such as `{date}_{camera}_{sequence}.{ext}` |
-| [`sort`](docs/sort.md) | Move photos into `YYYY/MM/DD/` or `session-001/` folders |
+| [`rename`](docs/rename.md) | Rename JPEG and ARW photos using metadata templates such as `{date}_{camera}_{sequence}.{ext}` |
+| [`sort`](docs/sort.md) | Move JPEG and ARW photos into `YYYY/MM/DD/` or `session-001/` folders |
 
 **Make copies** (originals unchanged by default):
 
@@ -106,7 +107,7 @@ JSON schema where supported. All guides are listed in the
 | --- | --- |
 | [`compress`](docs/compress.md) | Write smaller copies of JPEGs at a chosen quality or target file size (ARW is skipped) |
 | [`contact`](docs/contact.md) | Make paged JPEG contact sheets of JPEG and ARW photos with filenames and optional exposure data |
-| [`scrub`](docs/scrub.md) | Write copies without GPS, private fields, or descriptive metadata |
+| [`scrub`](docs/scrub.md) | Write copies without GPS, private fields, or descriptive metadata (ARW: `--gps`/`--privacy` copies only) |
 
 `--json` works with `exif`, `stats`, `timeline`, `query`, `duplicates`,
 `focus`, and `check`. Longer directory operations show progress on stderr; use
@@ -207,7 +208,7 @@ Filters are combined with AND, and date bounds include the named days. See
 # Contact sheet with exposure data, sorted by capture time.
 photoc contact ./shoot --output sheet.jpg --metadata --sort date
 
-# Check a folder for corrupt or truncated JPEGs.
+# Check a folder for corrupt or truncated JPEG and ARW files.
 photoc check ./photos --recursive --only-errors
 
 # Save statistics as JSON for your own scripts.
