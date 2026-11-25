@@ -44,19 +44,19 @@ function __fish_photoc_path
 end
 
 complete -c photoc -f
-complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a query -d 'Search JPEG metadata'
-complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a check -d 'Audit JPEG structural readability'
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a query -d 'Search JPEG and ARW metadata'
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a check -d 'Audit JPEG and ARW structural readability'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a compress -d 'Re-encode JPEGs by quality or target size'
-complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a contact -d 'Generate paged JPEG contact sheets'
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a contact -d 'Generate contact sheets from JPEG and ARW'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a exif -d 'Inspect JPEG and Sony ARW metadata'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a duplicates -d 'Find exact duplicate files'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a stats -d 'Summarize JPEG and Sony ARW collections'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a timeline -d 'Summarize shooting dates and sessions'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a rename -d 'Preview or apply photo renames'
 complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a sort -d 'Preview or apply photo sorting'
-complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a focus -d 'Compare JPEG sharpness scores'
-complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a scrub -d 'Remove EXIF GPS tags'
-complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a review -d 'Interactively mark JPEGs for review'
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a focus -d 'Compare JPEG and ARW sharpness scores'
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a scrub -d 'Remove GPS or private metadata from JPEG and ARW'
+complete -c photoc -n '__fish_photoc_options; and not __fish_photoc_command >/dev/null' -a review -d 'Interactively mark JPEG and ARW photos'
 
 complete -c photoc -n __fish_photoc_options -s h -l help -d 'Show help'
 complete -c photoc -n __fish_photoc_options -s v -l verbose -d 'Add diagnostics on stderr'

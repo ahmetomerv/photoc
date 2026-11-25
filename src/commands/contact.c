@@ -7,6 +7,7 @@
 #include "photoc/format.h"
 #include "photoc/image.h"
 #include "photoc/jpeg_write.h"
+#include "photoc/photo_image.h"
 #include "photoc/scan.h"
 
 #include <errno.h>
@@ -35,6 +36,7 @@ typedef struct {
     double exposure_time;
     double focal_length;
     bool has_dimensions;
+    bool arw; /* Thumbnails come from the embedded JPEG preview. */
     bool has_iso;
     bool has_aperture;
     bool has_exposure_time;
@@ -85,7 +87,10 @@ static bool collect_photo(const Photo *photo, void *user_data)
         collection->error = E2BIG;
         return false;
     }
-    if (!photo->has_file_size || photo->file_size > CONTACT_MAX_SOURCE_BYTES) {
+    /* An ARW is never read whole; its preview is capped when decoded. */
+    if (photo->format != PHOTOC_FORMAT_SONY_ARW &&
+        (!photo->has_file_size ||
+         photo->file_size > CONTACT_MAX_SOURCE_BYTES)) {
         collection->error = EFBIG;
         return false;
     }
@@ -122,6 +127,7 @@ static bool collect_photo(const Photo *photo, void *user_data)
         .exposure_time = photo->exposure_time,
         .focal_length = photo->focal_length,
         .has_dimensions = photo->has_width && photo->has_height,
+        .arw = photo->format == PHOTOC_FORMAT_SONY_ARW,
         .has_iso = photo->has_iso,
         .has_aperture = photo->has_aperture,
         .has_exposure_time = photo->has_exposure_time,
@@ -436,7 +442,7 @@ static int render_page(const contact_collection *collection, size_t first,
         uint32_t decode_limit = options->thumb_size * 2;
         if (decode_limit < 512)
             decode_limit = 512;
-        if (photo->has_dimensions) {
+        if (photo->has_dimensions && !photo->arw) {
             uint32_t longest =
                 photo->width > photo->height ? photo->width : photo->height;
             uint32_t coarsest = longest / 8 + (longest % 8 != 0);
@@ -445,7 +451,7 @@ static int render_page(const contact_collection *collection, size_t first,
         }
         photoc_image decoded = {0};
         photoc_image_result image_result =
-            photoc_image_decode_jpeg_scaled_bounded_with(
+            photoc_photo_decode_scaled_bounded_with(
                 decoder, photo->path, decode_limit, CONTACT_MAX_SOURCE_BYTES,
                 &decoded);
         if (image_result != PHOTOC_IMAGE_OK) {
@@ -538,7 +544,7 @@ int photoc_command_contact_with_output(const char *directory,
     photoc_progress_set_message(progress, "Reading metadata...");
     photoc_scan_stats stats = {0};
     int scan_result = photoc_scan_directory_filtered(
-        directory, options->recursive, PHOTOC_FORMATS_JPEG, collect_photo,
+        directory, options->recursive, PHOTOC_FORMATS_METADATA, collect_photo,
         scan_warning, &collection, &stats);
     if (scan_result != 0 || collection.failed != 0 || collection.count == 0) {
         photoc_progress_fail(progress, "Failed to prepare contact sheets");
@@ -547,10 +553,10 @@ int photoc_command_contact_with_output(const char *directory,
                                              : 0;
         const char *reason =
             collection.count == 0 && scan_result == 0 && collection.failed == 0
-                ? "no JPEG photos found"
-            : collection.failed != 0 ? "one or more JPEG metadata loads failed"
+                ? "no JPEG or ARW photos found"
+            : collection.failed != 0 ? "one or more photo metadata loads failed"
             : collection.error == E2BIG
-                ? "more than 1000 JPEGs; split the input directory"
+                ? "more than 1000 photos; split the input directory"
             : collection.error == EFBIG ? "source JPEG exceeds 64 MiB"
                                         : "cannot complete directory scan";
         int status = photoc_error_report("contact", PHOTOC_ERR_NOTE_NONE,

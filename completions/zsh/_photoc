@@ -4,19 +4,19 @@
 local command='' word pending=0 ended=0 index
 local -a command_descriptions specs
 command_descriptions=(
-    'query:Search JPEG metadata'
-    'check:Audit JPEG structural readability'
+    'query:Search JPEG and ARW metadata'
+    'check:Audit JPEG and ARW structural readability'
     'compress:Re-encode JPEGs by quality or target size'
-    'contact:Generate paged JPEG contact sheets'
+    'contact:Generate contact sheets from JPEG and ARW'
     'exif:Inspect JPEG and Sony ARW metadata'
     'duplicates:Find exact duplicate files'
     'stats:Summarize JPEG and Sony ARW collections'
     'timeline:Summarize shooting dates and sessions'
     'rename:Preview or apply photo renames'
     'sort:Preview or apply photo sorting'
-    'focus:Compare JPEG sharpness scores'
-    'scrub:Remove EXIF GPS tags'
-    'review:Interactively mark JPEGs for review'
+    'focus:Compare JPEG and ARW sharpness scores'
+    'scrub:Remove GPS or private metadata from JPEG and ARW'
+    'review:Interactively mark JPEG and ARW photos'
 )
 
 for ((index = 2; index < CURRENT; ++index)); do
@@ -61,14 +61,14 @@ case $command in
             '--recursive[Include nested directories]'
             '(--json)--print0[Print NUL-separated paths]'
             '(--print0)--json[Print filters, matches, metadata, and summary]'
-            '2:JPEG file or directory:_files'
+            '2:JPEG or ARW file, or directory:_files'
         ) ;;
     check)
         specs+=(
             '--recursive[Include nested directories]'
             '--only-errors[List ERROR rows only]'
             '--json[Print structured JSON]'
-            '2:JPEG file or directory:_files'
+            '2:JPEG or ARW file, or directory:_files'
         ) ;;
     compress)
         specs+=(
@@ -131,14 +131,14 @@ case $command in
             '--threshold[Review cutoff (default 100)]:threshold:'
             '--only-blurry[List only scores below the threshold]'
             '--json[Print structured JSON]'
-            '2:JPEG file or directory:_files'
+            '2:JPEG or ARW file, or directory:_files'
         ) ;;
     scrub)
         specs+=(
             '--gps[Remove EXIF GPS tags]'
             '--recursive[Include nested directories]'
             '--in-place[Replace originals without a backup]'
-            '2:JPEG file or directory:_files'
+            '2:JPEG or ARW file, or directory:_files'
         ) ;;
 esac
 

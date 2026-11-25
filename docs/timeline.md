@@ -159,7 +159,7 @@ check the exit status and allow additional fields in future versions.
 
 Files are read only. The operating system may update access times. No image
 integrity audit is performed; readable metadata does not prove pixel data is
-undamaged. Use [check](check.md) to audit JPEG readability.
+undamaged. Use [check](check.md) to audit JPEG and ARW readability.
 
 | Status | Meaning |
 | --- | --- |

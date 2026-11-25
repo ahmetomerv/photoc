@@ -79,6 +79,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_library(photoc_core STATIC
     src/core/arw.c
+    src/core/arw_check.c
+    src/core/arw_scrub.c
     src/core/bitmap_font.c
     src/core/duplicates.c
     src/core/error.c
@@ -97,6 +99,7 @@ add_library(photoc_core STATIC
     src/core/output.c
     src/core/parse.c
     src/core/photo.c
+    src/core/photo_image.c
     src/core/progress.c
     src/core/query.c
     src/core/quality_search.c
@@ -107,6 +110,7 @@ add_library(photoc_core STATIC
     src/core/stats.c
     src/core/timeline.c
     src/core/timestamp.c
+    src/core/xmp.c
     src/core/tiff.c
     src/core/thread_pool.c
 )
@@ -352,6 +356,14 @@ if(BUILD_TESTING)
     target_compile_definitions(test_arw PRIVATE
         PHOTOC_ARW_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/arw")
     add_test(NAME arw_metadata COMMAND test_arw)
+
+    add_executable(test_arw_preview tests/test_arw_preview.c)
+    photoc_configure_c_target(test_arw_preview)
+    target_link_libraries(test_arw_preview PRIVATE photoc_core)
+    target_compile_definitions(test_arw_preview PRIVATE
+        PHOTOC_ARW_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/arw"
+        PHOTOC_JPEG_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/jpeg")
+    add_test(NAME arw_preview COMMAND test_arw_preview)
 
     add_executable(test_query tests/test_query.c)
     photoc_configure_c_target(test_query)

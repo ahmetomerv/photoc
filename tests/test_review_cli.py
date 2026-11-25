@@ -12,6 +12,7 @@ import select
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import termios
 import threading
@@ -21,6 +22,8 @@ import unittest
 
 BINARY = os.environ["PHOTOC_REVIEW_TEST_BINARY"]
 FIXTURES = Path(__file__).resolve().parent / "fixtures/jpeg"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from make_arw_fixtures import make_arw  # noqa: E402
 
 
 class Session:
@@ -109,6 +112,37 @@ class ReviewTests(unittest.TestCase):
         session = Session(["review", self.root, "--images", "none", *args])
         self.addCleanup(session.close)
         return session
+
+    def test_arw_shows_embedded_preview_never_raw_bytes(self):
+        raw = self.root / "DSC00001.ARW"
+        raw.write_bytes(make_arw(preview=(FIXTURES / "sharp.jpg").read_bytes()))
+        bare = self.root / "DSC00002.ARW"
+        bare.write_bytes(make_arw())
+        before = [p.read_bytes() for p in (raw, bare)]
+        unknown = os.environ.copy()
+        for name in ("TERM_PROGRAM", "ITERM_SESSION_ID", "TMUX", "STY"):
+            unknown.pop(name, None)
+        session = Session(["review", self.root, "--images", "iterm"], env=unknown)
+        self.addCleanup(session.close)
+        screen = session.wait_screen()
+        self.assertIn(b"DSC00001.ARW", screen)
+        self.assertIn(b"SONY DSC-RX100M7A", screen)
+        self.assertRegex(screen, rb"Sharpness: [0-9]")
+        begin = screen.index(b"\x1b]1337;File=")
+        payload_start = screen.index(b":", begin) + 1
+        payload = base64.b64decode(screen[payload_start:screen.index(b"\a", payload_start)],
+                                   validate=True)
+        self.assertEqual(payload[:2], b"\xff\xd8")  # A JPEG preview, not the ARW.
+        session.send(b"p")
+        session.send(b"\x1b[C")
+        screen = session.wait_screen()
+        self.assertIn(b"DSC00002.ARW", screen)
+        self.assertIn(b"Image unavailable", screen)
+        self.assertNotIn(b"\x1b]1337;File=", screen)
+        session.finish()
+        state = json.loads((self.root / ".photoc-review.json").read_text())
+        self.assertIn("DSC00001.ARW", json.dumps(state))
+        self.assertEqual([p.read_bytes() for p in (raw, bare)], before)
 
     def test_requires_ttys_and_validates_options(self):
         for arguments, code, message in [
@@ -456,7 +490,7 @@ class ReviewTests(unittest.TestCase):
     def test_empty_and_empty_filter_do_not_enter_raw_mode(self):
         empty = self.run_session()
         output, error = empty.finish(keys=b"", expected=0)
-        self.assertIn("No JPEG photos", output)
+        self.assertIn("No JPEG or ARW photos", output)
         self.assertNotIn("\x1b[?1049h", output)
         self.assertEqual(error, "")
         self.photo("a.jpg")

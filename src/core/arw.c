@@ -1,5 +1,8 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "metadata_internal.h"
 #include "tiff.h"
+#include "photoc/arw.h"
 #include "photoc/fs.h"
 
 #include <errno.h>
@@ -7,6 +10,7 @@
 #include <libexif/exif-mem.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 /* Only selected common entries are retained; MakerNotes/pixels are opaque. */
 typedef struct {
@@ -35,19 +39,6 @@ static void finish_image_directory(arw_metadata *metadata)
         metadata->raw_width = metadata->width;
         metadata->raw_height = metadata->height;
     }
-}
-
-static bool scalar(photoc_tiff_reader *reader, const photoc_tiff_entry *entry,
-                   uint32_t *value)
-{
-    if ((entry->type != 3 && entry->type != 4) || entry->count != 1)
-        return true; /* Malformed field value stays unavailable. */
-    unsigned char bytes[4];
-    if (!photoc_tiff_read(reader, entry->offset, bytes, (size_t)entry->size))
-        return false;
-    *value = entry->type == 3 ? exif_get_short(bytes, reader->order)
-                              : exif_get_long(bytes, reader->order);
-    return true;
 }
 
 static bool selected(const photoc_tiff_entry *entry, ExifIfd *ifd)
@@ -95,20 +86,20 @@ static bool read_entry(photoc_tiff_reader *reader,
     }
     if (entry->kind == PHOTOC_TIFF_IMAGE) {
         if (entry->tag == 0x0100)
-            return scalar(reader, entry, &metadata->width);
+            return photoc_tiff_scalar(reader, entry, &metadata->width);
         if (entry->tag == 0x0101)
-            return scalar(reader, entry, &metadata->height);
+            return photoc_tiff_scalar(reader, entry, &metadata->height);
         if (entry->tag == 0x00fe)
-            return scalar(reader, entry, &metadata->subfile);
+            return photoc_tiff_scalar(reader, entry, &metadata->subfile);
         if (entry->tag == 0x0106)
-            return scalar(reader, entry, &metadata->photometric);
+            return photoc_tiff_scalar(reader, entry, &metadata->photometric);
         if (entry->tag == 0xc612) /* DNGVersion; DNG is not an ARW backend. */
             metadata->other_raw = true;
     } else if (entry->kind == PHOTOC_TIFF_EXIF) {
         if (entry->tag == EXIF_TAG_PIXEL_X_DIMENSION)
-            return scalar(reader, entry, &metadata->exif_width);
+            return photoc_tiff_scalar(reader, entry, &metadata->exif_width);
         if (entry->tag == EXIF_TAG_PIXEL_Y_DIMENSION)
-            return scalar(reader, entry, &metadata->exif_height);
+            return photoc_tiff_scalar(reader, entry, &metadata->exif_height);
     }
     ExifIfd ifd;
     if (!selected(entry, &ifd) || entry->size == 0)
@@ -202,4 +193,139 @@ photoc_metadata_result photoc_arw_load_metadata(FILE *file, uint64_t size,
     exif_mem_unref(metadata.memory);
     errno = saved_errno;
     return result;
+}
+
+/* JPEGInterchangeFormat/Length pairs per image directory; the largest usable
+   pair outside CFA/linear RAW directories is the preview. Tag presence is
+   tracked separately from values so a claimed but unusable pair is not
+   confused with a missing preview. */
+typedef struct {
+    uint32_t directory;
+    uint32_t offset;
+    uint32_t length;
+    uint32_t photometric;
+    bool has_offset; /* Tag 0x0201 seen in this directory. */
+    bool has_length; /* Tag 0x0202 seen in this directory. */
+    uint32_t best_offset;
+    uint32_t best_length;
+    bool found_pair; /* Eligible directory claimed a preview pair. */
+    bool found_usable;
+} preview_search;
+
+static void finish_preview_directory(preview_search *search)
+{
+    if (search->photometric == 32803 || search->photometric == 34892)
+        return;
+    if (!search->has_offset && !search->has_length)
+        return;
+    search->found_pair = true;
+    if (!search->has_offset || !search->has_length || search->offset == 0 ||
+        search->length == 0)
+        return; /* Present but unusable (incomplete, offset 0, or empty). */
+    if (search->length > search->best_length) {
+        search->best_offset = search->offset;
+        search->best_length = search->length;
+        search->found_usable = true;
+    }
+}
+
+static bool find_preview(photoc_tiff_reader *reader,
+                         const photoc_tiff_entry *entry, void *data)
+{
+    preview_search *search = data;
+    if (entry->kind != PHOTOC_TIFF_IMAGE)
+        return true;
+    if (entry->directory_offset != search->directory) {
+        finish_preview_directory(search);
+        search->directory = entry->directory_offset;
+        search->offset = 0;
+        search->length = 0;
+        search->photometric = 0;
+        search->has_offset = false;
+        search->has_length = false;
+    }
+    if (entry->tag == 0x0201) {
+        search->has_offset = true;
+        return photoc_tiff_scalar(reader, entry, &search->offset);
+    }
+    if (entry->tag == 0x0202) {
+        search->has_length = true;
+        return photoc_tiff_scalar(reader, entry, &search->length);
+    }
+    if (entry->tag == 0x0106)
+        return photoc_tiff_scalar(reader, entry, &search->photometric);
+    return true;
+}
+
+photoc_image_result photoc_arw_read_preview(const char *path,
+                                            uint64_t max_bytes,
+                                            unsigned char **jpeg,
+                                            size_t *length)
+{
+    if (jpeg == NULL || length == NULL)
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    *jpeg = NULL;
+    *length = 0;
+    if (path == NULL || path[0] == '\0')
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    if (max_bytes == 0)
+        max_bytes = PHOTOC_ARW_PREVIEW_MAX_BYTES;
+    FILE *file = NULL;
+    uint64_t size = 0;
+    if (photoc_fs_open_regular(path, &file, &size) != 0)
+        return PHOTOC_IMAGE_IO_ERROR;
+
+    preview_search search = {0};
+    errno = 0;
+    photoc_image_result result = PHOTOC_IMAGE_OK;
+    if (photoc_tiff_walk(file, size, find_preview, &search) != 0) {
+        result = errno == ENOMEM  ? PHOTOC_IMAGE_NO_MEMORY
+                 : errno == EFBIG ? PHOTOC_IMAGE_TOO_LARGE
+                 : errno == EINVAL || errno == ENOTSUP
+                     ? PHOTOC_IMAGE_INVALID_ARW
+                     : PHOTOC_IMAGE_IO_ERROR;
+    } else {
+        finish_preview_directory(&search);
+        uint64_t offset = search.best_offset;
+        uint64_t bytes = search.best_length;
+        /* Absent tags → NO_PREVIEW; a claimed but unusable pair → INVALID_ARW. */
+        if (!search.found_pair)
+            result = PHOTOC_IMAGE_NO_PREVIEW;
+        else if (!search.found_usable || offset < 8 || offset > size ||
+                 bytes > size - offset)
+            result = PHOTOC_IMAGE_INVALID_ARW;
+        else if (bytes > max_bytes || bytes > SIZE_MAX)
+            result = PHOTOC_IMAGE_TOO_LARGE;
+    }
+    unsigned char *data = NULL;
+    if (result == PHOTOC_IMAGE_OK) {
+        data = malloc((size_t)search.best_length);
+        if (data == NULL)
+            result = PHOTOC_IMAGE_NO_MEMORY;
+    }
+    if (result == PHOTOC_IMAGE_OK) {
+        errno = 0;
+        if (fseeko(file, (off_t)search.best_offset, SEEK_SET) != 0 ||
+            fread(data, 1, search.best_length, file) != search.best_length) {
+            if (errno == 0)
+                errno = EIO;
+            result = PHOTOC_IMAGE_IO_ERROR;
+        } else if (search.best_length < 2 || data[0] != 0xff ||
+                   data[1] != 0xd8) {
+            result = PHOTOC_IMAGE_INVALID_ARW;
+        }
+    }
+    int saved_errno = errno;
+    if (fclose(file) != 0 && result == PHOTOC_IMAGE_OK) {
+        saved_errno = errno;
+        result = PHOTOC_IMAGE_IO_ERROR;
+    }
+    if (result != PHOTOC_IMAGE_OK) {
+        free(data);
+        errno = saved_errno;
+        return result;
+    }
+    *jpeg = data;
+    *length = search.best_length;
+    return PHOTOC_IMAGE_OK;
 }

@@ -4,7 +4,8 @@
 
 ## Purpose
 
-Compare JPEG sharpness using variance of a Laplacian on grayscale pixels.
+Compare the sharpness of JPEG and Sony ARW photos using variance of a
+Laplacian on grayscale pixels.
 Reports list the supplied file path, or paths relative to a scanned directory,
 and a numeric sharpness score. Rows are sorted by **ascending score**, so
 photos with less edge detail appear first. Exact score ties use case-sensitive,
@@ -20,8 +21,23 @@ photoc focus <file|directory> [--recursive] [--threshold <value>] [--only-blurry
 photoc focus --help
 ```
 
-Exactly one regular JPEG or directory is required. JPEG recognition uses
-`.jpg` and `.jpeg`, ignoring case. EXIF metadata is not required.
+Exactly one regular JPEG or Sony ARW file, or a directory, is required.
+Recognition uses `.jpg`, `.jpeg`, and `.arw`, ignoring case. EXIF metadata is
+not required for JPEGs.
+
+### Sony ARW
+
+An ARW is scored from the JPEG preview the camera embeds in the file; RAW
+sensor data is never decoded. So that ARW and JPEG scores of the same shot are
+comparable, the preview is area-averaged to the size the full-resolution image
+would be analyzed at: the ARW's recorded EXIF/RAW dimensions pick the same
+decoder scale a full-size camera JPEG would get (for example 750 x 500 for a
+6000 x 4000 image). A preview smaller than that size, or an ARW without
+recorded dimensions, is scored at its own largest scale within 1024. The
+preview carries in-camera sharpening and processing, so scores stay a relative
+review aid; on sample files they came within roughly 8–18% of full-resolution
+JPEGs of the same shots. An ARW without a usable preview counts as a failure.
+See [Sony ARW support](raw.md#embedded-previews).
 
 ## Options
 
@@ -46,6 +62,7 @@ Option values are separate arguments, for example `--threshold 50.5`.
 ```sh
 photoc focus photo.jpg
 photoc focus "Photo archive" --recursive
+photoc focus DSC00001.ARW
 photoc focus ./photos --threshold 50.5 --only-blurry
 photoc focus ./photos --recursive --threshold 100 --only-blurry
 photoc focus ./photos --recursive --json > focus.json
@@ -65,12 +82,12 @@ no photos, since scores are nonnegative.
 The summary includes:
 
 - Photos successfully analyzed and the number below the threshold.
-- Regular non-JPEG files skipped and JPEG files that failed analysis.
+- Regular files other than JPEG or ARW skipped, and photos that failed analysis.
 - Minimum, average, and maximum score across all successfully analyzed photos.
 
 `--only-blurry` filters the displayed rows, **not the summary**. A report with
 no matching rows can still describe successfully analyzed photos. No scores
-are available for an empty directory or a scan where every JPEG failed;
+are available for an empty directory or a scan where every photo failed;
 minimum, average, and maximum then display `Unavailable`.
 
 ## JSON output
@@ -153,7 +170,7 @@ Schema for the current report:
 }
 ```
 
-Failed JPEGs are omitted from `photos` and counted in `files_failed`. Individual
+Failed photos are omitted from `photos` and counted in `files_failed`. Individual
 decode failures still produce a JSON report and exit status 1. Diagnostics go
 only to stderr; there is no JSON error envelope. Fatal input, traversal,
 allocation, or usage errors produce no report. Output failures can leave a
@@ -161,12 +178,13 @@ partial document. Check the exit status before treating a report as complete.
 
 ## Edge cases and metric limitations
 
-- Missing EXIF is valid. Broken, unreadable, or undecodable JPEGs produce
-  diagnostics on stderr. Directory analysis continues past individual failures
-  and returns status 1 if any JPEG failed. Fatal traversal/allocation errors
+- Missing EXIF is valid. Broken, unreadable, or undecodable JPEGs, and ARW
+  files without a usable preview, produce diagnostics on stderr. Directory
+  analysis continues past individual failures and returns status 1 if any
+  photo failed. Fatal traversal/allocation errors
   fail without a normal report.
-- Non-JPEG regular files in directories are skipped. A directly supplied
-  non-JPEG, symlink, or other non-regular file is rejected. Scans never follow
+- Other regular files in directories are skipped. A directly supplied
+  unsupported file, symlink, or other non-regular file is rejected. Scans never follow
   symlinks; directories and non-regular entries do not enter summary counts.
 - Analysis uses the shared [sharpness API](../include/photoc/sharpness.h) and
   scaled decoding with a maximum dimension of 1024. It decodes one image at a

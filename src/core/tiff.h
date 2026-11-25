@@ -32,6 +32,7 @@ typedef struct {
     uint64_t size;
     uint64_t
         offset; /* All values, including inline ones, reference the file. */
+    uint64_t position; /* File offset of this 12-byte directory entry. */
     uint32_t directory_offset;
     bool primary; /* IFD0, excluding preview/other image directories. */
     photoc_tiff_directory_kind kind;
@@ -45,6 +46,7 @@ typedef bool (*photoc_tiff_visit_fn)(photoc_tiff_reader *reader,
                                      void *data);
 
 /* Classic TIFF (magic 42), either endian; rejects BigTIFF and malformed graphs.
+   Tags may appear in any order, but a tag repeated within one IFD is rejected.
    Follows standard next, SubIFD, EXIF/GPS/interop links with fixed bounds.
    Returns 0 or -1 with EINVAL (malformed), EFBIG (limits), or I/O errno.
    Caller owns FILE and callback data; no image/thumbnail/codec processing. */
@@ -55,5 +57,11 @@ int photoc_tiff_walk(FILE *file, uint64_t size, photoc_tiff_visit_fn visit,
    destination must have room for size bytes; no allocation is performed. */
 bool photoc_tiff_read(photoc_tiff_reader *reader, uint64_t offset,
                       unsigned char *destination, size_t size);
+
+/* Read a single SHORT or LONG value. Other types or counts leave *value
+   unchanged and succeed, so malformed optional fields stay unavailable.
+   Returns false with errno set only when the read itself fails. */
+bool photoc_tiff_scalar(photoc_tiff_reader *reader,
+                        const photoc_tiff_entry *entry, uint32_t *value);
 
 #endif

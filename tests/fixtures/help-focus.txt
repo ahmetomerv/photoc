@@ -1,9 +1,9 @@
 Usage: photoc [global options] focus <file|directory> [--recursive] [--threshold <value>] [--only-blurry] [--json]
        photoc focus --help
 
-Compare JPEG sharpness scores
+Compare JPEG and ARW sharpness scores
 
-Status: available for JPEG files (read-only)
+Status: available for JPEG and Sony ARW files (read-only)
 
 Example:
   photoc focus photo.jpg
@@ -17,6 +17,7 @@ Options:
   --only-blurry        List only scores below the threshold
   --json               Print structured JSON
 
-Rows are sorted by score ascending, then path; summaries include all analyzed JPEGs.
+Rows are sorted by score ascending, then path; summaries include all analyzed photos.
 Possibly blurry is a review hint, not certainty; no universal cutoff exists.
 Noise, texture, subject matter, and JPEG artifacts affect scores.
+Sony ARW is scored from its embedded preview at the size its full image uses.

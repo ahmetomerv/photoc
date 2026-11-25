@@ -156,6 +156,8 @@ static void print_json(const char *path, bool recursive,
         const Photo *photo = &scan->matches[i];
         fputs(i == 0 ? "\n    {" : ",\n    {", stdout);
         json_field("path", photo->path);
+        fputs(", ", stdout);
+        json_field("format", photoc_format_name(photo->format));
         fputs(", \"metadata\": {", stdout);
         json_field("camera", photo->camera_model);
         fputs(", ", stdout);
@@ -176,16 +178,28 @@ static void print_json(const char *path, bool recursive,
         json_number(photo->has_gps, photo->latitude);
         fputs(", \"longitude\": ", stdout);
         json_number(photo->has_gps, photo->longitude);
-        printf(", \"width\": %" PRIu32 ", \"height\": %" PRIu32 "}}",
-               photo->width, photo->height);
+        fputs(", \"width\": ", stdout);
+        if (photo->has_width)
+            printf("%" PRIu32, photo->width);
+        else
+            fputs("null", stdout);
+        fputs(", \"height\": ", stdout);
+        if (photo->has_height)
+            printf("%" PRIu32, photo->height);
+        else
+            fputs("null", stdout);
+        fputs("}}", stdout);
     }
     fputs(scan->count == 0 ? "],\n" : "\n  ],\n", stdout);
     printf("  \"summary\": {\"files_visited\": %" PRIu64
-           ", \"jpeg_files_found\": %" PRIu64 ", \"photos_parsed\": %" PRIu64
-           ", \"skipped_files\": %" PRIu64 ", \"errors\": %" PRIu64
-           ", \"matched\": %zu}\n}\n",
-           stats->files_visited, stats->jpeg_files_found, stats->photos_parsed,
-           stats->skipped_files, stats->errors, scan->count);
+           ", \"jpeg_files_found\": %" PRIu64 ", \"arw_files_found\": %" PRIu64
+           ", \"metadata_files_found\": %" PRIu64
+           ", \"photos_parsed\": %" PRIu64 ", \"skipped_files\": %" PRIu64
+           ", \"errors\": %" PRIu64 ", \"matched\": %zu}\n}\n",
+           stats->files_visited, stats->jpeg_files_found,
+           stats->arw_files_found, stats->metadata_files_found,
+           stats->photos_parsed, stats->skipped_files, stats->errors,
+           scan->count);
 }
 
 int photoc_command_query_with_output(const char *path,
@@ -204,10 +218,10 @@ int photoc_command_query_with_output(const char *path,
         return photoc_error_report("query", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_IO,
                                    path, "unable to inspect path", errno);
     if (type == PHOTOC_FS_OTHER ||
-        (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path)))
+        (type == PHOTOC_FS_FILE && !photoc_format_is_photo(path)))
         return photoc_error_report(
             "query", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
-            "expected a regular JPEG file or directory", 0);
+            "expected a regular JPEG or Sony ARW file, or a directory", 0);
     if (type == PHOTOC_FS_FILE && recursive)
         return photoc_error_report("query", PHOTOC_ERR_NOTE_NONE,
                                    PHOTOC_ERR_USAGE, NULL,
@@ -235,14 +249,18 @@ int photoc_command_query_with_output(const char *path,
         if (loaded != PHOTOC_METADATA_OK)
             return photoc_error_metadata("query", PHOTOC_ERR_NOTE_NONE, path,
                                          loaded, errno);
-        stats = (photoc_scan_stats){
-            .files_visited = 1, .jpeg_files_found = 1, .photos_parsed = 1};
+        bool arw = photo.format == PHOTOC_FORMAT_SONY_ARW;
+        stats = (photoc_scan_stats){.files_visited = 1,
+                                    .jpeg_files_found = arw ? 0 : 1,
+                                    .arw_files_found = arw ? 1 : 0,
+                                    .metadata_files_found = 1,
+                                    .photos_parsed = 1};
         result = collect_match(&photo, &scan) ? 0 : 1;
         photo_cleanup(&photo);
     } else {
         result = photoc_scan_directory_filtered(
-            path, recursive, PHOTOC_FORMATS_JPEG, collect_match, scan_failure,
-            &scan, &stats);
+            path, recursive, PHOTOC_FORMATS_METADATA, collect_match,
+            scan_failure, &scan, &stats);
     }
     if (result != 0) {
         photoc_progress_fail(progress, "Failed to scan directory");
@@ -274,10 +292,10 @@ int photoc_command_query_with_output(const char *path,
     photoc_output_verbose(
         output, "query",
         "files scanned: %" PRIu64 "; JPEGs discovered: %" PRIu64
-        "; parsed: %" PRIu64 "; skipped: %" PRIu64
+        "; ARWs discovered: %" PRIu64 "; parsed: %" PRIu64 "; skipped: %" PRIu64
         "; metadata failures: %" PRIu64 "; matched: %zu\n",
-        stats.files_visited, stats.jpeg_files_found, stats.photos_parsed,
-        stats.skipped_files, stats.errors, scan.count);
+        stats.files_visited, stats.jpeg_files_found, stats.arw_files_found,
+        stats.photos_parsed, stats.skipped_files, stats.errors, scan.count);
     if (json) {
         print_json(path, recursive, query, &scan, &stats);
     } else {

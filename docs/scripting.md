@@ -63,7 +63,7 @@ photoc query ./photos --recursive --has-gps --print0 |
 warnings. Their reports count those errors (`stats` JSON `scan.errors`,
 `timeline` JSON `summary.metadata_errors`). When completeness matters, use
 normal output or inspect `--json`, including in quiet mode. `query` returns
-**1** when a JPEG load fails, while still listing successful directory
+**1** when a JPEG or ARW load fails, while still listing successful directory
 matches; no matches returns **0**. `check` returns **0** for warnings and
 **1** for errors or incomplete checks.
 

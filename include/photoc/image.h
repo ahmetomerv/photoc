@@ -11,7 +11,9 @@ typedef enum {
     PHOTOC_IMAGE_INVALID_JPEG,
     PHOTOC_IMAGE_TOO_LARGE,
     PHOTOC_IMAGE_NO_MEMORY,
-    PHOTOC_IMAGE_CODEC_ERROR
+    PHOTOC_IMAGE_CODEC_ERROR,
+    PHOTOC_IMAGE_INVALID_ARW,
+    PHOTOC_IMAGE_NO_PREVIEW
 } photoc_image_result;
 
 /* Decoded, top-to-bottom RGB pixels (three bytes per pixel). pixels is owned
@@ -78,6 +80,25 @@ photoc_image_result photoc_image_decode_jpeg_buffer(const unsigned char *bytes,
                                                     size_t length,
                                                     photoc_image *out);
 
+/* Dimensions decode_jpeg_scaled would produce for a width x height JPEG:
+   the largest TurboJPEG scale whose width and height are at most
+   max_dimension, within the same 4 million pixel cap. Returns TOO_LARGE if no
+   supported scale fits. Lets callers analyze other sources at the size a
+   full-resolution JPEG would use. Outputs are unchanged on error. */
+photoc_image_result photoc_image_scaled_dimensions(uint32_t width,
+                                                   uint32_t height,
+                                                   uint32_t max_dimension,
+                                                   uint32_t *scaled_width,
+                                                   uint32_t *scaled_height);
+
+/* Area-average resample to width x height (each output pixel averages the
+   source region it covers, like JPEG DCT downscaling). Intended for
+   downscaling; upscaling repeats pixels. out must be empty; on success it
+   owns new pixels and source is unchanged. */
+photoc_image_result photoc_image_resize_area(const photoc_image *source,
+                                             uint32_t width, uint32_t height,
+                                             photoc_image *out);
+
 /* Reusable JPEG decode context. A TurboJPEG handle is not thread-safe, so use
    one context per worker or thread; a single context may decode any number of
    files in a batch, avoiding a handle create/destroy per file. Create before
@@ -105,6 +126,13 @@ photoc_image_result
 photoc_image_decode_jpeg_buffer_with(photoc_image_decoder *decoder,
                                      const unsigned char *bytes, size_t length,
                                      photoc_image *out);
+
+/* Decode an in-memory JPEG at the largest supported scale within
+   max_dimension (positive), with the same ownership rules as
+   decode_jpeg_buffer_with. bytes stay owned by the caller. */
+photoc_image_result photoc_image_decode_jpeg_buffer_scaled_with(
+    photoc_image_decoder *decoder, const unsigned char *bytes, size_t length,
+    uint32_t max_dimension, photoc_image *out);
 
 /* Encode RGB pixels as JPEG. quality is an integer from 1 to 100. out must
    be zero-initialized or cleaned first. On success out owns data; on error

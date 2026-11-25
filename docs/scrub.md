@@ -15,10 +15,12 @@ segment byte for byte. `--privacy` removes recognized location and personal
 identifier fields. `--all-metadata` removes supported descriptive metadata
 while keeping color and orientation information needed for display.
 
-By default, a changed JPEG becomes a `.scrubbed` copy beside the original.
-`photo.JPG` becomes `photo.scrubbed.JPG`. An unchanged JPEG is skipped and no
-copy is made. `--in-place` explicitly replaces the original, with no backup.
-JPEG pixel/scan data is never recompressed or rotated.
+By default, a changed photo becomes a `.scrubbed` copy beside the original.
+`photo.JPG` becomes `photo.scrubbed.JPG` and `DSC00001.ARW` becomes
+`DSC00001.scrubbed.ARW`. An unchanged photo is skipped and no copy is made.
+`--in-place` explicitly replaces an original JPEG, with no backup. JPEG
+pixel/scan data is never recompressed or rotated. Sony ARW files support
+`--gps` and `--privacy` copies only; see [Sony ARW](#sony-arw).
 
 ## Modes
 
@@ -53,12 +55,13 @@ photoc scrub photo.jpg --privacy
 photoc scrub photo.jpg --all-metadata
 photoc scrub ./photos --privacy --recursive
 photoc scrub photo.jpg --privacy --in-place
+photoc scrub DSC00001.ARW --privacy
 photoc scrub --gps -- -photo.jpg
 ```
 
-JPEG recognition uses `.jpg` and `.jpeg`, case-insensitive. Directory mode
-processes candidate paths in sorted order, skips non-JPEGs and existing
-`.scrubbed` stems, and does not follow symlinks. A directly supplied JPEG with
+Recognition uses `.jpg`, `.jpeg`, and `.arw`, case-insensitive. Directory
+mode processes candidate paths in sorted order, skips other files and existing
+`.scrubbed` stems, and does not follow symlinks. A directly supplied photo with
 that suffix is still inspected. `--recursive` requires a directory. `--json`
 and `--apply` are unsupported.
 
@@ -68,6 +71,35 @@ serial numbers or names. `-q`/`--quiet` suppresses informational output and
 noncritical metadata warnings, but not failures. `--gps` retains its original
 status lines and GPS count; the broader modes report processed, skipped and
 failed files.
+
+## Sony ARW
+
+ARW files are scrubbed into a new `.scrubbed.ARW` copy; the original RAW file
+is never changed. `--in-place` and `--all-metadata` are refused for a single
+ARW (status 1). In a directory run with those options, ARW files are skipped
+with a message while JPEGs are processed as requested.
+
+| Mode | Removed from the ARW copy | Retained |
+| --- | --- | --- |
+| `--gps` | The EXIF GPS directory pointer; the GPS directory and its values are zeroed | Every other byte, including sensor data, previews, XMP, and MakerNotes |
+| `--privacy` | EXIF GPS as above; standard Artist, CameraOwnerName, BodySerialNumber, LensSerialNumber, and ImageUniqueID entries in every directory, with their values zeroed; recognized private standard XMP properties (same list as JPEG) | Other EXIF fields and XMP properties; sensor data; previews; MakerNotes and Sony private data |
+
+Every ARW edit is size-preserving, so no sensor data, preview, or MakerNote
+offset moves. A directory table is rewritten in place with removed entries
+dropped and the freed bytes zeroed; an edited XMP packet is padded back to its
+original length, and a packet that cannot fit is refused. Zeroing that would
+overlap a value, directory, preview, or sensor strip that is kept is refused
+without writing a copy. Before publication, the copy is compared byte for byte
+with the source plus the planned edits, re-parsed, and checked for any
+remaining GPS directory or removed identifier.
+
+Sony MakerNotes and private (SR2) data are opaque and may contain serial
+numbers or other identifiers, so `--privacy` always warns for ARW. Metadata
+inside embedded preview JPEGs is not edited; if any is present, the copy is
+flagged with the same warning. Malformed files, files with an explicit non-Sony
+Make, and DNG files fail without a copy. A missing Make is not rejected on its
+own; a scrubbed copy does not authenticate the file as Sony RAW. See
+[Sony ARW support](raw.md#scrubbing-arw-copies).
 
 ## Safety and privacy limits
 

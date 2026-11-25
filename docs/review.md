@@ -2,10 +2,10 @@
 
 [Command overview](../README.md#commands) · [File safety](../README.md#file-safety)
 
-Interactively cull a directory of JPEG photos. Move through the discovered
-collection, inspect available metadata and a sharpness score, and mark each
-photo **picked**, **rejected**, or **unmarked**. Marks survive quitting and
-restarting. Review never edits, moves, or deletes a JPEG.
+Interactively cull a directory of JPEG and Sony ARW photos. Move through the
+discovered collection, inspect available metadata and a sharpness score, and
+mark each photo **picked**, **rejected**, or **unmarked**. Marks survive
+quitting and restarting. Review never edits, moves, or deletes a photo.
 
 **Automatic image previews appear only in a detected direct iTerm2 session.**
 In other terminals, review still works but shows filenames, metadata,
@@ -20,11 +20,12 @@ photoc review <directory> [--recursive] [--sort name|date]
                           [--images auto|iterm|none] [--state <file>]
 ```
 
-Exactly one directory is required. Review discovers regular `.jpg` and
-`.jpeg` files, ignoring extension case. It scans only that directory by
-default; `--recursive` includes nested directories. Scans do not follow
-symlinks. A single JPEG, Sony ARW, other RAW files, HEIC, and `--json` are
-not supported. Both stdin and stdout must be terminals.
+Exactly one directory is required. Review discovers regular `.jpg`,
+`.jpeg`, and `.arw` files, ignoring extension case. It scans only that
+directory by default; `--recursive` includes nested directories. Scans do not
+follow symlinks. A single file, other RAW formats, HEIC, and `--json` are not
+supported. Both stdin and stdout must be terminals. A camera RAW+JPEG pair
+appears as two photos, each with its own mark.
 
 | Option | Behavior |
 | --- | --- |
@@ -136,8 +137,12 @@ lossy copy and may differ slightly from the source. Review applies EXIF
 orientation to preview pixels before encoding. It keeps up to three recent
 previews within an 8 MiB cache and prepares adjacent photos after a short idle
 period. Sources with an ICC profile, smaller files, and files that cannot be
-previewed safely are streamed as originals. Previews are never written to
-disk. Resizes are coalesced so the image redraws once after the window
+previewed safely are streamed as originals. A Sony ARW is never streamed:
+review always shows the JPEG preview the camera embedded in it, scaled and
+oriented the same way, and shows `Image unavailable` when an ARW has no usable
+preview. Its sharpness score uses the same preview, matched to the analysis
+size of the full image (see [focus](focus.md#sony-arw)). Previews are never
+written to disk. Resizes are coalesced so the image redraws once after the window
 settles. The single-sequence backend is not designed for tmux passthrough.
 If an image or metadata becomes unreadable or disappears during review, the
 UI shows it as unavailable and navigation continues. The discovered list is
@@ -151,10 +156,11 @@ escaped before terminal display.
 ## File safety and limits
 
 The **only** file review creates or updates is its review-state JSON. It never
-changes JPEG bytes, EXIF, filenames, or locations; it never deletes or moves
-picked or rejected files. Keep the state file if you want to resume later.
-Review is not a database or a photo editor, and V1 has no RAW previews,
-ratings, disk thumbnail cache, mouse controls, or additional image protocols.
+changes JPEG or ARW bytes, EXIF, filenames, or locations; it never deletes or
+moves picked or rejected files. Keep the state file if you want to resume
+later. Review is not a database or a photo editor, and it has no RAW
+development, ratings, disk thumbnail cache, mouse controls, or additional
+image protocols.
 
 Exit status is **0** on success, **2** for invalid usage, and **1** for
 operational failure (including no TTY, a refused state file, or a failed

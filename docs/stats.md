@@ -10,8 +10,9 @@ shooting sessions. The command
 uses the shared metadata scanner and does not modify files.
 
 Sony `.arw` files are supported for common TIFF/EXIF metadata, with the same
-command safety/exit behavior. Other RAW formats are unsupported. This is
-metadata-only support: see [ARW fields and limits](raw.md).
+command safety/exit behavior. Other RAW formats are unsupported. This command
+reads ARW metadata only; see [ARW fields and limits](raw.md) and the
+[per-command ARW support](raw.md#supported-commands).
 
 ## Syntax
 

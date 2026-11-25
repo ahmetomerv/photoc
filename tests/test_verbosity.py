@@ -182,7 +182,8 @@ class VerbosityTests(unittest.TestCase):
                     self.assertIn("Files processed: 2", result.stdout)
                 if level == ("--verbose",):
                     self.assertIn("recursion: enabled", result.stderr)
-                    self.assertIn("JPEG files discovered: 2", result.stderr)
+                    discovered = "JPEG files" if command == "compress" else "photos"
+                    self.assertIn(f"{discovered} discovered: 2", result.stderr)
                     self.assertIn("skipped: 1", result.stderr)
                 for invalid in ("missing.jpg", "bad.jpg"):
                     if invalid == "bad.jpg":

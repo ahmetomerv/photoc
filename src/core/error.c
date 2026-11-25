@@ -57,6 +57,8 @@ photoc_error_kind photoc_error_kind_for_image(photoc_image_result result)
     case PHOTOC_IMAGE_INVALID_JPEG:
     case PHOTOC_IMAGE_TOO_LARGE:
     case PHOTOC_IMAGE_CODEC_ERROR:
+    case PHOTOC_IMAGE_INVALID_ARW:
+    case PHOTOC_IMAGE_NO_PREVIEW:
         return PHOTOC_ERR_DECODE;
     case PHOTOC_IMAGE_OK:
     case PHOTOC_IMAGE_INVALID_ARGUMENT:
@@ -71,7 +73,9 @@ photoc_error_kind_for_jpeg_edit(photoc_jpeg_edit_result result, int err)
 {
     switch (result) {
     case PHOTOC_JPEG_EDIT_INVALID_JPEG:
+    case PHOTOC_JPEG_EDIT_INVALID_ARW:
         return PHOTOC_ERR_DECODE;
+    case PHOTOC_JPEG_EDIT_UNSAFE_ARW_LAYOUT:
     case PHOTOC_JPEG_EDIT_NO_EXIF:
     case PHOTOC_JPEG_EDIT_INVALID_EXIF:
     case PHOTOC_JPEG_EDIT_UNSAFE_LAYOUT:

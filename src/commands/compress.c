@@ -23,6 +23,7 @@ typedef struct {
     size_t count;
     size_t capacity;
     size_t skipped;
+    size_t arw_skipped;
     int error;
     const char *output_dir;
     const char *input_dir;
@@ -288,6 +289,9 @@ static bool visit_file(const char *path, photoc_fs_type type, void *user_data)
         }
         return true;
     }
+    if (photoc_fs_is_arw(path)) {
+        ++walk->arw_skipped;
+    }
     if (!photoc_fs_is_jpeg(path) || is_compressed_output(path)) {
         ++walk->skipped;
         photoc_output_verbose(
@@ -372,6 +376,13 @@ int photoc_command_compress_with_output(const char *path,
     if (type == PHOTOC_FS_FILE && recursive) {
         fputs("photoc compress: --recursive requires a directory\n", stderr);
         return PHOTOC_EXIT_USAGE;
+    }
+    if (type == PHOTOC_FS_FILE && photoc_fs_is_arw(path)) {
+        return photoc_error_report(
+            "compress", PHOTOC_ERR_NOTE_NONE, PHOTOC_ERR_UNSUPPORTED, path,
+            "Sony ARW files are not compressed; compress writes copies of "
+            "JPEG files only",
+            0);
     }
     if (type == PHOTOC_FS_OTHER ||
         (type == PHOTOC_FS_FILE && !photoc_fs_is_jpeg(path))) {
@@ -557,6 +568,12 @@ int photoc_command_compress_with_output(const char *path,
     photoc_output_info(
         output, "Files processed: %zu\nFiles skipped: %zu\nFiles failed: %zu\n",
         processed, skipped, failed);
+    if (walk.arw_skipped != 0) {
+        photoc_output_info(output,
+                           "Sony ARW files skipped: %zu (compress writes "
+                           "copies of JPEG files only)\n",
+                           walk.arw_skipped);
+    }
     if (options->target_bytes != 0) {
         photoc_output_info(output, "Targets not met: %zu\n", targets_not_met);
     }

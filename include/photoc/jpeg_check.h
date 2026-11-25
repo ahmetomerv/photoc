@@ -24,7 +24,17 @@ typedef enum {
     PHOTOC_CHECK_RESOURCE_LIMIT,
     PHOTOC_CHECK_UNSUPPORTED_JPEG,
     PHOTOC_CHECK_FILE_CHANGED,
-    PHOTOC_CHECK_INTERNAL_ERROR
+    PHOTOC_CHECK_INTERNAL_ERROR,
+    PHOTOC_CHECK_ARW_READABLE,
+    PHOTOC_CHECK_INVALID_ARW,
+    PHOTOC_CHECK_UNSUPPORTED_ARW,
+    PHOTOC_CHECK_MISSING_SENSOR_DATA,
+    PHOTOC_CHECK_TRUNCATED_SENSOR_DATA,
+    PHOTOC_CHECK_INVALID_SENSOR_DATA,
+    PHOTOC_CHECK_SENSOR_LAYOUT_WARNING,
+    PHOTOC_CHECK_MISSING_PREVIEW,
+    PHOTOC_CHECK_PREVIEW_DECODE_FAILED,
+    PHOTOC_CHECK_PREVIEW_WARNING
 } photoc_check_code;
 
 typedef struct {
@@ -47,6 +57,16 @@ typedef struct {
    Only one primary reason is returned, preferring errors and pixel issues
    over metadata warnings. No file, EXIF, ICC, or XMP data is ever rewritten. */
 photoc_check_result photoc_jpeg_check_file(const char *path);
+
+/* Read-only structural audit of a Sony ARW. Validates the classic-TIFF
+   container and metadata (Sony make, not DNG), locates the CFA sensor data,
+   checks that every strip/tile lies within the file and that the data size
+   fits its dimensions and compression (lossless tiles must start with a JPEG
+   SOI), and fully decodes the embedded JPEG preview with the JPEG audit.
+   RAW sensor data is not decoded, so an OK result is not proof that every
+   sensor value is intact. A missing preview or an unrecognized sensor layout
+   is a WARNING. Errors are preferred over warnings. */
+photoc_check_result photoc_arw_check_file(const char *path);
 
 /* Stable static strings, borrowed by the caller; never free them. */
 const char *photoc_check_status_name(photoc_check_status status);

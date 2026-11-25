@@ -179,6 +179,65 @@ photoc_image_result photoc_image_jpeg_dimensions(const char *path,
     return result;
 }
 
+static photoc_image_result scaled_size(uint64_t width, uint64_t height,
+                                       uint32_t max_dimension,
+                                       uint64_t *scaled_width,
+                                       uint64_t *scaled_height)
+{
+    int count = 0;
+    tjscalingfactor *factors = tjGetScalingFactors(&count);
+    if (factors == NULL || count <= 0) {
+        return PHOTOC_IMAGE_CODEC_ERROR;
+    }
+    uint64_t best_area = 0;
+    for (int i = 0; i < count; ++i) {
+        if (factors[i].num <= 0 || factors[i].denom <= 0 ||
+            factors[i].num > factors[i].denom) {
+            continue;
+        }
+        uint64_t candidate_width = (width * (uint64_t)factors[i].num +
+                                    (uint64_t)factors[i].denom - 1) /
+                                   (uint64_t)factors[i].denom;
+        uint64_t candidate_height = (height * (uint64_t)factors[i].num +
+                                     (uint64_t)factors[i].denom - 1) /
+                                    (uint64_t)factors[i].denom;
+        if (candidate_width > max_dimension ||
+            candidate_height > max_dimension || candidate_width > INT_MAX / 3 ||
+            candidate_height > INT_MAX ||
+            candidate_width * candidate_height > 4000000u) {
+            continue;
+        }
+        uint64_t area = candidate_width * candidate_height;
+        if (area > best_area) {
+            best_area = area;
+            *scaled_width = candidate_width;
+            *scaled_height = candidate_height;
+        }
+    }
+    return best_area == 0 ? PHOTOC_IMAGE_TOO_LARGE : PHOTOC_IMAGE_OK;
+}
+
+photoc_image_result photoc_image_scaled_dimensions(uint32_t width,
+                                                   uint32_t height,
+                                                   uint32_t max_dimension,
+                                                   uint32_t *scaled_width,
+                                                   uint32_t *scaled_height)
+{
+    if (width == 0 || height == 0 || max_dimension == 0 ||
+        scaled_width == NULL || scaled_height == NULL) {
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    }
+    uint64_t w = 0;
+    uint64_t h = 0;
+    photoc_image_result result =
+        scaled_size(width, height, max_dimension, &w, &h);
+    if (result == PHOTOC_IMAGE_OK) {
+        *scaled_width = (uint32_t)w;
+        *scaled_height = (uint32_t)h;
+    }
+    return result;
+}
+
 static photoc_image_result decode_jpeg_bytes(photoc_image_decoder *decoder,
                                              const unsigned char *bytes,
                                              unsigned long length,
@@ -194,47 +253,13 @@ static photoc_image_result decode_jpeg_bytes(photoc_image_decoder *decoder,
     photoc_image_result result =
         read_header(handle, bytes, length, &width, &height);
     if (result == PHOTOC_IMAGE_OK && max_dimension != 0) {
-        int count = 0;
-        tjscalingfactor *factors = tjGetScalingFactors(&count);
-        if (factors == NULL || count <= 0) {
-            result = PHOTOC_IMAGE_CODEC_ERROR;
-        } else {
-            uint64_t best_area = 0;
-            int scaled_width = 0;
-            int scaled_height = 0;
-            for (int i = 0; i < count; ++i) {
-                if (factors[i].num <= 0 || factors[i].denom <= 0 ||
-                    factors[i].num > factors[i].denom) {
-                    continue;
-                }
-                uint64_t candidate_width =
-                    ((uint64_t)width * (uint64_t)factors[i].num +
-                     (uint64_t)factors[i].denom - 1) /
-                    (uint64_t)factors[i].denom;
-                uint64_t candidate_height =
-                    ((uint64_t)height * (uint64_t)factors[i].num +
-                     (uint64_t)factors[i].denom - 1) /
-                    (uint64_t)factors[i].denom;
-                if (candidate_width > max_dimension ||
-                    candidate_height > max_dimension ||
-                    candidate_width > INT_MAX / 3 ||
-                    candidate_height > INT_MAX ||
-                    candidate_width * candidate_height > 4000000u) {
-                    continue;
-                }
-                uint64_t area = candidate_width * candidate_height;
-                if (area > best_area) {
-                    best_area = area;
-                    scaled_width = (int)candidate_width;
-                    scaled_height = (int)candidate_height;
-                }
-            }
-            if (best_area == 0) {
-                result = PHOTOC_IMAGE_TOO_LARGE;
-            } else {
-                width = scaled_width;
-                height = scaled_height;
-            }
+        uint64_t scaled_width = 0;
+        uint64_t scaled_height = 0;
+        result = scaled_size((uint64_t)width, (uint64_t)height, max_dimension,
+                             &scaled_width, &scaled_height);
+        if (result == PHOTOC_IMAGE_OK) {
+            width = (int)scaled_width;
+            height = (int)scaled_height;
         }
     }
     size_t stride = 0;
@@ -308,9 +333,9 @@ static photoc_image_result decode_jpeg_using(photoc_image_decoder *decoder,
     return result;
 }
 
-static photoc_image_result decode_buffer_using(photoc_image_decoder *decoder,
-                                               const unsigned char *bytes,
-                                               size_t length, photoc_image *out)
+static photoc_image_result
+decode_buffer_using(photoc_image_decoder *decoder, const unsigned char *bytes,
+                    size_t length, uint32_t max_dimension, photoc_image *out)
 {
     if (bytes == NULL || out == NULL) {
         return PHOTOC_IMAGE_INVALID_ARGUMENT;
@@ -332,7 +357,7 @@ static photoc_image_result decode_buffer_using(photoc_image_decoder *decoder,
         decoder = temporary;
     }
     photoc_image_result result =
-        decode_jpeg_bytes(decoder, bytes, jpeg_length, 0, out);
+        decode_jpeg_bytes(decoder, bytes, jpeg_length, max_dimension, out);
     photoc_image_decoder_destroy(temporary);
     return result;
 }
@@ -341,7 +366,7 @@ photoc_image_result photoc_image_decode_jpeg_buffer(const unsigned char *bytes,
                                                     size_t length,
                                                     photoc_image *out)
 {
-    return decode_buffer_using(NULL, bytes, length, out);
+    return decode_buffer_using(NULL, bytes, length, 0, out);
 }
 
 photoc_image_result
@@ -349,7 +374,78 @@ photoc_image_decode_jpeg_buffer_with(photoc_image_decoder *decoder,
                                      const unsigned char *bytes, size_t length,
                                      photoc_image *out)
 {
-    return decode_buffer_using(decoder, bytes, length, out);
+    return decode_buffer_using(decoder, bytes, length, 0, out);
+}
+
+photoc_image_result photoc_image_decode_jpeg_buffer_scaled_with(
+    photoc_image_decoder *decoder, const unsigned char *bytes, size_t length,
+    uint32_t max_dimension, photoc_image *out)
+{
+    if (max_dimension == 0)
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    return decode_buffer_using(decoder, bytes, length, max_dimension, out);
+}
+
+photoc_image_result photoc_image_resize_area(const photoc_image *source,
+                                             uint32_t width, uint32_t height,
+                                             photoc_image *out)
+{
+    if (source == NULL || out == NULL || out->pixels != NULL ||
+        source->pixels == NULL || source->width == 0 || source->height == 0 ||
+        width == 0 || height == 0 ||
+        source->stride < (size_t)source->width * 3 ||
+        (size_t)source->height > SIZE_MAX / source->stride ||
+        source->pixel_bytes < source->stride * source->height) {
+        return PHOTOC_IMAGE_INVALID_ARGUMENT;
+    }
+    if ((uint64_t)width * 3 > SIZE_MAX ||
+        (size_t)height > SIZE_MAX / ((size_t)width * 3)) {
+        return PHOTOC_IMAGE_TOO_LARGE;
+    }
+    size_t stride = (size_t)width * 3;
+    size_t length = stride * height;
+    unsigned char *pixels = malloc(length);
+    if (pixels == NULL) {
+        return PHOTOC_IMAGE_NO_MEMORY;
+    }
+    /* Each output pixel covers [x * sw / w, (x + 1) * sw / w) in source units;
+       partial source pixels contribute by their covered fraction. */
+    double scale_x = (double)source->width / width;
+    double scale_y = (double)source->height / height;
+    for (uint32_t y = 0; y < height; ++y) {
+        double top = y * scale_y;
+        double bottom = top + scale_y;
+        for (uint32_t x = 0; x < width; ++x) {
+            double left = x * scale_x;
+            double right = left + scale_x;
+            double sum[3] = {0.0, 0.0, 0.0};
+            double weight = 0.0;
+            for (uint32_t sy = (uint32_t)top;
+                 sy < source->height && (double)sy < bottom; ++sy) {
+                double cover_y = (sy + 1.0 < bottom ? sy + 1.0 : bottom) -
+                                 (sy > top ? (double)sy : top);
+                const unsigned char *row = source->pixels + sy * source->stride;
+                for (uint32_t sx = (uint32_t)left;
+                     sx < source->width && (double)sx < right; ++sx) {
+                    double cover =
+                        cover_y * ((sx + 1.0 < right ? sx + 1.0 : right) -
+                                   (sx > left ? (double)sx : left));
+                    const unsigned char *pixel = row + (size_t)sx * 3;
+                    sum[0] += pixel[0] * cover;
+                    sum[1] += pixel[1] * cover;
+                    sum[2] += pixel[2] * cover;
+                    weight += cover;
+                }
+            }
+            unsigned char *target = pixels + y * stride + (size_t)x * 3;
+            for (int c = 0; c < 3; ++c) {
+                double value = weight > 0.0 ? sum[c] / weight + 0.5 : 0.0;
+                target[c] = (unsigned char)(value > 255.0 ? 255.0 : value);
+            }
+        }
+    }
+    *out = (photoc_image){width, height, stride, length, pixels};
+    return PHOTOC_IMAGE_OK;
 }
 
 photoc_image_result photoc_image_decode_jpeg(const char *path,
@@ -539,6 +635,10 @@ const char *photoc_image_result_message(photoc_image_result result)
         return "out of memory";
     case PHOTOC_IMAGE_CODEC_ERROR:
         return "JPEG codec error";
+    case PHOTOC_IMAGE_INVALID_ARW:
+        return "invalid or truncated ARW file";
+    case PHOTOC_IMAGE_NO_PREVIEW:
+        return "ARW has no usable embedded JPEG preview";
     default:
         return "unknown image error";
     }

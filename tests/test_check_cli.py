@@ -45,7 +45,10 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(set(payload["summary"]),
                          {"files_checked", "ok", "warnings", "errors", "files_skipped"})
         for row in payload["files"]:
-            self.assertEqual(set(row), {"path", "status", "code", "message"})
+            self.assertEqual(set(row), {"path", "format", "status", "code", "message"})
+            suffix = Path(row["path"]).suffix.lower()
+            expected = "sony_arw" if suffix == ".arw" else "jpeg"
+            self.assertEqual(row["format"], expected)
             self.assertIn(row["status"], ("ok", "warning", "error"))
         return payload, result
 
@@ -174,7 +177,7 @@ class CheckTests(unittest.TestCase):
             self.assertIn("photoc check:", result.stderr)
             if flag in ("--verbose", "-v"):
                 self.assertIn("mode: full decode audit", result.stderr)
-                self.assertIn("JPEG files discovered: 4", result.stderr)
+                self.assertIn("photos discovered: 4", result.stderr)
                 self.assertIn("workers: 1", result.stderr)
             else:
                 self.assertNotIn("verbose:", result.stderr)

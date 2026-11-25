@@ -24,4 +24,15 @@ photoc_image_result photoc_sharpness_score_jpeg(const char *path,
                                                 uint32_t max_dimension,
                                                 double *score);
 
+/* As above for a JPEG or a Sony ARW. An ARW is scored from its embedded JPEG
+   preview, area-averaged to the size its full-resolution image (EXIF/RAW
+   dimensions) would be analyzed at, so ARW and JPEG scores of the same shot
+   are comparable. Without recorded dimensions, or with a preview smaller than
+   that size, the preview is scored at its largest scale within
+   max_dimension. The preview carries in-camera processing, so scores stay a
+   relative review aid. Errors include INVALID_ARW and NO_PREVIEW. */
+photoc_image_result photoc_sharpness_score_photo(const char *path,
+                                                 uint32_t max_dimension,
+                                                 double *score);
+
 #endif

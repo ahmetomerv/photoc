@@ -2,6 +2,7 @@
 
 #include "review_model.h"
 
+#include "photoc/format.h"
 #include "photoc/fs.h"
 #include "photoc/photo.h"
 #include "photoc/timestamp.h"
@@ -37,7 +38,7 @@ static bool valid_status(photoc_review_status status)
 static bool collect_file(const char *path, photoc_fs_type type, void *user_data)
 {
     review_collection *collection = user_data;
-    if (type != PHOTOC_FS_FILE || !photoc_fs_is_jpeg(path)) {
+    if (type != PHOTOC_FS_FILE || !photoc_format_is_photo(path)) {
         return true;
     }
     if (collection->model.count == collection->capacity) {

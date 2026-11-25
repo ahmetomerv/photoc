@@ -1,9 +1,9 @@
 Usage: photoc [global options] query <file|directory> [filters] [--recursive] [--json | --print0]
        photoc query --help
 
-Search JPEG metadata and print matching paths
+Search photo metadata and print matching paths
 
-Status: available for JPEG files (read-only)
+Status: available for JPEG and Sony ARW files (read-only)
 
 Example:
   photoc query ~/Photos --iso ">800"

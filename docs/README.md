@@ -11,7 +11,7 @@ notes, and a JSON schema when the command supports JSON. Run
 
 | Guide | Purpose |
 | --- | --- |
-| [`review`](review.md) | Cull JPEGs interactively and save picked/rejected marks without changing photos |
+| [`review`](review.md) | Cull JPEG and ARW photos interactively and save picked/rejected marks without changing photos |
 
 ## Inspect (read-only)
 
@@ -22,8 +22,8 @@ notes, and a JSON schema when the command supports JSON. Run
 | [`timeline`](timeline.md) | Group a shoot by date and session |
 | [`query`](query.md) | Find photos matching metadata filters |
 | [`duplicates`](duplicates.md) | Find byte-identical files and potential space savings |
-| [`focus`](focus.md) | Rank JPEGs by sharpness score to help culling |
-| [`check`](check.md) | Audit JPEGs for structural and decoding problems |
+| [`focus`](focus.md) | Rank JPEG and ARW photos by sharpness score to help culling |
+| [`check`](check.md) | Audit JPEG and ARW files for structural, truncation, and decoding problems |
 
 ## Organize (preview first, then `--apply`)
 
@@ -36,14 +36,14 @@ notes, and a JSON schema when the command supports JSON. Run
 
 | Guide | Purpose |
 | --- | --- |
-| [`compress`](compress.md) | Write smaller JPEG copies by quality or target size |
-| [`contact`](contact.md) | Generate paged JPEG contact sheets |
+| [`compress`](compress.md) | Write smaller JPEG copies by quality or target size (JPEG only) |
+| [`contact`](contact.md) | Generate paged JPEG contact sheets from JPEG and ARW photos |
 | [`scrub`](scrub.md) | Write copies without GPS, private fields, or descriptive metadata |
 
 ## Reference
 
 - [Scripting and automation](scripting.md): JSON output, exit codes, progress, and verbosity.
-- [Sony ARW metadata support](raw.md): supported fields, limits, and fixtures.
+- [Sony ARW support](raw.md): per-command behavior, metadata fields, embedded previews, limits, and fixtures.
 - [Installation](installation.md): release installer, building from source, upgrading, and uninstalling.
 - [Shell completions](../completions/README.md): zsh, bash, and fish.
 - [Release notes](release-notes.md)

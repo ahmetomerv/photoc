@@ -5,6 +5,7 @@
 
 #include "photoc/jpeg_check.h"
 
+#include "check_internal.h"
 #include "jpeg.h"
 #include "jpeg_metadata_internal.h"
 
@@ -288,7 +289,7 @@ cleanup:
     return result;
 }
 
-static bool same_file(const struct stat *before, const struct stat *after)
+bool photoc_check_same_file(const struct stat *before, const struct stat *after)
 {
 #if defined(__APPLE__)
     return before->st_size == after->st_size &&
@@ -335,8 +336,24 @@ photoc_check_result photoc_jpeg_check_file(const char *path)
         close(descriptor);
         return finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_IO_ERROR, saved_errno);
     }
+    photoc_check_result result =
+        photoc_jpeg_check_stream(file, (uint64_t)before.st_size);
+    struct stat after;
+    if (fstat(fileno(file), &after) != 0) {
+        result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_IO_ERROR, errno);
+    } else if (!photoc_check_same_file(&before, &after)) {
+        result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_FILE_CHANGED, 0);
+    }
+    if (fclose(file) != 0) {
+        result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_IO_ERROR, errno);
+    }
+    return result;
+}
+
+photoc_check_result photoc_jpeg_check_stream(FILE *file, uint64_t length)
+{
     photoc_check_result result;
-    if (before.st_size == 0) {
+    if (length == 0) {
         result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_EMPTY_FILE, 0);
     } else if (fgetc(file) != 0xff || fgetc(file) != 0xd8) {
         result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_INVALID_SIGNATURE, 0);
@@ -346,9 +363,8 @@ photoc_check_result photoc_jpeg_check_file(const char *path)
         photoc_jpeg_info info;
         exif_check exif = {0};
         errno = 0;
-        bool structure_ok =
-            photoc_jpeg_inspect_app_limited(file, &info, inspect_exif, &exif,
-                                            (uint64_t)before.st_size) == 0;
+        bool structure_ok = photoc_jpeg_inspect_app_limited(
+                                file, &info, inspect_exif, &exif, length) == 0;
         int structure_errno = errno;
         if (exif.no_memory) {
             result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_INTERNAL_ERROR,
@@ -362,8 +378,7 @@ photoc_check_result photoc_jpeg_check_file(const char *path)
             result =
                 finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_RESOURCE_LIMIT, 0);
         } else {
-            result =
-                decode_stream(file, structure_ok, (uint64_t)before.st_size);
+            result = decode_stream(file, structure_ok, length);
             if (result.status == PHOTOC_CHECK_OK && exif.malformed) {
                 result = finding(PHOTOC_CHECK_WARNING,
                                  PHOTOC_CHECK_MALFORMED_EXIF, 0);
@@ -377,15 +392,6 @@ photoc_check_result photoc_jpeg_check_file(const char *path)
     if (ferror(file)) {
         result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_IO_ERROR,
                          errno == 0 ? EIO : errno);
-    }
-    struct stat after;
-    if (fstat(fileno(file), &after) != 0) {
-        result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_IO_ERROR, errno);
-    } else if (!same_file(&before, &after)) {
-        result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_FILE_CHANGED, 0);
-    }
-    if (fclose(file) != 0) {
-        result = finding(PHOTOC_CHECK_ERROR, PHOTOC_CHECK_IO_ERROR, errno);
     }
     return result;
 }
@@ -436,6 +442,26 @@ const char *photoc_check_code_name(photoc_check_code code)
         return "file_changed";
     case PHOTOC_CHECK_INTERNAL_ERROR:
         return "internal_error";
+    case PHOTOC_CHECK_ARW_READABLE:
+        return "readable";
+    case PHOTOC_CHECK_INVALID_ARW:
+        return "invalid_arw";
+    case PHOTOC_CHECK_UNSUPPORTED_ARW:
+        return "unsupported_arw";
+    case PHOTOC_CHECK_MISSING_SENSOR_DATA:
+        return "missing_sensor_data";
+    case PHOTOC_CHECK_TRUNCATED_SENSOR_DATA:
+        return "truncated_sensor_data";
+    case PHOTOC_CHECK_INVALID_SENSOR_DATA:
+        return "invalid_sensor_data";
+    case PHOTOC_CHECK_SENSOR_LAYOUT_WARNING:
+        return "sensor_layout_warning";
+    case PHOTOC_CHECK_MISSING_PREVIEW:
+        return "missing_preview";
+    case PHOTOC_CHECK_PREVIEW_DECODE_FAILED:
+        return "preview_decode_failed";
+    case PHOTOC_CHECK_PREVIEW_WARNING:
+        return "preview_warning";
     }
     return "internal_error";
 }
@@ -476,7 +502,31 @@ const char *photoc_check_message(photoc_check_result result)
     case PHOTOC_CHECK_FILE_CHANGED:
         return "not reliably checked: file changed during reading";
     case PHOTOC_CHECK_INTERNAL_ERROR:
-        return "unable to complete JPEG check";
+        return "unable to complete check";
+    case PHOTOC_CHECK_ARW_READABLE:
+        return "ARW structure, sensor data layout, and embedded preview are "
+               "readable (sensor data not decoded)";
+    case PHOTOC_CHECK_INVALID_ARW:
+        return "invalid or truncated ARW structure or metadata";
+    case PHOTOC_CHECK_UNSUPPORTED_ARW:
+        return "not checked: unsupported RAW variant (BigTIFF, DNG, or "
+               "non-Sony make)";
+    case PHOTOC_CHECK_MISSING_SENSOR_DATA:
+        return "no RAW sensor data found";
+    case PHOTOC_CHECK_TRUNCATED_SENSOR_DATA:
+        return "RAW sensor data is truncated or extends past the end of the "
+               "file";
+    case PHOTOC_CHECK_INVALID_SENSOR_DATA:
+        return "RAW sensor data tiles are not valid lossless JPEG streams";
+    case PHOTOC_CHECK_SENSOR_LAYOUT_WARNING:
+        return "unrecognized RAW sensor data size or compression; layout not "
+               "verified";
+    case PHOTOC_CHECK_MISSING_PREVIEW:
+        return "no embedded JPEG preview; sensor data layout is readable";
+    case PHOTOC_CHECK_PREVIEW_DECODE_FAILED:
+        return "embedded JPEG preview is damaged and cannot be decoded";
+    case PHOTOC_CHECK_PREVIEW_WARNING:
+        return "embedded JPEG preview decoded with a recoverable warning";
     }
-    return "unable to complete JPEG check";
+    return "unable to complete check";
 }

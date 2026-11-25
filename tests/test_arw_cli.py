@@ -116,6 +116,22 @@ class ARWCLI(unittest.TestCase):
             self.assertTrue(result.stderr)
             self.assertEqual(path.read_bytes(), data)
 
+    def test_unsorted_tags_are_accepted(self):
+        # Regression: real Sony RAW SubIFDs store some tags out of ascending order.
+        def swap(data, left, right):
+            data[left:left + 12], data[right:right + 12] = data[right:right + 12], data[left:left + 12]
+
+        for endian in ("<", ">"):
+            data = bytearray(make_arw(endian=endian, exif_dimensions=False))
+            raw = pointed(data, 0x014a, endian=endian)
+            swap(data, raw + 2, raw + 2 + 3 * 12)
+            root = entries(data, endian=endian)
+            swap(data, root[0x010f], root[0x0110])
+            result = self.exif(self.raw(data=bytes(data)))
+            self.assertEqual(result["camera"], {"make": "SONY", "model": "DSC-RX100M7A"})
+            self.assertEqual(result["image"]["width"], 5504)
+            self.assertEqual(result["image"]["height"], 3664)
+
     def test_invalid_field_values_stay_missing(self):
         data = bytearray(make_arw())
         exif = pointed(data, 0x8769)
@@ -176,30 +192,279 @@ class ARWCLI(unittest.TestCase):
         self.assertEqual(recursive["scan"]["photos_parsed"], 3)
         self.assertEqual(recursive["storage"]["total_bytes"], sum(p.stat().st_size for p in (self.directory / "a.ArW", self.directory / "nested/b.arw", self.directory / "photo.JPG")))
 
-    def test_jpeg_only_commands_exclude_arw(self):
-        raw = self.raw()
+    def test_compress_skips_arw(self):
+        raw = self.raw(data=make_arw(preview=(JPEG / "sharp.jpg").read_bytes()))
         original = raw.read_bytes()
-        for args in (("compress",), ("focus",), ("check",), ("query",), ("scrub", "--gps")):
-            self.run_cli(args[0], raw, *args[1:], code=1)
-            self.assertEqual(raw.read_bytes(), original)
-        for args in (("compress",), ("focus",), ("check",), ("query",), ("scrub", "--gps")):
-            self.run_cli(args[0], self.directory, *args[1:])
-            self.assertEqual(raw.read_bytes(), original)
-        self.assertEqual(sorted(p.name for p in self.directory.iterdir()), [raw.name])
+        result = self.run_cli("compress", raw, code=1)
+        self.assertIn(b"compress writes copies of JPEG files only", result.stderr)
+        shutil.copyfile(JPEG / "with_gps.jpeg", self.directory / "photo.jpg")
+        result = self.run_cli("compress", self.directory)
+        self.assertIn(b"Files processed: 1", result.stdout)
+        self.assertIn(b"Sony ARW files skipped: 1", result.stdout)
+        self.assertTrue((self.directory / "photo.compressed.jpg").is_file())
+        self.assertEqual(sorted(p.name for p in self.directory.glob("DSC00001*")), [raw.name])
+        self.assertEqual(raw.read_bytes(), original)
+
+    def test_query_searches_arw_metadata(self):
+        raw = self.raw(data=make_arw(exif_dimensions=False, raw_dimensions=False))
+        shutil.copyfile(JPEG / "with_exif.jpg", self.directory / "photo.jpg")
+        self.assertEqual(self.run_cli("query", self.directory, "--iso", ">=1600").stdout,
+                         (str(raw) + "\n").encode())
+        data = json.loads(self.run_cli("query", self.directory, "--camera", "DSC-RX100M7A",
+                                       "--json").stdout)
+        self.assertEqual(len(data["matches"]), 1)
+        match = data["matches"][0]
+        self.assertEqual(match["format"], "sony_arw")
+        self.assertIsNone(match["metadata"]["width"])  # ARW without recorded dimensions.
+        self.assertTrue(match["metadata"]["has_gps"])
+        self.assertEqual(data["summary"]["arw_files_found"], 1)
+        self.assertEqual(data["summary"]["jpeg_files_found"], 1)
+        self.assertEqual(data["summary"]["metadata_files_found"], 2)
+        single = json.loads(self.run_cli("query", raw, "--has-gps", "--json").stdout)
+        self.assertEqual(single["summary"]["arw_files_found"], 1)
+        self.assertEqual(len(single["matches"]), 1)
+
+    def test_focus_scores_arw_preview_comparably(self):
+        self.raw(name="sharp.ARW", data=make_arw(preview=(JPEG / "sharp.jpg").read_bytes()))
+        self.raw(name="blurred.ARW", data=make_arw(preview=(JPEG / "blurred.jpg").read_bytes(),
+                                                   orientation=6))
+        shutil.copyfile(JPEG / "sharp.jpg", self.directory / "sharp.jpg")
+        data = json.loads(self.run_cli("focus", self.directory, "--json").stdout)
+        scores = {row["path"]: row["score"] for row in data["photos"]}
+        self.assertEqual(scores["sharp.ARW"], scores["sharp.jpg"])
+        self.assertLess(scores["blurred.ARW"], scores["sharp.ARW"])
+        self.assertEqual(data["summary"]["photos_analyzed"], 3)
+        self.raw(name="bare.ARW")
+        result = self.run_cli("focus", self.directory, "--json", code=1)
+        self.assertEqual(json.loads(result.stdout)["summary"]["files_failed"], 1)
+        self.assertIn(b"no usable embedded JPEG preview", result.stderr)
+
+    def test_contact_uses_arw_previews(self):
+        self.raw(name="a.ARW", data=make_arw(preview=(JPEG / "sharp.jpg").read_bytes()))
+        self.raw(name="b.ARW", data=make_arw(preview=(JPEG / "blurred.jpg").read_bytes(),
+                                             orientation=6))
+        shutil.copyfile(JPEG / "with_exif.jpg", self.directory / "c.jpg")
+        sheet = self.directory.parent / (self.directory.name + "-sheet.jpg")
+        self.addCleanup(lambda: sheet.unlink(missing_ok=True))
+        result = self.run_cli("contact", self.directory, "--output", sheet, "--metadata")
+        self.assertIn(b"photos: 3", result.stdout)
+        self.assertEqual(sheet.read_bytes()[:2], b"\xff\xd8")
+        sheet.unlink()
+        self.raw(name="d.ARW")
+        result = self.run_cli("contact", self.directory, "--output", sheet, code=1)
+        self.assertIn(b"no usable embedded JPEG preview", result.stderr)
+        self.assertFalse(sheet.exists())
+
+    def check_rows(self, *paths, code=0):
+        data = json.loads(self.run_cli("check", *paths, "--json", code=code).stdout)
+        return {row["path"]: row for row in data["files"]}, data["summary"]
+
+    def test_check_audits_arw_structure_and_preview(self):
+        preview = (JPEG / "sharp.jpg").read_bytes()
+        good = make_arw(preview=preview, sensor=(32, 24))
+        self.raw(name="good.ARW", data=good)
+        self.raw(name="truncated.ARW", data=good[:-100])
+        self.raw(name="no-sensor.ARW", data=make_arw(preview=preview))
+        self.raw(name="no-preview.ARW", data=make_arw(sensor=(32, 24)))
+        self.raw(name="odd-size.ARW", data=make_arw(preview=preview, sensor=(32, 24),
+                                                    sensor_bytes=32 * 24 * 2 - 2))
+        self.raw(name="bad-preview.ARW", data=make_arw(preview=b"\xff\xd8" + b"\0" * 64,
+                                                       sensor=(32, 24)))
+        self.raw(name="not-jpeg-preview.ARW",
+                 data=make_arw(preview=b"\x00\x00" + b"\0" * 64, sensor=(32, 24)))
+        self.raw(name="nikon.ARW", data=make_arw(maker=b"NIKON\0", preview=preview,
+                                                 sensor=(32, 24)))
+        rows, summary = self.check_rows(self.directory, code=1)
+        expected = {"good.ARW": ("ok", "readable"),
+                    "truncated.ARW": ("error", "truncated_sensor_data"),
+                    "no-sensor.ARW": ("error", "missing_sensor_data"),
+                    "no-preview.ARW": ("warning", "missing_preview"),
+                    "odd-size.ARW": ("warning", "sensor_layout_warning"),
+                    "bad-preview.ARW": ("error", "preview_decode_failed"),
+                    "not-jpeg-preview.ARW": ("error", "invalid_arw"),
+                    "nikon.ARW": ("error", "unsupported_arw")}
+        self.assertEqual({name: (row["status"], row["code"]) for name, row in rows.items()},
+                         expected)
+        self.assertTrue(all(row["format"] == "sony_arw" for row in rows.values()))
+        self.assertEqual(summary["files_checked"], len(expected))
+        text = self.run_cli("check", self.directory / "good.ARW").stdout
+        self.assertIn(b"ARW sensor data is checked for layout and completeness, not decoded.",
+                      text)
+
+    def entry_value(self, data, offset, tag):
+        """(file offset of the value bytes, count) for an IFD entry, little-endian."""
+        entry = entries(data, offset)[tag]
+        count = struct.unpack_from("<I", data, entry + 4)[0]
+        kind = struct.unpack_from("<H", data, entry + 2)[0]
+        size = count * {1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1}[kind]
+        return (entry + 8 if size <= 4 else struct.unpack_from("<I", data, entry + 8)[0]), count
+
+    def test_scrub_gps_writes_verified_arw_copy(self):
+        raw = self.raw(data=make_arw(preview=(JPEG / "sharp.jpg").read_bytes(), sensor=(32, 24)))
+        original = raw.read_bytes()
+        result = self.run_cli("scrub", raw, "--gps")
+        self.assertIn(b"GPS removed:", result.stdout)
+        copy = self.directory / "DSC00001.scrubbed.ARW"
+        scrubbed = copy.read_bytes()
+        self.assertEqual(raw.read_bytes(), original)
+        self.assertEqual(len(scrubbed), len(original))
+        data = self.exif(copy)
+        self.assertFalse(data["location"]["has_gps"])
+        self.assertEqual(data["camera"], {"make": "SONY", "model": "DSC-RX100M7A"})
+        self.assertNotIn(0x8825, entries(scrubbed))
+        # Coordinates are erased, not merely unlinked, and image data is untouched.
+        gps = pointed(original, 0x8825)
+        latitude, _ = self.entry_value(original, gps, 2)
+        self.assertEqual(scrubbed[latitude:latitude + 24], b"\0" * 24)
+        preview = struct.unpack_from("<I", original, entries(original)[0x0201] + 8)[0]
+        self.assertEqual(scrubbed[preview:], original[preview:])  # Preview and sensor data.
+        rows, _ = self.check_rows(copy)
+        self.assertEqual(rows[str(copy)]["code"], "readable")
+        # Existing output is never replaced; no GPS means nothing to do.
+        self.run_cli("scrub", raw, "--gps", code=1)
+        self.assertEqual(copy.read_bytes(), scrubbed)
+        plain = self.raw(name="plain.ARW", data=make_arw(gps=False))
+        gps_plain = self.run_cli("scrub", plain, "--gps")
+        self.assertIn(b"no EXIF GPS tags", gps_plain.stdout)
+        self.assertNotIn(b"may retain private information", gps_plain.stderr)
+        self.assertFalse((self.directory / "plain.scrubbed.ARW").exists())
+        big = self.raw(name="big.arw", data=make_arw(endian=">", sensor=(32, 24),
+                                                      preview=(JPEG / "sharp.jpg").read_bytes()))
+        gps_big = self.run_cli("scrub", big, "--gps")
+        self.assertNotIn(b"may retain private information", gps_big.stderr)
+        big_copy = self.directory / "big.scrubbed.arw"
+        self.assertFalse(self.exif(big_copy)["location"]["has_gps"])
+        self.assertEqual(self.exif(big_copy)["exposure"], self.exif(big)["exposure"])
+        rows, _ = self.check_rows(big_copy)
+        self.assertEqual(rows[str(big_copy)]["code"], "readable")
+        # A COM comment in the embedded preview is retained metadata.
+        base = (JPEG / "sharp.jpg").read_bytes()
+        commented = base[:2] + bytes([0xff, 0xfe, 0, 10]) + b"secret!" + base[2:]
+        with_com = self.raw(name="com-preview.ARW",
+                            data=make_arw(preview=commented, sensor=(32, 24)))
+        gps_com = self.run_cli("scrub", with_com, "--gps")
+        self.assertIn(b"GPS removed:", gps_com.stdout)
+        self.assertIn(b"may retain private information", gps_com.stderr)
+
+    def test_scrub_privacy_always_warns_for_arw(self):
+        # No MakerNote and a preview without APP metadata: privacy still warns.
+        raw = self.raw(name="bare-privacy.ARW",
+                       data=make_arw(preview=(JPEG / "sharp.jpg").read_bytes(),
+                                     sensor=(32, 24)))
+        result = self.run_cli("scrub", raw, "--privacy")
+        self.assertIn(b"Metadata removed:", result.stdout)
+        self.assertIn(b"may retain private information", result.stderr)
+        quiet = self.run_cli("scrub",
+                             self.raw(name="quiet-privacy.ARW",
+                                      data=make_arw(gps=False)),
+                             "--privacy", "-q")
+        self.assertNotIn(b"may retain private information", quiet.stderr)
+        unchanged = self.run_cli("scrub",
+                                 self.raw(name="unchanged-privacy.ARW",
+                                          data=make_arw(gps=False)),
+                                 "--privacy")
+        self.assertIn(b"no supported metadata to remove", unchanged.stdout)
+        self.assertIn(b"may retain private information", unchanged.stderr)
+
+    def test_scrub_privacy_removes_identifiers_and_private_xmp(self):
+        xmp = (b"<?xpacket begin='\xef\xbb\xbf' id='W5M0MpCehiHzreSzNTczkc9d'?>"
+               b"<x:xmpmeta xmlns:x='adobe:ns:meta/'><rdf:RDF "
+               b"xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>"
+               b"<rdf:Description rdf:about='' xmlns:xmp='http://ns.adobe.com/xap/1.0/' "
+               b"xmlns:photoshop='http://ns.adobe.com/photoshop/1.0/'>"
+               b"<xmp:Rating>3</xmp:Rating><photoshop:City>Augsburg</photoshop:City>"
+               b"</rdf:Description></rdf:RDF></x:xmpmeta>")
+        xmp += b" " * (1024 - len(xmp) - 19) + b"<?xpacket end='w'?>"
+        artist = b"Jane Doe\0"
+        serial = b"SN-1234567\0"
+        maker_note = b"SONY DSC \0\0\0" + b"\0" * 20
+        raw = self.raw(data=make_arw(
+            preview=(JPEG / "sharp.jpg").read_bytes(), sensor=(32, 24),
+            root_extra=((0x013b, 2, len(artist), artist), (0x02bc, 1, len(xmp), xmp)),
+            exif_extra=((0xa431, 2, len(serial), serial), (0x927c, 7, len(maker_note), maker_note))))
+        original = raw.read_bytes()
+        result = self.run_cli("scrub", raw, "--privacy", "-v")
+        self.assertIn(b"Metadata removed:", result.stdout)
+        self.assertIn(b"EXIF GPS=yes, EXIF identifiers=yes, XMP=yes", result.stderr)
+        self.assertIn(b"may retain private information", result.stderr)  # MakerNote.
+        copy = (self.directory / "DSC00001.scrubbed.ARW").read_bytes()
+        self.assertEqual(raw.read_bytes(), original)
+        self.assertEqual(len(copy), len(original))
+        root = entries(copy)
+        self.assertNotIn(0x013b, root)
+        self.assertNotIn(0x8825, root)
+        self.assertNotIn(0xa431, entries(copy, pointed(copy, 0x8769)))
+        self.assertNotIn(artist, copy)
+        self.assertNotIn(serial, copy)
+        offset, count = self.entry_value(copy, 8, 0x02bc)
+        packet = copy[offset:offset + count]
+        self.assertEqual(count, len(xmp))
+        self.assertNotIn(b"Augsburg", packet)
+        self.assertIn(b"Rating>3<", packet)
+        self.assertTrue(packet.rstrip(b" \n").endswith(b"<?xpacket end='w'?>"))
+        self.assertEqual(self.exif(self.directory / "DSC00001.scrubbed.ARW")["camera"]["model"],
+                         "DSC-RX100M7A")
+
+    def test_scrub_privacy_scrubs_each_xmp_packet(self):
+        def packet(city):
+            body = (b"<?xpacket begin='\xef\xbb\xbf' id='W5M0MpCehiHzreSzNTczkc9d'?>"
+                    b"<x:xmpmeta xmlns:x='adobe:ns:meta/'><rdf:RDF "
+                    b"xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>"
+                    b"<rdf:Description rdf:about='' "
+                    b"xmlns:photoshop='http://ns.adobe.com/photoshop/1.0/'>"
+                    b"<photoshop:City>" + city + b"</photoshop:City>"
+                    b"</rdf:Description></rdf:RDF></x:xmpmeta>")
+            return body + b" " * (512 - len(body) - 19) + b"<?xpacket end='w'?>"
+
+        first, second = packet(b"Augsburg"), packet(b"Munich")
+        raw = self.raw(data=make_arw(
+            sensor=(32, 24), root_extra=((0x02bc, 1, len(first), first),),
+            raw_extra=((0x02bc, 1, len(second), second),)))
+        result = self.run_cli("scrub", raw, "--privacy")
+        self.assertIn(b"Metadata removed:", result.stdout)
+        copy = (self.directory / "DSC00001.scrubbed.ARW").read_bytes()
+        self.assertNotIn(b"Augsburg", copy)
+        self.assertNotIn(b"Munich", copy)
+
+    def test_scrub_refuses_unsupported_arw_modes_and_layouts(self):
+        raw = self.raw(data=make_arw(preview=(JPEG / "sharp.jpg").read_bytes()))
+        original = raw.read_bytes()
+        for mode in (("--gps", "--in-place"), ("--privacy", "--in-place"), ("--all-metadata",)):
+            result = self.run_cli("scrub", raw, *mode, code=1)
+            self.assertIn(b"--gps and --privacy copies only", result.stderr)
         jpg = self.directory / "photo.jpg"
         shutil.copyfile(JPEG / "with_gps.jpeg", jpg)
-        self.assertEqual(self.run_cli("query", self.directory).stdout, (str(jpg) + "\n").encode())
-        focus = json.loads(self.run_cli("focus", self.directory, "--json").stdout)
-        self.assertEqual(focus["summary"]["photos_analyzed"], 1)
-        check = json.loads(self.run_cli("check", self.directory, "--json").stdout)
-        self.assertEqual(check["summary"]["files_checked"], 1)
-        self.run_cli("compress", self.directory)
-        self.run_cli("scrub", self.directory, "--gps")
-        self.assertTrue((self.directory / "photo.compressed.jpg").is_file())
-        self.assertTrue((self.directory / "photo.scrubbed.jpg").is_file())
-        self.assertFalse((self.directory / "DSC00001.compressed.ARW").exists())
-        self.assertFalse((self.directory / "DSC00001.scrubbed.ARW").exists())
+        result = self.run_cli("scrub", self.directory, "--gps", "--in-place")
+        self.assertIn(b"Skipped: " + str(raw).encode(), result.stdout)
+        self.assertIn(b"GPS removed in place", result.stdout)
         self.assertEqual(raw.read_bytes(), original)
+        jpg.unlink()
+        # A GPS value that shares bytes with the kept Model value is refused.
+        data = bytearray(make_arw())
+        model, _ = self.entry_value(bytes(data), 8, 0x0110)
+        latitude_entry = entries(data, pointed(data, 0x8825))[2]
+        struct.pack_into("<I", data, latitude_entry + 8, model)
+        overlapping = self.raw(name="overlap.ARW", data=bytes(data))
+        result = self.run_cli("scrub", overlapping, "--gps", code=1)
+        self.assertIn(b"unsafe ARW layout for scrub", result.stderr)
+        # An XMP replacement that overlaps a kept Model value is refused too.
+        xmp = (b"<?xpacket begin='\xef\xbb\xbf' id='W5M0MpCehiHzreSzNTczkc9d'?>"
+               b"<x:xmpmeta xmlns:x='adobe:ns:meta/'><rdf:RDF "
+               b"xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>"
+               b"<rdf:Description rdf:about='' "
+               b"xmlns:photoshop='http://ns.adobe.com/photoshop/1.0/'>"
+               b"<photoshop:City>Augsburg</photoshop:City>"
+               b"</rdf:Description></rdf:RDF></x:xmpmeta>")
+        xmp += b" " * (512 - len(xmp) - 19) + b"<?xpacket end='w'?>"
+        data = bytearray(make_arw(root_extra=((0x02bc, 1, len(xmp), xmp),)))
+        xmp_at, _ = self.entry_value(bytes(data), 8, 0x02bc)
+        struct.pack_into("<I", data, entries(data)[0x0110] + 8, xmp_at + 32)
+        result = self.run_cli("scrub", self.raw(name="xmp-overlap.ARW", data=bytes(data)),
+                              "--privacy", code=1)
+        self.assertIn(b"unsafe ARW layout for scrub", result.stderr)
+        broken = self.raw(name="broken.ARW", data=b"not a raw file")
+        self.run_cli("scrub", broken, "--privacy", code=1)
+        self.assertEqual(sorted(p.name for p in self.directory.glob("*.scrubbed.*")), [])
 
     def test_batched_mixed_metadata_scan(self):
         for index in range(40):
@@ -296,6 +561,19 @@ class ARWCLI(unittest.TestCase):
         self.assertEqual(data["file"]["format"], "sony_arw")
         if data["camera"]["make"] is not None:
             self.assertEqual(data["camera"]["make"].upper(), "SONY")
+        rows, _ = self.check_rows(path)
+        self.assertEqual(rows[str(path)]["status"], "ok", rows)
+        focus = json.loads(self.run_cli("focus", path, "--json").stdout)
+        self.assertEqual(focus["summary"]["photos_analyzed"], 1)
+        self.assertEqual(len(json.loads(self.run_cli("query", path, "--json").stdout)["matches"]), 1)
+        copy = self.directory / path.name
+        shutil.copyfile(path, copy)
+        self.run_cli("scrub", copy, "--privacy")
+        scrubbed = next(self.directory.glob("*.scrubbed.*"), None)
+        if scrubbed is not None:  # Only when the file had something to remove.
+            rows, _ = self.check_rows(scrubbed)
+            self.assertEqual(rows[str(scrubbed)]["status"], "ok", rows)
+            self.assertFalse(self.exif(scrubbed)["location"]["has_gps"])
 
 
 if __name__ == "__main__":

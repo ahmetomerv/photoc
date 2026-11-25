@@ -268,6 +268,8 @@ class ReleaseDependencyManifestTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="photoc-provenance-test-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
+        # The manifest writer rejects tags that disagree with VERSION.
+        self.tag = "v" + (ROOT / "VERSION").read_text(encoding="ascii").strip()
         self.build = self.root / "build"
         compiler_config = self.build / "CMakeFiles/4.4.4/CMakeCCompiler.cmake"
         compiler_config.parent.mkdir(parents=True)
@@ -329,8 +331,8 @@ class ReleaseDependencyManifestTests(unittest.TestCase):
         environment = {
             "GITHUB_REPOSITORY": "ahmetomerv/photoc",
             "GITHUB_SHA": "c" * 40,
-            "GITHUB_REF": "refs/tags/v0.7.1",
-            "GITHUB_WORKFLOW_REF": "ahmetomerv/photoc/.github/workflows/release.yml@refs/tags/v0.7.1",
+            "GITHUB_REF": f"refs/tags/{self.tag}",
+            "GITHUB_WORKFLOW_REF": f"ahmetomerv/photoc/.github/workflows/release.yml@refs/tags/{self.tag}",
             "GITHUB_WORKFLOW_SHA": "d" * 40,
             "GITHUB_RUN_ID": "12345",
             "GITHUB_RUN_ATTEMPT": "2",
@@ -341,7 +343,7 @@ class ReleaseDependencyManifestTests(unittest.TestCase):
         }
         with mock.patch.object(release, "_command_output", side_effect=command_output):
             release.write_dependency_manifest(
-                "v0.7.1", "linux-x86_64", self.binary, self.build,
+                self.tag, "linux-x86_64", self.binary, self.build,
                 self.workflow, output, environment
             )
 

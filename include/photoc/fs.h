@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 typedef enum {
     PHOTOC_FS_FILE,
@@ -16,6 +17,12 @@ typedef enum {
 int photoc_fs_exists(const char *path, bool *exists);
 int photoc_fs_get_type(const char *path, photoc_fs_type *type);
 int photoc_fs_file_size(const char *path, uint64_t *size);
+
+/* Open an existing regular file read-only without following a final symlink
+   (refused with EINVAL) or blocking on special files. Directories fail with
+   EISDIR and other non-regular files with EINVAL. On success *file is an owned
+   stream to fclose and *size is the opened file's size. */
+int photoc_fs_open_regular(const char *path, FILE **file, uint64_t *size);
 
 /* Output pointers must not own memory on entry. Strings are allocated with
    malloc and must be freed by the caller.
